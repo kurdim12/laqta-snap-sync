@@ -690,10 +690,10 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
                     {["draft", "dryrun", "live", "archived"].map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </Field>
-                <Field label="Staff PIN (6)">
+                <Field label={event ? "Staff PIN (leave blank to keep current)" : "Staff PIN (6 digits)"}>
                   <div className="flex gap-2">
-                    <input dir="ltr" value={pin} maxLength={6} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} className="input flex-1 code-display" />
-                    <button type="button" onClick={() => setPin(genPin())} className="rounded-lg border border-border px-3 text-sm">↻</button>
+                    <input dir="ltr" value={pin} maxLength={6} placeholder={event ? "•••••• (unchanged)" : ""} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} className="input flex-1 code-display" />
+                    <button type="button" onClick={() => setPin(genPin())} className="rounded-lg border border-border px-3 text-sm" title="Generate new PIN">↻</button>
                   </div>
                 </Field>
                 <Field label="Locale">
