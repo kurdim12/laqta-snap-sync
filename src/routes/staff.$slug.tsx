@@ -5,6 +5,7 @@ import { DEFAULT_CONFIG, type EventConfig, type EventRow, type GuestRow } from "
 import { T, pick } from "@/lib/i18n";
 import { newId } from "@/lib/code";
 import { resizeImage, videoPoster } from "@/lib/media";
+import { SelfieAvatar } from "@/components/SelfieAvatar";
 
 export const Route = createFileRoute("/staff/$slug")({
   head: () => ({ meta: [{ title: "LAQTA · Staff" }] }),
