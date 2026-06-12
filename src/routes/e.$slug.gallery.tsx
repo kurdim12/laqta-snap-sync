@@ -144,11 +144,18 @@ function PublicGallery() {
             </span>
           </div>
         </div>
-        {toggleable && (
-          <button onClick={() => setLang(lang === "ar" ? "en" : "ar")} className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {lang === "ar" ? "EN" : "ع"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {toggleable && (
+            <button onClick={() => setLang(lang === "ar" ? "en" : "ar")} className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {lang === "ar" ? "EN" : "ع"}
+            </button>
+          )}
+          <button
+            onClick={() => sharePage(event.name)}
+            className="rounded-full border border-border bg-card px-3 py-2 text-sm font-semibold"
+            aria-label="Share"
+          >↗</button>
+        </div>
       </header>
 
       {assets.length === 0 ? (
@@ -182,23 +189,23 @@ function PublicGallery() {
         </section>
       )}
 
-      {lightbox !== null && assets[lightbox] && (
-        <div className="fixed inset-0 z-50 bg-black/95" onClick={() => setLightbox(null)}>
-          <button className="absolute end-4 top-4 z-10 text-white" onClick={() => setLightbox(null)}>✕</button>
-          <div className="grid h-full place-items-center p-4" onClick={(e) => e.stopPropagation()}>
-            {assets[lightbox].kind === "video" ? (
-              <video src={assets[lightbox].url} controls className="max-h-[85vh] max-w-full" />
-            ) : (
-              <img src={assets[lightbox].url} alt="" className="max-h-[85vh] max-w-full object-contain" />
-            )}
-            {assets[lightbox].url && (
-              <a href={assets[lightbox].url} download className="mt-4 rounded-full bg-primary px-5 py-2 text-sm font-bold text-primary-foreground">
-                {pick(T.download, lang)}
-              </a>
-            )}
-          </div>
-        </div>
+      {lightbox !== null && (
+        <Lightbox
+          items={assets}
+          index={lightbox}
+          onClose={() => setLightbox(null)}
+          onIndexChange={setLightbox}
+          shareTitle={event.name}
+          showDownload={event.config.gallery.allowDownloadAll}
+        />
       )}
     </main>
   );
+}
+
+async function sharePage(name: string) {
+  const url = typeof window !== "undefined" ? window.location.href : "";
+  const data: ShareData = { title: `${name} · LAQTA`, text: `Live photos from ${name}`, url };
+  try { if (navigator.share) { await navigator.share(data); return; } } catch { /* cancelled */ }
+  try { await navigator.clipboard.writeText(url); } catch { /* noop */ }
 }
