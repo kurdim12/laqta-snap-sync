@@ -300,7 +300,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
               <span className="rounded-full border border-primary/40 bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">public wall</span>
             )}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground" dir="ltr">/{ev.slug} · PIN <span className="code-display">{ev.staff_pin}</span></div>
+          <div className="mt-1 text-xs text-muted-foreground" dir="ltr">/{ev.slug} · PIN <span className="code-display">{ev.staff_pin_hash ? "••••••" : "not set"}</span></div>
 
           {/* Inline KPIs */}
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
