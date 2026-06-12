@@ -6,6 +6,8 @@ import { T, pick } from "@/lib/i18n";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { qrUrl } from "@/lib/qr";
 import { QrSheet } from "@/components/QrSheet";
+import { Lightbox, type LightboxItem } from "@/components/Lightbox";
+import type { AssetRow } from "@/lib/types";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
