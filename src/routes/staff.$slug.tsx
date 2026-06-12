@@ -86,6 +86,7 @@ function StaffMain({ event }: { event: EventRow }) {
   const [active, setActive] = useState<GuestRow | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [liveOn, setLiveOn] = useState(false);
   const queueRef = useRef(queue);
   queueRef.current = queue;
 
@@ -103,8 +104,18 @@ function StaffMain({ event }: { event: EventRow }) {
   }
   useEffect(() => {
     loadGuests();
+    // realtime
+    const ch = supabase
+      .channel(`staff-guests-${event.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "guests", filter: `event_id=eq.${event.id}` },
+        () => loadGuests(),
+      )
+      .subscribe((status) => setLiveOn(status === "SUBSCRIBED"));
+    // polling fallback (also keeps photo counts fresh)
     const i = setInterval(loadGuests, 5000);
-    return () => clearInterval(i);
+    return () => { supabase.removeChannel(ch); clearInterval(i); };
   }, [event.id]);
 
   function update(id: string, patch: Partial<QueueItem>) {
