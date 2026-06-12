@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as StaffSlugRouteImport } from './routes/staff.$slug'
 import { Route as GCodeRouteImport } from './routes/g.$code'
 import { Route as ESlugRouteImport } from './routes/e.$slug'
+import { Route as ESlugGalleryRouteImport } from './routes/e.$slug.gallery'
 
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
@@ -40,41 +41,68 @@ const ESlugRoute = ESlugRouteImport.update({
   path: '/e/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ESlugGalleryRoute = ESlugGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => ESlugRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/e/$slug': typeof ESlugRoute
+  '/e/$slug': typeof ESlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/staff/$slug': typeof StaffSlugRoute
+  '/e/$slug/gallery': typeof ESlugGalleryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/e/$slug': typeof ESlugRoute
+  '/e/$slug': typeof ESlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/staff/$slug': typeof StaffSlugRoute
+  '/e/$slug/gallery': typeof ESlugGalleryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/e/$slug': typeof ESlugRoute
+  '/e/$slug': typeof ESlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/staff/$slug': typeof StaffSlugRoute
+  '/e/$slug/gallery': typeof ESlugGalleryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/e/$slug' | '/g/$code' | '/staff/$slug'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/e/$slug'
+    | '/g/$code'
+    | '/staff/$slug'
+    | '/e/$slug/gallery'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/e/$slug' | '/g/$code' | '/staff/$slug'
-  id: '__root__' | '/' | '/admin' | '/e/$slug' | '/g/$code' | '/staff/$slug'
+  to:
+    | '/'
+    | '/admin'
+    | '/e/$slug'
+    | '/g/$code'
+    | '/staff/$slug'
+    | '/e/$slug/gallery'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/e/$slug'
+    | '/g/$code'
+    | '/staff/$slug'
+    | '/e/$slug/gallery'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
-  ESlugRoute: typeof ESlugRoute
+  ESlugRoute: typeof ESlugRouteWithChildren
   GCodeRoute: typeof GCodeRoute
   StaffSlugRoute: typeof StaffSlugRoute
 }
@@ -116,13 +144,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ESlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/e/$slug/gallery': {
+      id: '/e/$slug/gallery'
+      path: '/gallery'
+      fullPath: '/e/$slug/gallery'
+      preLoaderRoute: typeof ESlugGalleryRouteImport
+      parentRoute: typeof ESlugRoute
+    }
   }
 }
+
+interface ESlugRouteChildren {
+  ESlugGalleryRoute: typeof ESlugGalleryRoute
+}
+
+const ESlugRouteChildren: ESlugRouteChildren = {
+  ESlugGalleryRoute: ESlugGalleryRoute,
+}
+
+const ESlugRouteWithChildren = ESlugRoute._addFileChildren(ESlugRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
-  ESlugRoute: ESlugRoute,
+  ESlugRoute: ESlugRouteWithChildren,
   GCodeRoute: GCodeRoute,
   StaffSlugRoute: StaffSlugRoute,
 }

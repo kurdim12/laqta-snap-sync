@@ -1,11 +1,12 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
 import { generateCode, newId } from "@/lib/code";
 import { addOutbox, queueState, startSyncEngine, trySync } from "@/lib/outbox";
 import { qrUrl } from "@/lib/qr";
+import { resizeImage } from "@/lib/media";
 
 export const Route = createFileRoute("/e/$slug")({
   head: () => ({ meta: [{ title: "LAQTA · Register" }] }),
@@ -74,10 +75,13 @@ function ReadyForm({ event }: { event: EventRow }) {
   const [lang, setLang, toggleable] = useLang(config.locale);
   const [values, setValues] = useState<Record<string, string>>({});
   const [consent, setConsent] = useState(false);
+  const [selfie, setSelfie] = useState<Blob | null>(null);
+  const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState<{ code: string } | null>(null);
   const [statusDot, setStatusDot] = useState<"green" | "amber">("green");
   const [bottomBar, setBottomBar] = useState<string | null>(null);
+  const selfieMode = config.selfie ?? "optional";
 
   useEffect(() => {
     const stop = startSyncEngine();
@@ -94,6 +98,23 @@ function ReadyForm({ event }: { event: EventRow }) {
     return () => { stop(); clearInterval(i); };
   }, [lang]);
 
+  useEffect(() => {
+    if (!selfie) { setSelfiePreview(null); return; }
+    const url = URL.createObjectURL(selfie);
+    setSelfiePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [selfie]);
+
+  async function onPickSelfie(file: File) {
+    try {
+      // create a temp File so resizeImage can read it
+      const blob = await resizeImage(file, 800, 0.8);
+      setSelfie(blob);
+    } catch {
+      setSelfie(file);
+    }
+  }
+
   function validate(): boolean {
     const errs: Record<string, string> = {};
     for (const f of config.fields) {
@@ -101,6 +122,9 @@ function ReadyForm({ event }: { event: EventRow }) {
       if (f.required && !v) { errs[f.key] = pick(T.required, lang); continue; }
       if (v && f.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) errs[f.key] = pick(T.invalidEmail, lang);
       if (v && f.type === "tel" && !/^[+0-9\s\-()]{6,}$/.test(v)) errs[f.key] = pick(T.invalidPhone, lang);
+    }
+    if (selfieMode === "required" && !selfie) {
+      errs.__selfie = lang === "ar" ? "الرجاء التقاط صورة" : "Please take a selfie";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -114,6 +138,9 @@ function ReadyForm({ event }: { event: EventRow }) {
     await addOutbox({
       id, eventSlug: event.slug, eventId: event.id, code,
       payload: { form_data: values, consent, source: "primary" },
+      selfie: selfie ?? null,
+      selfieUploaded: !selfie,
+      rowSynced: false,
       state: "queued", attempts: 0, createdAt: Date.now(), lastTriedAt: 0,
     });
     setSuccess({ code });
@@ -122,7 +149,7 @@ function ReadyForm({ event }: { event: EventRow }) {
   }
 
   function reset() {
-    setValues({}); setConsent(false); setErrors({}); setSuccess(null);
+    setValues({}); setConsent(false); setSelfie(null); setErrors({}); setSuccess(null);
   }
 
   if (success) {
@@ -166,6 +193,16 @@ function ReadyForm({ event }: { event: EventRow }) {
           <div className="mt-4 text-center text-3xl font-bold text-primary">{event.name}</div>
         )}
         <form onSubmit={onSubmit} className="mt-10 space-y-5">
+          {selfieMode !== "off" && (
+            <SelfieCapture
+              preview={selfiePreview}
+              required={selfieMode === "required"}
+              lang={lang}
+              error={errors.__selfie}
+              onPick={onPickSelfie}
+              onClear={() => setSelfie(null)}
+            />
+          )}
           {config.fields.map((f) => (
             <div key={f.key}>
               <label className="mb-1 block text-sm font-semibold text-foreground">
@@ -203,6 +240,70 @@ function ReadyForm({ event }: { event: EventRow }) {
       </div>
       {bottomBar && <BottomBar text={bottomBar} />}
     </main>
+  );
+}
+
+function SelfieCapture({
+  preview, required, lang, error, onPick, onClear,
+}: {
+  preview: string | null;
+  required: boolean;
+  lang: "ar" | "en";
+  error?: string;
+  onPick: (f: File) => void;
+  onClear: () => void;
+}) {
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const label = lang === "ar" ? "صورة شخصية" : "Selfie";
+  const tap = lang === "ar" ? "اضغط لالتقاط صورة" : "Tap to take a selfie";
+  const choose = lang === "ar" ? "اختر من المعرض" : "Choose from gallery";
+  return (
+    <div className="flex flex-col items-center">
+      <label className="mb-2 block text-sm font-semibold text-foreground">
+        {label}{required && <span className="ms-1 text-primary">*</span>}
+      </label>
+      <button
+        type="button"
+        onClick={() => cameraRef.current?.click()}
+        className={`relative grid h-32 w-32 place-items-center overflow-hidden rounded-full border-2 ${error ? "border-destructive" : "border-primary/40"} bg-card transition hover:border-primary`}
+      >
+        {preview ? (
+          <img src={preview} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="text-center">
+            <div className="text-3xl">📸</div>
+            <div className="mt-1 px-2 text-[10px] leading-tight text-muted-foreground">{tap}</div>
+          </div>
+        )}
+      </button>
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="user"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = ""; }}
+      />
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = ""; }}
+      />
+      <div className="mt-2 flex gap-3 text-xs">
+        <button type="button" onClick={() => galleryRef.current?.click()} className="text-muted-foreground underline">
+          {choose}
+        </button>
+        {preview && (
+          <button type="button" onClick={onClear} className="text-destructive underline">
+            {lang === "ar" ? "حذف" : "Remove"}
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
+    </div>
   );
 }
 

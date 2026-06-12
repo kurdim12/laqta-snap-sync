@@ -14,7 +14,8 @@ export interface EventConfig {
   fields: EventField[];
   consentText: Bilingual;
   successMessage: Bilingual;
-  gallery: { allowDownloadAll: boolean; showVideos: boolean };
+  gallery: { allowDownloadAll: boolean; showVideos: boolean; mode: "private" | "public" };
+  selfie: "required" | "optional" | "off";
   limits: { maxVideoMB: number; maxPhotoMB: number };
 }
 
@@ -28,7 +29,8 @@ export const DEFAULT_CONFIG: EventConfig = {
   ],
   consentText: { ar: "أوافق على استخدام صوري لأغراض الفعالية", en: "I agree to my photos being used for this event" },
   successMessage: { ar: "تم! صورك رح توصلك هون", en: "Done! Your photos will appear here" },
-  gallery: { allowDownloadAll: true, showVideos: true },
+  gallery: { allowDownloadAll: true, showVideos: true, mode: "private" },
+  selfie: "optional",
   limits: { maxVideoMB: 50, maxPhotoMB: 25 },
 };
 
@@ -50,6 +52,7 @@ export interface GuestRow {
   consent: boolean;
   source: string;
   created_at: string;
+  selfie_path?: string | null;
 }
 
 export interface AssetRow {

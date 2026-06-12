@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
+import { DEFAULT_CONFIG, type EventConfig, type EventRow, type GuestRow } from "@/lib/types";
 import { T, pick } from "@/lib/i18n";
+import { SelfieAvatar } from "@/components/SelfieAvatar";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -111,6 +112,7 @@ function AdminDashboard() {
 
 function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests: number; assets: number }; onChange: () => void }) {
   const [editing, setEditing] = useState(false);
+  const [showRegs, setShowRegs] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -125,16 +127,136 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
               : ev.status === "dryrun" ? "bg-[color:var(--warning)] text-black"
               : "bg-muted text-muted-foreground"
           }`}>{ev.status}</span>
+          {ev.config.gallery?.mode === "public" && (
+            <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary">public wall</span>
+          )}
           <span className="text-sm text-muted-foreground">{count?.guests ?? "·"} guests · {count?.assets ?? "·"} ready</span>
+          <button onClick={() => setShowRegs(true)} className="rounded-lg border border-border px-3 py-1 text-sm">Registrations</button>
           <button onClick={() => setEditing(true)} className="rounded-lg border border-border px-3 py-1 text-sm">Edit</button>
         </div>
       </div>
-      <div className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-3" dir="ltr">
+      <div className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-4" dir="ltr">
         <a className="hover:text-primary" href={`${origin}/e/${ev.slug}`} target="_blank" rel="noreferrer">Guest form ↗</a>
         <a className="hover:text-primary" href={`${origin}/staff/${ev.slug}`} target="_blank" rel="noreferrer">Staff console ↗</a>
+        {ev.config.gallery?.mode === "public" && (
+          <a className="hover:text-primary" href={`${origin}/e/${ev.slug}/gallery`} target="_blank" rel="noreferrer">Public wall ↗</a>
+        )}
         <a className="hover:text-primary" href={`${origin}/admin`}>Admin</a>
       </div>
       {editing && <EventEditor event={ev} onClose={() => { setEditing(false); onChange(); }} />}
+      {showRegs && <RegistrationsModal event={ev} onClose={() => setShowRegs(false)} />}
+    </div>
+  );
+}
+
+function RegistrationsModal({ event, onClose }: { event: EventRow; onClose: () => void }) {
+  const [guests, setGuests] = useState<GuestRow[]>([]);
+  const [query, setQuery] = useState("");
+  const [liveOn, setLiveOn] = useState(false);
+  const [active, setActive] = useState<GuestRow | null>(null);
+
+  async function load() {
+    const { data } = await supabase
+      .from("guests").select("*").eq("event_id", event.id)
+      .order("created_at", { ascending: false }).limit(500);
+    setGuests((data || []) as GuestRow[]);
+  }
+  useEffect(() => {
+    load();
+    const ch = supabase
+      .channel(`admin-regs-${event.id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "guests", filter: `event_id=eq.${event.id}` },
+        () => load())
+      .subscribe((s) => setLiveOn(s === "SUBSCRIBED"));
+    const i = setInterval(load, 5000);
+    return () => { supabase.removeChannel(ch); clearInterval(i); };
+  }, [event.id]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? guests.filter((g) =>
+        (g.form_data.name || "").toLowerCase().includes(q) ||
+        (g.form_data.phone || "").toLowerCase().includes(q) ||
+        g.code.toLowerCase().includes(q))
+    : guests;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
+      <div className="grid w-full max-w-4xl gap-3 rounded-2xl border border-border bg-card p-5 max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold">Registrations — {event.name}</h2>
+            <div className="mt-1 flex items-center gap-3 text-xs">
+              <span className={liveOn ? "text-[color:var(--success)]" : "text-muted-foreground"}>
+                {liveOn ? "● live" : "○ refreshing"}
+              </span>
+              <span className="text-muted-foreground">{guests.length} total</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg border border-border px-3 py-1 text-sm">Close</button>
+        </div>
+        <input
+          placeholder="Search name, phone, or code…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full rounded-xl border border-border bg-input px-4 py-2 text-foreground outline-none focus:border-primary"
+        />
+        <div className="grid gap-3 overflow-hidden md:grid-cols-[2fr_1fr]">
+          <ul className="space-y-2 overflow-auto pr-1" style={{ maxHeight: "70vh" }}>
+            {filtered.map((g) => (
+              <li key={g.id}>
+                <button
+                  onClick={() => setActive(g)}
+                  className={`flex w-full items-center gap-3 rounded-lg border p-2 text-start transition ${active?.id === g.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted"}`}
+                >
+                  <SelfieAvatar path={g.selfie_path} name={g.form_data.name || ""} size={48} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-bold">{g.form_data.name || "—"}</span>
+                    <span className="block text-xs text-muted-foreground" dir="ltr">
+                      <span className="code-display">{g.code}</span>
+                      {g.form_data.phone && <span className="ms-2">{g.form_data.phone}</span>}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{new Date(g.created_at).toLocaleString()}</span>
+                </button>
+              </li>
+            ))}
+            {filtered.length === 0 && <li className="py-8 text-center text-sm text-muted-foreground">No registrations yet.</li>}
+          </ul>
+          <aside className="rounded-xl border border-border bg-background p-3">
+            {active ? (
+              <GuestDetail guest={active} />
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">Select a guest to view details.</p>
+            )}
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GuestDetail({ guest }: { guest: GuestRow }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col items-center">
+        <SelfieAvatar path={guest.selfie_path} name={guest.form_data.name || ""} size={120} />
+        <div className="mt-3 text-lg font-bold">{guest.form_data.name || "—"}</div>
+        <div className="code-display text-sm text-primary" dir="ltr">{guest.code}</div>
+      </div>
+      <dl className="grid gap-1 text-sm">
+        {Object.entries(guest.form_data).map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-2 border-b border-border/50 py-1">
+            <dt className="text-xs uppercase tracking-wide text-muted-foreground">{k}</dt>
+            <dd className="truncate text-end">{String(v)}</dd>
+          </div>
+        ))}
+        <div className="flex justify-between gap-2 py-1 text-xs text-muted-foreground">
+          <dt>created</dt>
+          <dd dir="ltr">{new Date(guest.created_at).toLocaleString()}</dd>
+        </div>
+      </dl>
     </div>
   );
 }
@@ -214,11 +336,40 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
 
           <Field label="Logo URL"><input dir="ltr" value={config.theme.logoUrl} onChange={(e) => setConfig({ ...config, theme: { ...config.theme, logoUrl: e.target.value } })} placeholder="https://…" className="input" /></Field>
 
-          <Field label="Locale">
-            <select value={config.locale} onChange={(e) => setConfig({ ...config, locale: e.target.value as EventConfig["locale"] })} className="input">
-              <option value="both">Both (toggle)</option><option value="ar">Arabic only</option><option value="en">English only</option>
-            </select>
-          </Field>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Locale">
+              <select value={config.locale} onChange={(e) => setConfig({ ...config, locale: e.target.value as EventConfig["locale"] })} className="input">
+                <option value="both">Both (toggle)</option><option value="ar">Arabic only</option><option value="en">English only</option>
+              </select>
+            </Field>
+            <Field label="Selfie at registration">
+              <select
+                value={config.selfie || "optional"}
+                onChange={(e) => setConfig({ ...config, selfie: e.target.value as EventConfig["selfie"] })}
+                className="input"
+              >
+                <option value="optional">Optional</option>
+                <option value="required">Required</option>
+                <option value="off">Off</option>
+              </select>
+            </Field>
+            <Field label="Gallery mode">
+              <select
+                value={config.gallery?.mode || "private"}
+                onChange={(e) => setConfig({ ...config, gallery: { ...config.gallery, mode: e.target.value as "private" | "public" } })}
+                className="input"
+              >
+                <option value="private">Private (per-code)</option>
+                <option value="public">Public wall</option>
+              </select>
+            </Field>
+          </div>
+          {config.gallery?.mode === "public" && (
+            <p className="rounded-lg border border-[color:var(--warning)] bg-[color:var(--warning)]/10 px-3 py-2 text-xs text-[color:var(--warning)]">
+              <span className="font-arabic">كل صور الفعالية رح تكون مرئية للجميع — للفعاليات العامة فقط</span>
+              <br />All event photos become visible to everyone — for open public events only.
+            </p>
+          )}
 
           <div>
             <div className="mb-2 flex items-center justify-between">

@@ -5,6 +5,7 @@ import { DEFAULT_CONFIG, type EventConfig, type EventRow, type GuestRow } from "
 import { T, pick } from "@/lib/i18n";
 import { newId } from "@/lib/code";
 import { resizeImage, videoPoster } from "@/lib/media";
+import { SelfieAvatar } from "@/components/SelfieAvatar";
 
 export const Route = createFileRoute("/staff/$slug")({
   head: () => ({ meta: [{ title: "LAQTA · Staff" }] }),
@@ -86,6 +87,7 @@ function StaffMain({ event }: { event: EventRow }) {
   const [active, setActive] = useState<GuestRow | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [liveOn, setLiveOn] = useState(false);
   const queueRef = useRef(queue);
   queueRef.current = queue;
 
@@ -103,8 +105,18 @@ function StaffMain({ event }: { event: EventRow }) {
   }
   useEffect(() => {
     loadGuests();
+    // realtime
+    const ch = supabase
+      .channel(`staff-guests-${event.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "guests", filter: `event_id=eq.${event.id}` },
+        () => loadGuests(),
+      )
+      .subscribe((status) => setLiveOn(status === "SUBSCRIBED"));
+    // polling fallback (also keeps photo counts fresh)
     const i = setInterval(loadGuests, 5000);
-    return () => clearInterval(i);
+    return () => { supabase.removeChannel(ch); clearInterval(i); };
   }, [event.id]);
 
   function update(id: string, patch: Partial<QueueItem>) {
@@ -221,6 +233,9 @@ function StaffMain({ event }: { event: EventRow }) {
             <span className={`inline-flex items-center gap-1 ${online ? "text-[color:var(--success)]" : "text-[color:var(--warning)]"}`}>
               <span className="inline-block h-2 w-2 rounded-full bg-current" /> {online ? "online" : "offline"}
             </span>
+            <span className={`inline-flex items-center gap-1 ${liveOn ? "text-[color:var(--success)]" : "text-muted-foreground"}`}>
+              {liveOn ? "● live" : "○ refreshing"}
+            </span>
             <span className="text-muted-foreground">{summary.done} {pick(T.done, "en")} · {summary.uploading} {pick(T.uploading, "en")} · {summary.retrying} {pick(T.retrying, "en")}</span>
           </div>
         </div>
@@ -239,18 +254,22 @@ function StaffMain({ event }: { event: EventRow }) {
       <div className="mx-auto grid max-w-6xl gap-4 px-4 py-6 md:grid-cols-[1fr_2fr]">
         <section className="rounded-xl border border-border bg-card p-3">
           <h2 className="mb-3 text-sm font-bold text-muted-foreground">{pick(T.guests, "en")} ({guests.length})</h2>
-          <ul className="max-h-[60vh] space-y-1 overflow-auto">
+          <ul className="max-h-[70vh] space-y-2 overflow-auto">
             {guests.map((g) => (
               <li key={g.id}>
                 <button
                   onClick={() => setActive(g)}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-start transition ${active?.id === g.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-start transition ${active?.id === g.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
                 >
-                  <span className="truncate">
-                    <span className="font-semibold">{g.form_data.name || "—"}</span>
-                    <span className="ms-2 code-display text-xs opacity-75" dir="ltr">{g.code}</span>
+                  <SelfieAvatar path={g.selfie_path || null} name={g.form_data.name || ""} size={56} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-base font-bold">{g.form_data.name || "—"}</span>
+                    <span className="block text-xs opacity-75" dir="ltr">
+                      <span className="code-display">{g.code}</span>
+                      {g.form_data.phone && <span className="ms-2">{g.form_data.phone}</span>}
+                    </span>
                   </span>
-                  <span className="text-xs opacity-70">{new Date(g.created_at).toLocaleTimeString()}</span>
+                  <span className="shrink-0 text-xs opacity-70">{new Date(g.created_at).toLocaleTimeString()}</span>
                 </button>
               </li>
             ))}

@@ -151,6 +151,7 @@ export type Database = {
           event_id: string
           form_data: Json
           id: string
+          selfie_path: string | null
           source: string
         }
         Insert: {
@@ -160,6 +161,7 @@ export type Database = {
           event_id: string
           form_data?: Json
           id: string
+          selfie_path?: string | null
           source?: string
         }
         Update: {
@@ -169,6 +171,7 @@ export type Database = {
           event_id?: string
           form_data?: Json
           id?: string
+          selfie_path?: string | null
           source?: string
         }
         Relationships: [
