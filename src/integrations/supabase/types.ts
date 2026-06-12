@@ -66,6 +66,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "assets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "assets_guest_id_fkey"
             columns: ["guest_id"]
             isOneToOne: false
@@ -182,6 +189,13 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "guests_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_roles: {
@@ -207,15 +221,83 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      events_public: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          id: string | null
+          name: string | null
+          slug: string | null
+          status: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+          status?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_guest_by_code: {
+        Args: { _code: string }
+        Returns: {
+          code: string
+          consent: boolean
+          created_at: string
+          event_id: string
+          form_data: Json
+          id: string
+          selfie_path: string | null
+          source: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "guests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      set_guest_selfie: {
+        Args: { _code: string; _id: string; _path: string }
+        Returns: boolean
+      }
+      staff_list_guests: {
+        Args: { _pin: string; _slug: string }
+        Returns: {
+          code: string
+          consent: boolean
+          created_at: string
+          event_id: string
+          form_data: Json
+          id: string
+          selfie_path: string | null
+          source: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "guests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       verify_staff_pin: {
         Args: { _pin: string; _slug: string }
