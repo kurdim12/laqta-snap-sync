@@ -31,4 +31,26 @@ function Landing() {
         <div className="rounded-xl border border-border bg-card px-6 py-4 text-left">
           <div className="text-sm font-semibold text-foreground">Guest Form</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            <code className="rounded bg-muted px-1 py-0.5">/e/{
+            <code className="rounded bg-muted px-1 py-0.5">/e/&lt;slug&gt;</code> — create an event in Admin first
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card px-6 py-4 text-left">
+          <div className="text-sm font-semibold text-foreground">Staff Console</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            <code className="rounded bg-muted px-1 py-0.5">/staff/&lt;slug&gt;</code> — upload photos/videos for guests
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card px-6 py-4 text-left">
+          <div className="text-sm font-semibold text-foreground">Guest Gallery</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            <code className="rounded bg-muted px-1 py-0.5">/g/&lt;code&gt;</code> — guests view &amp; download their media
+          </div>
+        </div>
+      </nav>
+
+      <p className="mt-10 text-xs text-muted-foreground">
+        Start at Admin to create your first event.
+      </p>
+    </main>
+  );
+}
