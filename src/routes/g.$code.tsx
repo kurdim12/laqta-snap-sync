@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_CONFIG, type AssetRow, type EventConfig, type EventRow, type GuestRow } from "@/lib/types";
+import { useServerFn } from "@tanstack/react-start";
+import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
+import { getGalleryByCode, getDownloadUrlsByCode } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/g/$code")({
   head: () => ({ meta: [{ title: "LAQTA · Your photos" }] }),
@@ -17,56 +18,45 @@ function applyTheme(c: EventConfig) {
   if (c.theme.text) r.setProperty("--foreground", c.theme.text);
 }
 
-async function signedUrl(path: string): Promise<string | null> {
-  const { data, error } = await supabase.storage.from("media").createSignedUrl(path, 3600);
-  if (error || !data) return null;
-  return data.signedUrl;
+interface GalleryAsset {
+  id: string;
+  kind: "photo" | "video";
+  url?: string;
+  thumbUrl?: string;
 }
 
 function Gallery() {
   const { code } = useParams({ from: "/g/$code" });
   const navigate = useNavigate();
-  const [guest, setGuest] = useState<GuestRow | null>(null);
+  const fetchGallery = useServerFn(getGalleryByCode);
+  const fetchDownloads = useServerFn(getDownloadUrlsByCode);
+  const [guestCode, setGuestCode] = useState<string | null>(null);
   const [event, setEvent] = useState<EventRow | null>(null);
-  const [assets, setAssets] = useState<(AssetRow & { url?: string; thumbUrl?: string })[]>([]);
+  const [assets, setAssets] = useState<GalleryAsset[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const cfg = event?.config || DEFAULT_CONFIG;
   const [lang, setLang, toggleable] = useLang(cfg.locale);
 
   async function load() {
-    const { data: gRows } = await supabase.rpc("get_guest_by_code", { _code: code.toUpperCase() });
-    const g = Array.isArray(gRows) ? gRows[0] : gRows;
-    if (!g) { setNotFound(true); return; }
-    setNotFound(false);
-    setGuest(g as GuestRow);
-    if (!event || event.id !== g.event_id) {
-      const { data: e } = await supabase.from("events_public").select("id,slug,name,status,config,created_at").eq("id", g.event_id).maybeSingle();
-      if (e && e.id && e.slug && e.name) {
-        const ev: EventRow = { id: e.id, slug: e.slug, name: e.name, created_at: e.created_at ?? "", status: e.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig };
-        setEvent(ev);
-        applyTheme(ev.config);
-      }
+    try {
+      const res = await fetchGallery({ data: { code } });
+      if (res.notFound) { setNotFound(true); return; }
+      setNotFound(false);
+      setGuestCode(res.guest.code);
+      const e = res.event;
+      const ev: EventRow = {
+        id: e.id, slug: e.slug, name: e.name,
+        created_at: e.created_at ?? "",
+        status: e.status as EventRow["status"],
+        config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig,
+      };
+      setEvent(ev);
+      applyTheme(ev.config);
+      setAssets(res.assets.map((a) => ({ id: a.id, kind: a.kind, url: a.url, thumbUrl: a.thumbUrl })));
+    } catch {
+      setNotFound(true);
     }
-    const { data: a } = await supabase
-      .from("assets")
-      .select("*")
-      .eq("guest_id", g.id)
-      .eq("status", "ready")
-      .order("created_at", { ascending: false });
-    const rows = (a || []) as AssetRow[];
-    // group: prefer web variant for display; thumb for grid
-    const originals = rows.filter((r) => r.variant === "original");
-    const webs = rows.filter((r) => r.variant === "web");
-    const thumbs = rows.filter((r) => r.variant === "thumb");
-    const display = originals.length ? originals : webs.length ? webs : rows;
-    const enriched = await Promise.all(display.map(async (r) => {
-      const web = webs.find((w) => w.parent_asset_id === r.id) || r;
-      const thumb = thumbs.find((t) => t.parent_asset_id === r.id) || web;
-      const [url, thumbUrl] = await Promise.all([signedUrl(web.storage_path), signedUrl(thumb.storage_path)]);
-      return { ...r, url: url || undefined, thumbUrl: thumbUrl || undefined };
-    }));
-    setAssets(enriched);
   }
 
   useEffect(() => { load(); }, [code]);
@@ -106,8 +96,23 @@ function Gallery() {
     );
   }
 
-  if (!guest) {
+  if (!guestCode) {
     return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+  }
+
+  async function downloadAll() {
+    try {
+      const res = await fetchDownloads({ data: { code, prefix: `${event?.name || "laqta"}-${guestCode}` } });
+      for (const url of res.urls) {
+        if (!url) continue;
+        const link = document.createElement("a");
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        await new Promise((r) => setTimeout(r, 350));
+      }
+    } catch { /* noop */ }
   }
 
   return (
@@ -120,7 +125,7 @@ function Gallery() {
             <div className="text-xl font-bold text-primary">{event?.name}</div>
           )}
           <div className="mt-1 text-xs text-muted-foreground">
-            {pick(T.yourCode, lang)}: <span className="code-display text-primary" dir="ltr">{guest.code}</span>
+            {pick(T.yourCode, lang)}: <span className="code-display text-primary" dir="ltr">{guestCode}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -131,7 +136,7 @@ function Gallery() {
           )}
           {cfg.gallery.allowDownloadAll && assets.length > 0 && (
             <button
-              onClick={() => downloadAll(assets, `${event?.name || "laqta"}-${guest.code}`)}
+              onClick={downloadAll}
               className="rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
             >
               {pick(T.downloadAll, lang)}
@@ -157,7 +162,7 @@ function Gallery() {
           <p className="mt-6 text-xl font-semibold">{pick(T.photosOnTheWay, lang)} 📸</p>
           <p className="mt-1 text-sm text-muted-foreground">{pick(T.comeBackSoon, lang)}</p>
           <p className="mt-6 text-xs text-muted-foreground">{pick(T.yourCode, lang)}</p>
-          <p className="code-display mt-1 text-3xl text-primary" dir="ltr">{guest.code}</p>
+          <p className="code-display mt-1 text-3xl text-primary" dir="ltr">{guestCode}</p>
         </section>
       ) : (
         <section className="mx-auto mt-6 grid max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
@@ -191,21 +196,6 @@ function Gallery() {
       )}
     </main>
   );
-}
-
-async function downloadAll(assets: { url?: string; id: string }[], prefix: string) {
-  for (let i = 0; i < assets.length; i++) {
-    const a = assets[i];
-    if (!a.url) continue;
-    const link = document.createElement("a");
-    link.href = a.url;
-    link.download = `${prefix}-${i + 1}`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    // small stagger so the browser doesn't drop downloads
-    await new Promise((r) => setTimeout(r, 350));
-  }
 }
 
 async function shareGallery(name: string, url: string) {

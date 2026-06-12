@@ -15,15 +15,20 @@ export function SelfieAvatar({
   path,
   name,
   size = 48,
+  signedUrl,
 }: {
   path: string | null | undefined;
   name: string;
   size?: number;
+  signedUrl?: string | null;
 }) {
-  const [url, setUrl] = useState<string | null>(() => (path ? cache.get(path) ?? null : null));
+  const [url, setUrl] = useState<string | null>(() =>
+    signedUrl ?? (path ? cache.get(path) ?? null : null),
+  );
 
   useEffect(() => {
     let alive = true;
+    if (signedUrl) { setUrl(signedUrl); if (path) cache.set(path, signedUrl); return; }
     if (!path) { setUrl(null); return; }
     const cached = cache.get(path);
     if (cached) { setUrl(cached); return; }
@@ -34,7 +39,8 @@ export function SelfieAvatar({
       setUrl(data.signedUrl);
     })();
     return () => { alive = false; };
-  }, [path]);
+  }, [path, signedUrl]);
+
 
   const style = { width: size, height: size, fontSize: Math.round(size * 0.36) } as React.CSSProperties;
 

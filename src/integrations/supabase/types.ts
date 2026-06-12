@@ -250,25 +250,6 @@ export type Database = {
       }
     }
     Functions: {
-      get_guest_by_code: {
-        Args: { _code: string }
-        Returns: {
-          code: string
-          consent: boolean
-          created_at: string
-          event_id: string
-          form_data: Json
-          id: string
-          selfie_path: string | null
-          source: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "guests"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
