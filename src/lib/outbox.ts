@@ -98,14 +98,11 @@ async function attemptSubmit(entry: OutboxEntry): Promise<{ ok: true } | { ok: f
     );
     const { error } = await fetchWithTimeout(insertPromise, 8000);
     if (!error) return { ok: true };
-    // 23505 = unique violation
-    const code = (error as { code?: string }).code;
+    const code = error.code;
     const msg = (error.message || "").toLowerCase();
     if (code === "23505" || msg.includes("duplicate") || msg.includes("unique")) {
-      // Same id? treat as success. Same code? collision.
       if (msg.includes("guests_pkey") || msg.includes("(id)")) return { ok: true };
       if (msg.includes("code")) return { ok: false, collision: true };
-      // unknown — treat as success to avoid double
       return { ok: true };
     }
     return { ok: false, collision: false };
