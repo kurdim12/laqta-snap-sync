@@ -363,6 +363,7 @@ function CopyLink({ label, url, disabled }: { label: string; url: string; disabl
 }
 
 function QrModal({ url, title, onClose }: { url: string; title: string; onClose: () => void }) {
+  const [sheet, setSheet] = useState<number | null>(null);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
       <div className="grid w-full max-w-sm gap-3 rounded-2xl border border-border bg-card p-5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -371,11 +372,17 @@ function QrModal({ url, title, onClose }: { url: string; title: string; onClose:
           <img src={qrUrl(url, 280)} alt="QR code" className="block h-[260px] w-[260px]" />
         </div>
         <div className="break-all rounded-lg border border-border bg-background px-3 py-2 text-xs" dir="ltr">{url}</div>
+        <div className="grid grid-cols-3 gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <button onClick={() => setSheet(12)} className="rounded-lg border border-border py-2 hover:bg-muted">12 / page</button>
+          <button onClick={() => setSheet(24)} className="rounded-lg border border-border py-2 hover:bg-muted">24 cards</button>
+          <button onClick={() => setSheet(48)} className="rounded-lg border border-border py-2 hover:bg-muted">48 cards</button>
+        </div>
         <div className="flex justify-end gap-2">
           <button onClick={() => navigator.clipboard.writeText(url)} className="rounded-lg border border-border px-3 py-1.5 text-sm">Copy link</button>
           <button onClick={onClose} className="rounded-lg bg-primary px-4 py-1.5 text-sm font-bold text-primary-foreground">Close</button>
         </div>
       </div>
+      {sheet !== null && <QrSheet eventName={title} url={url} count={sheet} onClose={() => setSheet(null)} />}
     </div>
   );
 }
