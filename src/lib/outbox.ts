@@ -14,6 +14,9 @@ export interface OutboxEntry {
     consent: boolean;
     source: string;
   };
+  selfie?: Blob | null;          // raw blob; IndexedDB stores Blobs natively
+  selfieUploaded?: boolean;
+  rowSynced?: boolean;
   state: "queued" | "synced";
   attempts: number;
   createdAt: number;
@@ -66,27 +69,16 @@ export async function removeOutbox(id: string): Promise<void> {
   await tx("readwrite", (s) => s.delete(id));
 }
 
-export async function markSynced(id: string): Promise<void> {
-  const all = await listOutbox();
-  const found = all.find((e) => e.id === id);
-  if (found) {
-    found.state = "synced";
-    await updateOutbox(found);
-    // also remove to keep store small
-    await removeOutbox(id);
-  }
-}
-
-function fetchWithTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("timeout")), ms);
     p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
   });
 }
 
-async function attemptSubmit(entry: OutboxEntry): Promise<{ ok: true } | { ok: false; collision: boolean }> {
+async function insertGuestRow(entry: OutboxEntry): Promise<{ ok: true } | { ok: false; collision: boolean }> {
   try {
-    const insertPromise: Promise<{ error: { code?: string; message?: string } | null }> = Promise.resolve(
+    const p: Promise<{ error: { code?: string; message?: string } | null }> = Promise.resolve(
       supabase.from("guests").insert({
         id: entry.id,
         event_id: entry.eventId,
@@ -96,7 +88,7 @@ async function attemptSubmit(entry: OutboxEntry): Promise<{ ok: true } | { ok: f
         source: entry.payload.source,
       }),
     );
-    const { error } = await fetchWithTimeout(insertPromise, 8000);
+    const { error } = await withTimeout(p, 8000);
     if (!error) return { ok: true };
     const code = error.code;
     const msg = (error.message || "").toLowerCase();
@@ -111,6 +103,26 @@ async function attemptSubmit(entry: OutboxEntry): Promise<{ ok: true } | { ok: f
   }
 }
 
+async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
+  if (!entry.selfie) return true;
+  const path = `${entry.eventId}/selfies/${entry.id}.jpg`;
+  try {
+    const upP = supabase.storage.from("media").upload(path, entry.selfie, {
+      upsert: true,
+      contentType: "image/jpeg",
+    });
+    const { error: upErr } = await withTimeout(upP as unknown as Promise<{ error: unknown }>, 30000);
+    if (upErr) return false;
+    const updP: Promise<{ error: unknown }> = Promise.resolve(
+      supabase.from("guests").update({ selfie_path: path }).eq("id", entry.id),
+    );
+    const { error: updErr } = await withTimeout(updP, 8000);
+    return !updErr;
+  } catch {
+    return false;
+  }
+}
+
 let syncing = false;
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
@@ -118,7 +130,9 @@ export async function trySync(): Promise<void> {
   if (syncing) return;
   syncing = true;
   try {
-    const entries = (await listOutbox()).filter((e) => e.state === "queued").sort((a, b) => a.createdAt - b.createdAt);
+    const entries = (await listOutbox())
+      .filter((e) => e.state === "queued")
+      .sort((a, b) => a.createdAt - b.createdAt);
     for (const entry of entries) {
       const now = Date.now();
       const backoff = Math.min(20_000 * Math.max(entry.attempts, 1), 5 * 60_000);
@@ -126,19 +140,41 @@ export async function trySync(): Promise<void> {
       if (entry.attempts > 0 && now - entry.lastTriedAt < jitter) continue;
       entry.attempts += 1;
       entry.lastTriedAt = now;
-      let res = await attemptSubmit(entry);
-      if (!res.ok && !res.collision) {
-        // one immediate retry
-        res = await attemptSubmit(entry);
+
+      // Step 1: insert guest row (fast, text-only)
+      if (!entry.rowSynced) {
+        let res = await insertGuestRow(entry);
+        if (!res.ok && !res.collision) res = await insertGuestRow(entry);
+        if (res.ok) {
+          entry.rowSynced = true;
+          await updateOutbox(entry);
+        } else if (res.collision) {
+          entry.code = generateCode();
+          await updateOutbox(entry);
+          continue;
+        } else {
+          await updateOutbox(entry);
+          continue;
+        }
       }
-      if (res.ok) {
-        await markSynced(entry.id);
-      } else if (res.collision) {
-        entry.code = generateCode();
-        await updateOutbox(entry);
-      } else {
-        await updateOutbox(entry);
+
+      // Step 2: upload selfie (independent — never blocks registration)
+      if (entry.selfie && !entry.selfieUploaded) {
+        const ok = await uploadSelfie(entry);
+        if (ok) {
+          entry.selfieUploaded = true;
+          entry.selfie = null; // free Blob
+          await updateOutbox(entry);
+        } else {
+          await updateOutbox(entry);
+          continue;
+        }
       }
+
+      // Done
+      entry.state = "synced";
+      await updateOutbox(entry);
+      await removeOutbox(entry.id);
     }
   } finally {
     syncing = false;
