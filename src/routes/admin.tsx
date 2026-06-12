@@ -293,6 +293,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+          <button onClick={() => setShowPhotos(true)} className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
           <button onClick={() => setShowRegs(true)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted">Registrations</button>
           <button onClick={() => setShowQr(true)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted">QR</button>
           <button onClick={() => setEditing(true)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted">Edit</button>
