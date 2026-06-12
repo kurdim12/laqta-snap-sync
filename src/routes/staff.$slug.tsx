@@ -23,12 +23,14 @@ function StaffConsole() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("events").select("*").eq("slug", slug).maybeSingle();
-      if (data) setEvent({ ...data, status: data.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } });
+      const { data } = await supabase.from("events_public").select("id,slug,name,status,config,created_at").eq("slug", slug).maybeSingle();
+      if (data && data.id && data.slug && data.name) {
+        setEvent({ id: data.id, slug: data.slug, name: data.name, created_at: data.created_at ?? "", status: data.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } });
+      }
       const stored = typeof window !== "undefined" ? sessionStorage.getItem(PIN_KEY(slug)) : null;
       if (stored && data) {
         const { data: ev } = await supabase.rpc("verify_staff_pin", { _slug: slug, _pin: stored });
-        if (ev) setPinOk(true);
+        if (ev) { setPin(stored); setPinOk(true); }
       }
     })();
   }, [slug]);
