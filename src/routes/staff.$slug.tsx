@@ -23,12 +23,14 @@ function StaffConsole() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("events").select("*").eq("slug", slug).maybeSingle();
-      if (data) setEvent({ ...data, status: data.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } });
+      const { data } = await supabase.from("events_public").select("id,slug,name,status,config,created_at").eq("slug", slug).maybeSingle();
+      if (data && data.id && data.slug && data.name) {
+        setEvent({ id: data.id, slug: data.slug, name: data.name, created_at: data.created_at ?? "", status: data.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } });
+      }
       const stored = typeof window !== "undefined" ? sessionStorage.getItem(PIN_KEY(slug)) : null;
       if (stored && data) {
         const { data: ev } = await supabase.rpc("verify_staff_pin", { _slug: slug, _pin: stored });
-        if (ev) setPinOk(true);
+        if (ev) { setPin(stored); setPinOk(true); }
       }
     })();
   }, [slug]);
@@ -68,7 +70,7 @@ function StaffConsole() {
       </main>
     );
   }
-  return <StaffMain event={event} />;
+  return <StaffMain event={event} pin={pin || (typeof window !== "undefined" ? sessionStorage.getItem(PIN_KEY(slug)) || "" : "")} />;
 }
 
 interface QueueItem {
@@ -82,7 +84,7 @@ interface QueueItem {
   assetId?: string;
 }
 
-function StaffMain({ event }: { event: EventRow }) {
+function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
   const [guests, setGuests] = useState<GuestRow[]>([]);
   const [active, setActive] = useState<GuestRow | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -98,26 +100,17 @@ function StaffMain({ event }: { event: EventRow }) {
   }, []);
 
   async function loadGuests() {
-    const { data } = await supabase
-      .from("guests").select("*").eq("event_id", event.id)
-      .order("created_at", { ascending: false }).limit(50);
-    setGuests((data || []) as GuestRow[]);
+    const { data } = await supabase.rpc("staff_list_guests", { _slug: event.slug, _pin: pin });
+    setGuests(((data as GuestRow[]) || []).slice(0, 50));
   }
   useEffect(() => {
     loadGuests();
-    // realtime
-    const ch = supabase
-      .channel(`staff-guests-${event.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "guests", filter: `event_id=eq.${event.id}` },
-        () => loadGuests(),
-      )
-      .subscribe((status) => setLiveOn(status === "SUBSCRIBED"));
-    // polling fallback (also keeps photo counts fresh)
+    // polling (realtime is admin-only after security hardening)
+    setLiveOn(false);
     const i = setInterval(loadGuests, 5000);
-    return () => { supabase.removeChannel(ch); clearInterval(i); };
-  }, [event.id]);
+    return () => { clearInterval(i); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id, pin]);
 
   function update(id: string, patch: Partial<QueueItem>) {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, ...patch } : it)));
