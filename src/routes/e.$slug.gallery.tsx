@@ -1,9 +1,10 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_CONFIG, type AssetRow, type EventConfig, type EventRow } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
+import { getPublicGalleryBySlug } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/e/$slug/gallery")({
   head: () => ({ meta: [{ title: "LAQTA · Gallery" }] }),
@@ -17,104 +18,55 @@ function applyTheme(c: EventConfig) {
   if (c.theme.text) r.setProperty("--foreground", c.theme.text);
 }
 
-async function signedUrl(path: string): Promise<string | null> {
-  const { data, error } = await supabase.storage.from("media").createSignedUrl(path, 3600);
-  if (error || !data) return null;
-  return data.signedUrl;
+interface GalleryAsset {
+  id: string;
+  kind: "photo" | "video";
+  url?: string;
+  thumbUrl?: string;
 }
-
-type Enriched = AssetRow & { url?: string; thumbUrl?: string };
 
 function PublicGallery() {
   const { slug } = useParams({ from: "/e/$slug/gallery" });
+  const fetchGallery = useServerFn(getPublicGalleryBySlug);
   const [event, setEvent] = useState<EventRow | null>(null);
-  const [assets, setAssets] = useState<Enriched[]>([]);
+  const [assets, setAssets] = useState<GalleryAsset[]>([]);
   const [unavailable, setUnavailable] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
-  const [liveOn, setLiveOn] = useState(false);
   const cfg = event?.config || DEFAULT_CONFIG;
   const [lang, setLang, toggleable] = useLang(cfg.locale);
-  const eventRef = useRef<EventRow | null>(null);
-  eventRef.current = event;
 
-  async function loadAssets(ev: EventRow) {
-    const { data } = await supabase
-      .from("assets")
-      .select("*")
-      .eq("event_id", ev.id)
-      .eq("status", "ready")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    const rows = (data || []) as AssetRow[];
-    const originals = rows.filter((r) => r.variant === "original");
-    const webs = rows.filter((r) => r.variant === "web");
-    const thumbs = rows.filter((r) => r.variant === "thumb");
-    const display = originals.length ? originals : webs.length ? webs : rows;
-    const enriched = await Promise.all(display.map(async (r) => {
-      const web = webs.find((w) => w.parent_asset_id === r.id) || r;
-      const thumb = thumbs.find((t) => t.parent_asset_id === r.id) || web;
-      const [url, thumbUrl] = await Promise.all([signedUrl(web.storage_path), signedUrl(thumb.storage_path)]);
-      return { ...r, url: url || undefined, thumbUrl: thumbUrl || undefined };
-    }));
-    setAssets(enriched);
-  }
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const { data } = await supabase
-        .from("events_public")
-        .select("id,slug,name,status,config,created_at")
-        .eq("slug", slug)
-        .maybeSingle();
-      if (!alive) return;
-      if (!data || !data.id || !data.slug || !data.name || (data.status !== "live" && data.status !== "dryrun")) {
-        setUnavailable(true);
-        return;
-      }
+  async function load() {
+    try {
+      const res = await fetchGallery({ data: { slug } });
+      if (res.notFound) { setUnavailable(true); return; }
+      const e = res.event;
       const ev: EventRow = {
-        id: data.id,
-        slug: data.slug,
-        name: data.name,
-        created_at: data.created_at ?? "",
-        status: data.status as EventRow["status"],
-        config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } as EventConfig,
+        id: e.id, slug: e.slug, name: e.name,
+        created_at: e.created_at ?? "",
+        status: e.status as EventRow["status"],
+        config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig,
       };
-      if (ev.config.gallery.mode !== "public") {
-        setUnavailable(true);
-        return;
-      }
       setEvent(ev);
       applyTheme(ev.config);
-      loadAssets(ev);
-    })();
-    return () => { alive = false; };
-  }, [slug]);
+      setAssets(res.assets.map((a) => ({ id: a.id, kind: a.kind, url: a.url, thumbUrl: a.thumbUrl })));
+    } catch {
+      setUnavailable(true);
+    }
+  }
 
-  // realtime + polling fallback
+  useEffect(() => { load(); }, [slug]);
+
   useEffect(() => {
-    if (!event) return;
-    const ch = supabase
-      .channel(`public-gallery-${event.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "assets", filter: `event_id=eq.${event.id}` },
-        () => { if (eventRef.current) loadAssets(eventRef.current); },
-      )
-      .subscribe((status) => setLiveOn(status === "SUBSCRIBED"));
+    if (unavailable) return;
     let last = Date.now();
     const onActivity = () => { last = Date.now(); };
     window.addEventListener("pointerdown", onActivity);
     const i = setInterval(() => {
       if (Date.now() - last > 10 * 60_000) return;
-      if (eventRef.current) loadAssets(eventRef.current);
+      load();
     }, 20_000);
-    return () => {
-      supabase.removeChannel(ch);
-      clearInterval(i);
-      window.removeEventListener("pointerdown", onActivity);
-    };
-  }, [event]);
+    return () => { clearInterval(i); window.removeEventListener("pointerdown", onActivity); };
+  }, [unavailable, slug]);
 
   if (unavailable) {
     return (
@@ -140,11 +92,8 @@ function PublicGallery() {
           ) : (
             <div className="text-xl font-bold text-primary">{event.name}</div>
           )}
-          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{lang === "ar" ? "معرض الفعالية" : "Event gallery"}</span>
-            <span className={liveOn ? "text-[color:var(--success)]" : "text-muted-foreground"}>
-              {liveOn ? (lang === "ar" ? "● مباشر" : "● live") : (lang === "ar" ? "○ تحديث دوري" : "○ refreshing")}
-            </span>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {lang === "ar" ? "معرض الفعالية" : "Event gallery"}
           </div>
         </div>
         <div className="flex items-center gap-2">
