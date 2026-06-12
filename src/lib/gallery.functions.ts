@@ -98,7 +98,8 @@ function buildEnriched(rows: AssetLite[], urls: Record<string, string>) {
 // ---------------- guest gallery by code ----------------
 export const getGalleryByCode = createServerFn({ method: "POST" })
   .inputValidator((d: { code: string }) => ({
-    code: String(d?.code || "").toUpperCase().slice(0, 32),
+    // strip anything outside the code alphabet — ilike treats % and _ as wildcards
+    code: String(d?.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32),
   }))
   .handler(async ({ data }) => {
     if (!rateLimit(`gbc:${ipKey()}`, 30, 60_000)) {
@@ -185,7 +186,8 @@ export const getPublicGalleryBySlug = createServerFn({ method: "POST" })
 // ---------------- download URLs (Content-Disposition: attachment) ----------------
 export const getDownloadUrlsByCode = createServerFn({ method: "POST" })
   .inputValidator((d: { code: string; prefix?: string }) => ({
-    code: String(d?.code || "").toUpperCase().slice(0, 32),
+    // strip anything outside the code alphabet — ilike treats % and _ as wildcards
+    code: String(d?.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32),
     prefix: String(d?.prefix || "laqta").slice(0, 64),
   }))
   .handler(async ({ data }) => {
