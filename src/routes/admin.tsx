@@ -320,6 +320,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
       {editing && <EventEditor event={ev} onClose={() => { setEditing(false); onChange(); }} />}
       {showRegs && <RegistrationsModal event={ev} onClose={() => setShowRegs(false)} />}
       {showQr && <QrModal url={formUrl} title={ev.name} onClose={() => setShowQr(false)} />}
+      {showPhotos && <PhotosModal event={ev} onClose={() => setShowPhotos(false)} />}
       {confirmDel && (
         <ConfirmModal
           title="Delete event?"
