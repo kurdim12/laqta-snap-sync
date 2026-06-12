@@ -602,7 +602,7 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
   const [name, setName] = useState(event?.name || "");
   const [slug, setSlug] = useState(event?.slug || "");
   const [status, setStatus] = useState<EventRow["status"]>(event?.status || "draft");
-  const [pin, setPin] = useState(event?.staff_pin || genPin());
+  const [pin, setPin] = useState(event ? "" : genPin());
   const [config, setConfig] = useState<EventConfig>(event?.config || DEFAULT_CONFIG);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -610,10 +610,13 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
 
   async function save() {
     setErr(null); setBusy(true);
-    const payload = { name, slug: slug || slugify(name), status, config: config as unknown as never, staff_pin: pin };
+    const base = { name, slug: slug || slugify(name), status, config: config as unknown as never };
+    const payload = pin ? { ...base, staff_pin: pin } : base;
+    if (!event && !pin) { setBusy(false); setErr("Staff PIN required"); return; }
+    if (pin && pin.length < 6) { setBusy(false); setErr("PIN must be 6 digits"); return; }
     const q = event
-      ? supabase.from("events").update(payload).eq("id", event.id)
-      : supabase.from("events").insert(payload);
+      ? supabase.from("events").update(payload as never).eq("id", event.id)
+      : supabase.from("events").insert(payload as never);
     const { error } = await q;
     setBusy(false);
     if (error) { setErr(error.message); return; }
