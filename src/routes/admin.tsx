@@ -6,6 +6,8 @@ import { T, pick } from "@/lib/i18n";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { qrUrl } from "@/lib/qr";
 import { QrSheet } from "@/components/QrSheet";
+import { Lightbox, type LightboxItem } from "@/components/Lightbox";
+import type { AssetRow } from "@/lib/types";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -245,6 +247,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
   const [editing, setEditing] = useState(false);
   const [showRegs, setShowRegs] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [showPhotos, setShowPhotos] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const formUrl = `${origin}/e/${ev.slug}`;
@@ -292,6 +295,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+          <button onClick={() => setShowPhotos(true)} className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
           <button onClick={() => setShowRegs(true)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted">Registrations</button>
           <button onClick={() => setShowQr(true)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted">QR</button>
           <button onClick={() => setEditing(true)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted">Edit</button>
@@ -318,6 +322,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
       {editing && <EventEditor event={ev} onClose={() => { setEditing(false); onChange(); }} />}
       {showRegs && <RegistrationsModal event={ev} onClose={() => setShowRegs(false)} />}
       {showQr && <QrModal url={formUrl} title={ev.name} onClose={() => setShowQr(false)} />}
+      {showPhotos && <PhotosModal event={ev} onClose={() => setShowPhotos(false)} />}
       {confirmDel && (
         <ConfirmModal
           title="Delete event?"
@@ -812,6 +817,158 @@ function PhonePreview({ config, name }: { config: EventConfig; name: string }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Photos                                                              */
+/* ------------------------------------------------------------------ */
+
+type EnrichedAsset = AssetRow & { url?: string; thumbUrl?: string; guestName?: string; guestCode?: string };
+
+function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void }) {
+  const [assets, setAssets] = useState<EnrichedAsset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lightbox, setLightbox] = useState<number | null>(null);
+  const [filter, setFilter] = useState<"all" | "linked" | "orphan">("all");
+  const [query, setQuery] = useState("");
+  const [liveOn, setLiveOn] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    const [{ data: rows }, { data: gs }] = await Promise.all([
+      supabase.from("assets").select("*").eq("event_id", event.id).order("created_at", { ascending: false }).limit(1000),
+      supabase.from("guests").select("id,code,form_data").eq("event_id", event.id).limit(2000),
+    ]);
+    const guestMap = new Map<string, { code: string; name: string }>();
+    (gs || []).forEach((g) => guestMap.set(g.id, { code: g.code, name: (g.form_data as { name?: string })?.name || "" }));
+
+    const all = (rows || []) as AssetRow[];
+    const originals = all.filter((r) => r.variant === "original" || (!all.some((x) => x.parent_asset_id === r.id) && r.variant !== "thumb"));
+    const webs = all.filter((r) => r.variant === "web");
+    const thumbs = all.filter((r) => r.variant === "thumb");
+    const display = (originals.length ? originals : webs.length ? webs : all);
+
+    const enriched = await Promise.all(display.map(async (r) => {
+      const web = webs.find((w) => w.parent_asset_id === r.id) || r;
+      const thumb = thumbs.find((t) => t.parent_asset_id === r.id) || web;
+      const [{ data: u1 }, { data: u2 }] = await Promise.all([
+        supabase.storage.from("media").createSignedUrl(web.storage_path, 3600),
+        supabase.storage.from("media").createSignedUrl(thumb.storage_path, 3600),
+      ]);
+      const g = r.guest_id ? guestMap.get(r.guest_id) : undefined;
+      return { ...r, url: u1?.signedUrl, thumbUrl: u2?.signedUrl, guestName: g?.name, guestCode: g?.code };
+    }));
+    setAssets(enriched);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+    const ch = supabase
+      .channel(`admin-photos-${event.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "assets", filter: `event_id=eq.${event.id}` }, () => load())
+      .subscribe((s) => setLiveOn(s === "SUBSCRIBED"));
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = assets.filter((a) => {
+    if (filter === "linked" && !a.guest_id) return false;
+    if (filter === "orphan" && a.guest_id) return false;
+    if (q && !(a.guestName || "").toLowerCase().includes(q) && !(a.guestCode || "").toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const items: LightboxItem[] = filtered.map((a) => ({ id: a.id, kind: a.kind === "video" ? "video" : "photo", url: a.url, thumbUrl: a.thumbUrl }));
+
+  async function downloadAll() {
+    for (const a of filtered) {
+      if (!a.url) continue;
+      const link = document.createElement("a");
+      link.href = a.url;
+      link.download = `${event.slug}-${a.guestCode || a.id.slice(0, 6)}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      await new Promise((r) => setTimeout(r, 350));
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
+      <div className="grid w-full max-w-6xl gap-3 rounded-2xl border border-border bg-card p-5 max-h-[92vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-bold">📷 Photos — {event.name}</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs">
+              <span className={`inline-flex items-center gap-1 ${liveOn ? "text-[color:var(--success)]" : "text-muted-foreground"}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${liveOn ? "bg-[color:var(--success)] animate-pulse" : "bg-muted-foreground"}`} />
+                {liveOn ? "live" : "idle"}
+              </span>
+              <span className="text-muted-foreground">{filtered.length} of {assets.length}</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={downloadAll} disabled={!filtered.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold transition hover:bg-muted disabled:opacity-50">Download all</button>
+            <button onClick={load} className="rounded-lg border border-border px-3 py-1.5 text-sm">Refresh</button>
+            <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm">Close</button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 rounded-lg border border-border bg-background p-0.5">
+            {(["all", "linked", "orphan"] as const).map((f) => (
+              <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
+            ))}
+          </div>
+          <input placeholder="Search guest name or code…" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 min-w-[180px] rounded-xl border border-border bg-input px-3 py-1.5 text-sm outline-none focus:border-primary" />
+        </div>
+
+        <div className="overflow-auto" style={{ maxHeight: "70vh" }}>
+          {loading ? (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+              {Array.from({ length: 12 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-lg bg-muted" />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="grid place-items-center py-20 text-center">
+              <div className="text-6xl opacity-30">📷</div>
+              <p className="mt-3 text-sm text-muted-foreground">No photos yet. They'll appear here as staff or guests upload.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+              {filtered.map((a, i) => (
+                <button key={a.id} onClick={() => setLightbox(i)} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted transition hover:border-primary">
+                  {a.thumbUrl ? (
+                    <img src={a.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center text-2xl opacity-40">{a.kind === "video" ? "🎬" : "📷"}</div>
+                  )}
+                  {a.kind === "video" && <span className="absolute top-1 right-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">VIDEO</span>}
+                  {a.guestCode && (
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-start text-[10px] font-bold text-white">
+                      <span className="code-display block truncate" dir="ltr">{a.guestCode}</span>
+                      {a.guestName && <span className="block truncate font-normal opacity-80">{a.guestName}</span>}
+                    </span>
+                  )}
+                  {!a.guest_id && <span className="absolute top-1 left-1 rounded bg-[color:var(--warning)]/90 px-1 text-[9px] font-bold text-black">orphan</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {lightbox !== null && (
+        <Lightbox
+          items={items}
+          index={lightbox}
+          onClose={() => setLightbox(null)}
+          onIndexChange={setLightbox}
+          shareTitle={event.name}
+        />
+      )}
     </div>
   );
 }
