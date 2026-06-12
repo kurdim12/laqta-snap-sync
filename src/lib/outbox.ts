@@ -86,7 +86,7 @@ function fetchWithTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 async function attemptSubmit(entry: OutboxEntry): Promise<{ ok: true } | { ok: false; collision: boolean }> {
   try {
-    const { error } = await fetchWithTimeout(
+    const insertPromise: Promise<{ error: { code?: string; message?: string } | null }> = Promise.resolve(
       supabase.from("guests").insert({
         id: entry.id,
         event_id: entry.eventId,
@@ -95,8 +95,8 @@ async function attemptSubmit(entry: OutboxEntry): Promise<{ ok: true } | { ok: f
         consent: entry.payload.consent,
         source: entry.payload.source,
       }),
-      8000,
     );
+    const { error } = await fetchWithTimeout(insertPromise, 8000);
     if (!error) return { ok: true };
     // 23505 = unique violation
     const code = (error as { code?: string }).code;
