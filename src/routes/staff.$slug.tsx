@@ -70,7 +70,7 @@ function StaffConsole() {
       </main>
     );
   }
-  return <StaffMain event={event} />;
+  return <StaffMain event={event} pin={pin || (typeof window !== "undefined" ? sessionStorage.getItem(PIN_KEY(slug)) || "" : "")} />;
 }
 
 interface QueueItem {
