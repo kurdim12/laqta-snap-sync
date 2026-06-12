@@ -34,18 +34,21 @@ interface AssetLite {
   content_type: string;
   bytes: number;
   status: string;
-  meta: Record<string, unknown>;
+  meta: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   created_at: string;
 }
+
 
 interface EventLite {
   id: string;
   slug: string;
   name: string;
   status: string;
-  config: Record<string, unknown>;
+  // JSONB — typed loose so TanStack's serializable check accepts it
+  config: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   created_at: string;
 }
+
 
 async function signMany(paths: string[]): Promise<Record<string, string>> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
