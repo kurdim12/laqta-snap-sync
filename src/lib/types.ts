@@ -40,7 +40,8 @@ export interface EventRow {
   name: string;
   status: "draft" | "dryrun" | "live" | "archived";
   config: EventConfig;
-  staff_pin?: string;
+  staff_pin?: string | null;
+  staff_pin_hash?: string | null;
   created_at: string;
 }
 

@@ -227,14 +227,12 @@ export const getStaffSelfieUrls = createServerFn({ method: "POST" })
       throw new Error("Too many requests");
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: ev } = await supabaseAdmin
-      .from("events")
-      .select("id")
-      .eq("slug", data.slug)
-      .eq("staff_pin", data.pin)
-      .maybeSingle();
-    if (!ev) throw new Error("Unauthorized");
-    const prefix = `${ev.id}/`;
+    const { data: evId } = await supabaseAdmin.rpc("verify_staff_pin", {
+      _slug: data.slug,
+      _pin: data.pin,
+    });
+    if (!evId) throw new Error("Unauthorized");
+    const prefix = `${evId}/`;
     const safe = data.paths.filter((p) => p.startsWith(prefix));
     const urls = await signMany(safe);
     return { urls };
