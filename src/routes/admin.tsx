@@ -336,11 +336,40 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
 
           <Field label="Logo URL"><input dir="ltr" value={config.theme.logoUrl} onChange={(e) => setConfig({ ...config, theme: { ...config.theme, logoUrl: e.target.value } })} placeholder="https://…" className="input" /></Field>
 
-          <Field label="Locale">
-            <select value={config.locale} onChange={(e) => setConfig({ ...config, locale: e.target.value as EventConfig["locale"] })} className="input">
-              <option value="both">Both (toggle)</option><option value="ar">Arabic only</option><option value="en">English only</option>
-            </select>
-          </Field>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Locale">
+              <select value={config.locale} onChange={(e) => setConfig({ ...config, locale: e.target.value as EventConfig["locale"] })} className="input">
+                <option value="both">Both (toggle)</option><option value="ar">Arabic only</option><option value="en">English only</option>
+              </select>
+            </Field>
+            <Field label="Selfie at registration">
+              <select
+                value={config.selfie || "optional"}
+                onChange={(e) => setConfig({ ...config, selfie: e.target.value as EventConfig["selfie"] })}
+                className="input"
+              >
+                <option value="optional">Optional</option>
+                <option value="required">Required</option>
+                <option value="off">Off</option>
+              </select>
+            </Field>
+            <Field label="Gallery mode">
+              <select
+                value={config.gallery?.mode || "private"}
+                onChange={(e) => setConfig({ ...config, gallery: { ...config.gallery, mode: e.target.value as "private" | "public" } })}
+                className="input"
+              >
+                <option value="private">Private (per-code)</option>
+                <option value="public">Public wall</option>
+              </select>
+            </Field>
+          </div>
+          {config.gallery?.mode === "public" && (
+            <p className="rounded-lg border border-[color:var(--warning)] bg-[color:var(--warning)]/10 px-3 py-2 text-xs text-[color:var(--warning)]">
+              <span className="font-arabic">كل صور الفعالية رح تكون مرئية للجميع — للفعاليات العامة فقط</span>
+              <br />All event photos become visible to everyone — for open public events only.
+            </p>
+          )}
 
           <div>
             <div className="mb-2 flex items-center justify-between">
