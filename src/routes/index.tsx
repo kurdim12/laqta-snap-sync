@@ -29,7 +29,7 @@ function Landing() {
         .select("slug,name,status")
         .in("status", ["live", "dryrun"])
         .order("created_at", { ascending: false });
-      setEvents((data ?? []).map((e) => ({ slug: e.slug, name: e.name })));
+      setEvents((data ?? []).filter((e): e is { slug: string; name: string; status: string | null } => !!e.slug && !!e.name).map((e) => ({ slug: e.slug, name: e.name })));
     })();
   }, []);
 
