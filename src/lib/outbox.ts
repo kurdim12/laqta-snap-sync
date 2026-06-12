@@ -114,7 +114,7 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
     const { error: upErr } = await withTimeout(upP as unknown as Promise<{ error: unknown }>, 30000);
     if (upErr) return false;
     const updP: Promise<{ error: unknown }> = Promise.resolve(
-      supabase.from("guests").update({ selfie_path: path }).eq("id", entry.id),
+      supabase.rpc("set_guest_selfie", { _id: entry.id, _code: entry.code, _path: path }),
     );
     const { error: updErr } = await withTimeout(updP, 8000);
     return !updErr;
