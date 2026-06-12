@@ -5,6 +5,7 @@ import { DEFAULT_CONFIG, type EventConfig, type EventRow, type GuestRow } from "
 import { T, pick } from "@/lib/i18n";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { qrUrl } from "@/lib/qr";
+import { QrSheet } from "@/components/QrSheet";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
