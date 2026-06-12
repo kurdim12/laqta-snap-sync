@@ -5,6 +5,7 @@ import { DEFAULT_CONFIG, type EventConfig, type EventRow, type GuestRow } from "
 import { T, pick } from "@/lib/i18n";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { qrUrl } from "@/lib/qr";
+import { QrSheet } from "@/components/QrSheet";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -13,14 +14,47 @@ export const Route = createFileRoute("/admin")({
 
 function Admin() {
   const [session, setSession] = useState<unknown>(undefined);
+  const [role, setRole] = useState<"admin" | "none" | "loading">("loading");
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
-  if (session === undefined) return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+
+  useEffect(() => {
+    if (!session) { setRole("none"); return; }
+    setRole("loading");
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) { setRole("none"); return; }
+      const { data, error } = await supabase.rpc("has_role", { _user_id: u.user.id, _role: "admin" });
+      setRole(!error && data === true ? "admin" : "none");
+    })();
+  }, [session]);
+
+  if (session === undefined || (session && role === "loading")) {
+    return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+  }
   if (!session) return <AuthForm />;
+  if (role !== "admin") return <NotAuthorized />;
   return <AdminDashboard />;
+}
+
+function NotAuthorized() {
+  async function signOut() { await supabase.auth.signOut(); }
+  return (
+    <main className="grid min-h-screen place-items-center bg-background px-6 text-center">
+      <div className="max-w-sm">
+        <div className="code-display text-3xl font-black text-primary">LAQTA</div>
+        <div className="mt-1 text-[10px] uppercase tracking-[0.3em] text-muted-foreground">admin console</div>
+        <div className="mx-auto mt-8 grid h-16 w-16 place-items-center rounded-2xl border border-destructive/40 bg-destructive/10 text-3xl text-destructive">⛔</div>
+        <h1 className="mt-5 text-xl font-bold">Not authorized</h1>
+        <p className="mt-2 text-sm text-muted-foreground">This account doesn't have admin access. Ask an existing admin to grant your role, or sign out and try a different account.</p>
+        <button onClick={signOut} className="mt-6 rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-muted">Sign out</button>
+      </div>
+    </main>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -329,6 +363,7 @@ function CopyLink({ label, url, disabled }: { label: string; url: string; disabl
 }
 
 function QrModal({ url, title, onClose }: { url: string; title: string; onClose: () => void }) {
+  const [sheet, setSheet] = useState<number | null>(null);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
       <div className="grid w-full max-w-sm gap-3 rounded-2xl border border-border bg-card p-5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -337,11 +372,17 @@ function QrModal({ url, title, onClose }: { url: string; title: string; onClose:
           <img src={qrUrl(url, 280)} alt="QR code" className="block h-[260px] w-[260px]" />
         </div>
         <div className="break-all rounded-lg border border-border bg-background px-3 py-2 text-xs" dir="ltr">{url}</div>
+        <div className="grid grid-cols-3 gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <button onClick={() => setSheet(12)} className="rounded-lg border border-border py-2 hover:bg-muted">12 / page</button>
+          <button onClick={() => setSheet(24)} className="rounded-lg border border-border py-2 hover:bg-muted">24 cards</button>
+          <button onClick={() => setSheet(48)} className="rounded-lg border border-border py-2 hover:bg-muted">48 cards</button>
+        </div>
         <div className="flex justify-end gap-2">
           <button onClick={() => navigator.clipboard.writeText(url)} className="rounded-lg border border-border px-3 py-1.5 text-sm">Copy link</button>
           <button onClick={onClose} className="rounded-lg bg-primary px-4 py-1.5 text-sm font-bold text-primary-foreground">Close</button>
         </div>
       </div>
+      {sheet !== null && <QrSheet eventName={title} url={url} count={sheet} onClose={() => setSheet(null)} />}
     </div>
   );
 }

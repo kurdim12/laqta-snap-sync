@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_CONFIG, type AssetRow, type EventConfig, type EventRow, type GuestRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
+import { Lightbox } from "@/components/Lightbox";
 
 export const Route = createFileRoute("/g/$code")({
   head: () => ({ meta: [{ title: "LAQTA · Your photos" }] }),
@@ -128,13 +129,19 @@ function Gallery() {
             </button>
           )}
           {cfg.gallery.allowDownloadAll && assets.length > 0 && (
-            <a
-              href={assets[0]?.url || "#"}
-              download
-              className="hidden rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground md:inline-block"
+            <button
+              onClick={() => downloadAll(assets, `${event?.name || "laqta"}-${guest.code}`)}
+              className="rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
             >
               {pick(T.downloadAll, lang)}
-            </a>
+            </button>
+          )}
+          {typeof navigator !== "undefined" && (
+            <button
+              onClick={() => shareGallery(event?.name || "LAQTA", typeof window !== "undefined" ? window.location.href : "")}
+              className="rounded-full border border-border bg-card px-3 py-2 text-sm font-semibold"
+              aria-label="Share gallery"
+            >↗</button>
           )}
         </div>
       </header>
@@ -172,23 +179,36 @@ function Gallery() {
         </section>
       )}
 
-      {lightbox !== null && assets[lightbox] && (
-        <div className="fixed inset-0 z-50 bg-black/95" onClick={() => setLightbox(null)}>
-          <button className="absolute end-4 top-4 z-10 text-white" onClick={() => setLightbox(null)}>✕</button>
-          <div className="grid h-full place-items-center p-4" onClick={(e) => e.stopPropagation()}>
-            {assets[lightbox].kind === "video" ? (
-              <video src={assets[lightbox].url} controls className="max-h-[85vh] max-w-full" />
-            ) : (
-              <img src={assets[lightbox].url} alt="" className="max-h-[85vh] max-w-full object-contain" />
-            )}
-            {assets[lightbox].url && (
-              <a href={assets[lightbox].url} download className="mt-4 rounded-full bg-primary px-5 py-2 text-sm font-bold text-primary-foreground">
-                {pick(T.download, lang)}
-              </a>
-            )}
-          </div>
-        </div>
+      {lightbox !== null && (
+        <Lightbox
+          items={assets}
+          index={lightbox}
+          onClose={() => setLightbox(null)}
+          onIndexChange={setLightbox}
+          shareTitle={event?.name}
+        />
       )}
     </main>
   );
+}
+
+async function downloadAll(assets: { url?: string; id: string }[], prefix: string) {
+  for (let i = 0; i < assets.length; i++) {
+    const a = assets[i];
+    if (!a.url) continue;
+    const link = document.createElement("a");
+    link.href = a.url;
+    link.download = `${prefix}-${i + 1}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // small stagger so the browser doesn't drop downloads
+    await new Promise((r) => setTimeout(r, 350));
+  }
+}
+
+async function shareGallery(name: string, url: string) {
+  const data: ShareData = { title: `${name} · LAQTA`, text: `Photos from ${name}`, url };
+  try { if (navigator.share) { await navigator.share(data); return; } } catch { /* cancelled */ }
+  try { await navigator.clipboard.writeText(url); } catch { /* noop */ }
 }
