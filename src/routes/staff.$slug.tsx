@@ -232,6 +232,9 @@ function StaffMain({ event }: { event: EventRow }) {
             <span className={`inline-flex items-center gap-1 ${online ? "text-[color:var(--success)]" : "text-[color:var(--warning)]"}`}>
               <span className="inline-block h-2 w-2 rounded-full bg-current" /> {online ? "online" : "offline"}
             </span>
+            <span className={`inline-flex items-center gap-1 ${liveOn ? "text-[color:var(--success)]" : "text-muted-foreground"}`}>
+              {liveOn ? "● live" : "○ refreshing"}
+            </span>
             <span className="text-muted-foreground">{summary.done} {pick(T.done, "en")} · {summary.uploading} {pick(T.uploading, "en")} · {summary.retrying} {pick(T.retrying, "en")}</span>
           </div>
         </div>
