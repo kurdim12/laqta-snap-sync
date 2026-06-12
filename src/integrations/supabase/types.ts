@@ -14,16 +14,213 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assets: {
+        Row: {
+          bytes: number | null
+          content_type: string
+          created_at: string
+          event_id: string
+          guest_id: string | null
+          id: string
+          kind: string
+          meta: Json
+          parent_asset_id: string | null
+          status: string
+          storage_path: string
+          variant: string
+        }
+        Insert: {
+          bytes?: number | null
+          content_type: string
+          created_at?: string
+          event_id: string
+          guest_id?: string | null
+          id: string
+          kind: string
+          meta?: Json
+          parent_asset_id?: string | null
+          status?: string
+          storage_path: string
+          variant?: string
+        }
+        Update: {
+          bytes?: number | null
+          content_type?: string
+          created_at?: string
+          event_id?: string
+          guest_id?: string | null
+          id?: string
+          kind?: string
+          meta?: Json
+          parent_asset_id?: string | null
+          status?: string
+          storage_path?: string
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_parent_asset_id_fkey"
+            columns: ["parent_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deliveries: {
+        Row: {
+          channel: string
+          created_at: string
+          guest_id: string
+          id: string
+          status: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          guest_id: string
+          id?: string
+          status?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          guest_id?: string
+          id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliveries_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          staff_pin: string
+          status: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          staff_pin: string
+          status?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          staff_pin?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      guests: {
+        Row: {
+          code: string
+          consent: boolean
+          created_at: string
+          event_id: string
+          form_data: Json
+          id: string
+          source: string
+        }
+        Insert: {
+          code: string
+          consent?: boolean
+          created_at?: string
+          event_id: string
+          form_data?: Json
+          id: string
+          source?: string
+        }
+        Update: {
+          code?: string
+          consent?: boolean
+          created_at?: string
+          event_id?: string
+          form_data?: Json
+          id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guests_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      verify_staff_pin: {
+        Args: { _pin: string; _slug: string }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "staff" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +347,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "staff", "user"],
+    },
   },
 } as const
