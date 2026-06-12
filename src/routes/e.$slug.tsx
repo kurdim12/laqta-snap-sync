@@ -33,8 +33,8 @@ function GuestForm() {
     let alive = true;
     (async () => {
       const { data, error } = await supabase
-        .from("events")
-        .select("id,slug,name,status,config,staff_pin,created_at")
+        .from("events_public")
+        .select("id,slug,name,status,config,created_at")
         .eq("slug", slug)
         .maybeSingle();
       if (!alive) return;
