@@ -63,17 +63,20 @@ function PublicGallery() {
     let alive = true;
     (async () => {
       const { data } = await supabase
-        .from("events")
-        .select("*")
+        .from("events_public")
+        .select("id,slug,name,status,config,created_at")
         .eq("slug", slug)
         .maybeSingle();
       if (!alive) return;
-      if (!data || (data.status !== "live" && data.status !== "dryrun")) {
+      if (!data || !data.id || !data.slug || !data.name || (data.status !== "live" && data.status !== "dryrun")) {
         setUnavailable(true);
         return;
       }
       const ev: EventRow = {
-        ...data,
+        id: data.id,
+        slug: data.slug,
+        name: data.name,
+        created_at: data.created_at ?? "",
         status: data.status as EventRow["status"],
         config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } as EventConfig,
       };
