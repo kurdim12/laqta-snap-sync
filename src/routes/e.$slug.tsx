@@ -38,12 +38,15 @@ function GuestForm() {
         .eq("slug", slug)
         .maybeSingle();
       if (!alive) return;
-      if (error || !data || (data.status !== "live" && data.status !== "dryrun")) {
+      if (error || !data || !data.id || !data.slug || !data.name || (data.status !== "live" && data.status !== "dryrun")) {
         setState({ kind: "unavailable" });
         return;
       }
       const event: EventRow = {
-        ...data,
+        id: data.id,
+        slug: data.slug,
+        name: data.name,
+        created_at: data.created_at ?? "",
         status: data.status as EventRow["status"],
         config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } as EventConfig,
       };
