@@ -14,14 +14,47 @@ export const Route = createFileRoute("/admin")({
 
 function Admin() {
   const [session, setSession] = useState<unknown>(undefined);
+  const [role, setRole] = useState<"admin" | "none" | "loading">("loading");
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
-  if (session === undefined) return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+
+  useEffect(() => {
+    if (!session) { setRole("none"); return; }
+    setRole("loading");
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) { setRole("none"); return; }
+      const { data, error } = await supabase.rpc("has_role", { _user_id: u.user.id, _role: "admin" });
+      setRole(!error && data === true ? "admin" : "none");
+    })();
+  }, [session]);
+
+  if (session === undefined || (session && role === "loading")) {
+    return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+  }
   if (!session) return <AuthForm />;
+  if (role !== "admin") return <NotAuthorized />;
   return <AdminDashboard />;
+}
+
+function NotAuthorized() {
+  async function signOut() { await supabase.auth.signOut(); }
+  return (
+    <main className="grid min-h-screen place-items-center bg-background px-6 text-center">
+      <div className="max-w-sm">
+        <div className="code-display text-3xl font-black text-primary">LAQTA</div>
+        <div className="mt-1 text-[10px] uppercase tracking-[0.3em] text-muted-foreground">admin console</div>
+        <div className="mx-auto mt-8 grid h-16 w-16 place-items-center rounded-2xl border border-destructive/40 bg-destructive/10 text-3xl text-destructive">⛔</div>
+        <h1 className="mt-5 text-xl font-bold">Not authorized</h1>
+        <p className="mt-2 text-sm text-muted-foreground">This account doesn't have admin access. Ask an existing admin to grant your role, or sign out and try a different account.</p>
+        <button onClick={signOut} className="mt-6 rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-muted">Sign out</button>
+      </div>
+    </main>
+  );
 }
 
 /* ------------------------------------------------------------------ */
