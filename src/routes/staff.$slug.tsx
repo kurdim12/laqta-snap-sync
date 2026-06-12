@@ -125,8 +125,9 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
       _slug: event.slug,
       _pin: pin,
       _id: row.id,
-      _guest_id: row.guestId,
-      _parent_asset_id: row.parentId,
+      // generated types mark these required, but the SQL accepts NULL for unpaired/parent assets
+      _guest_id: row.guestId as unknown as string,
+      _parent_asset_id: row.parentId as unknown as string,
       _kind: row.kind,
       _variant: row.variant,
       _storage_path: row.path,
@@ -134,6 +135,7 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
       _bytes: row.bytes,
     });
     if (error) throw error;
+
   }
 
   async function uploadOne(item: QueueItem) {
