@@ -153,7 +153,7 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
 
   async function save() {
     setErr(null); setBusy(true);
-    const payload = { name, slug: slug || slugify(name), status, config: config as unknown as object, staff_pin: pin };
+    const payload = { name, slug: slug || slugify(name), status, config: config as unknown as never, staff_pin: pin };
     const q = event
       ? supabase.from("events").update(payload).eq("id", event.id)
       : supabase.from("events").insert(payload);
@@ -168,7 +168,7 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
     setBusy(true);
     await supabase.from("events").insert({
       name: event.name + " (dry run)", slug: event.slug + "-dryrun",
-      status: "dryrun", config: event.config as unknown as object, staff_pin: genPin(),
+      status: "dryrun", config: event.config as unknown as never, staff_pin: genPin(),
     });
     setBusy(false); onClose();
   }
