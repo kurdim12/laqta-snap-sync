@@ -1,5 +1,5 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
@@ -30,6 +30,8 @@ function PublicGallery() {
   const cfg = event?.config || DEFAULT_CONFIG;
   const [lang, setLang, toggleable] = useLang(cfg.locale);
 
+  const themeCleanupRef = useRef<(() => void) | null>(null);
+
   async function load() {
     try {
       const res = await fetchGallery({ data: { slug } });
@@ -42,14 +44,21 @@ function PublicGallery() {
         config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig,
       };
       setEvent(ev);
-      applyTheme(ev.config);
+      if (themeCleanupRef.current) themeCleanupRef.current();
+      themeCleanupRef.current = applyEventTheme(ev.config.theme);
       setAssets(res.assets.map((a) => ({ id: a.id, kind: a.kind, url: a.url, thumbUrl: a.thumbUrl })));
     } catch {
       setUnavailable(true);
     }
   }
 
-  useEffect(() => { load(); }, [slug]);
+  useEffect(() => {
+    load();
+    return () => {
+      if (themeCleanupRef.current) { themeCleanupRef.current(); themeCleanupRef.current = null; }
+    };
+  }, [slug]);
+
 
   useEffect(() => {
     if (unavailable) return;

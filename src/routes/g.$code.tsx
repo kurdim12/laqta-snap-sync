@@ -33,6 +33,8 @@ function Gallery() {
   const cfg = event?.config || DEFAULT_CONFIG;
   const [lang, setLang, toggleable] = useLang(cfg.locale);
 
+  const themeCleanupRef = useRef<(() => void) | null>(null);
+
   async function load() {
     try {
       const res = await fetchGallery({ data: { code } });
@@ -47,14 +49,21 @@ function Gallery() {
         config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig,
       };
       setEvent(ev);
-      applyTheme(ev.config);
+      if (themeCleanupRef.current) themeCleanupRef.current();
+      themeCleanupRef.current = applyEventTheme(ev.config.theme);
       setAssets(res.assets.map((a) => ({ id: a.id, kind: a.kind, url: a.url, thumbUrl: a.thumbUrl })));
     } catch {
       setNotFound(true);
     }
   }
 
-  useEffect(() => { load(); }, [code]);
+  useEffect(() => {
+    load();
+    return () => {
+      if (themeCleanupRef.current) { themeCleanupRef.current(); themeCleanupRef.current = null; }
+    };
+  }, [code]);
+
 
   useEffect(() => {
     if (notFound) return;
