@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
+import { applyEventTheme } from "@/lib/theme";
 import { getGalleryByCode, getDownloadUrlsByCode } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/g/$code")({
@@ -11,12 +12,6 @@ export const Route = createFileRoute("/g/$code")({
   component: Gallery,
 });
 
-function applyTheme(c: EventConfig) {
-  const r = document.documentElement.style;
-  if (c.theme.primary) r.setProperty("--primary", c.theme.primary);
-  if (c.theme.background) r.setProperty("--background", c.theme.background);
-  if (c.theme.text) r.setProperty("--foreground", c.theme.text);
-}
 
 interface GalleryAsset {
   id: string;

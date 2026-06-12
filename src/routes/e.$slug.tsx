@@ -18,12 +18,7 @@ type LoadState =
   | { kind: "unavailable" }
   | { kind: "ready"; event: EventRow };
 
-function applyTheme(config: EventConfig) {
-  const root = document.documentElement.style;
-  if (config.theme.primary) root.setProperty("--primary", config.theme.primary);
-  if (config.theme.background) root.setProperty("--background", config.theme.background);
-  if (config.theme.text) root.setProperty("--foreground", config.theme.text);
-}
+import { applyEventTheme } from "@/lib/theme";
 
 function GuestForm() {
   const { slug } = useParams({ from: "/e/$slug" });
@@ -31,6 +26,7 @@ function GuestForm() {
 
   useEffect(() => {
     let alive = true;
+    let cleanupTheme: (() => void) | null = null;
     (async () => {
       const { data, error } = await supabase
         .from("events_public")
@@ -50,11 +46,12 @@ function GuestForm() {
         status: data.status as EventRow["status"],
         config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } as EventConfig,
       };
-      applyTheme(event.config);
+      cleanupTheme = applyEventTheme(event.config.theme);
       setState({ kind: "ready", event });
     })();
-    return () => { alive = false; };
+    return () => { alive = false; if (cleanupTheme) cleanupTheme(); };
   }, [slug]);
+
 
   if (state.kind === "loading") {
     return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
