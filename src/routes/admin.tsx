@@ -69,11 +69,25 @@ function AuthForm() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [adminExists, setAdminExists] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.rpc("admin_exists");
+      if (!alive) return;
+      const exists = Boolean(data);
+      setAdminExists(exists);
+      if (exists) setMode("signin");
+    })();
+    return () => { alive = false; };
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setErr(null); setBusy(true);
     try {
       if (mode === "signup") {
+        if (adminExists) throw new Error("Sign-up is closed for this workspace");
         const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + "/admin" } });
         if (error) throw error;
       } else {
@@ -97,13 +111,16 @@ function AuthForm() {
         <button disabled={busy} className="w-full rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60">
           {mode === "signup" ? pick(T.signUp, "en") : pick(T.signIn, "en")}
         </button>
-        <button type="button" onClick={() => setMode(mode === "signup" ? "signin" : "signup")} className="w-full text-center text-xs text-muted-foreground underline">
-          {mode === "signup" ? "Have an account? Sign in" : "Need an account? Sign up"}
-        </button>
+        {adminExists === false && (
+          <button type="button" onClick={() => setMode(mode === "signup" ? "signin" : "signup")} className="w-full text-center text-xs text-muted-foreground underline">
+            {mode === "signup" ? "Have an account? Sign in" : "Need an account? Sign up"}
+          </button>
+        )}
       </form>
     </main>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Dashboard                                                           */

@@ -127,7 +127,8 @@ export type Database = {
           id: string
           name: string
           slug: string
-          staff_pin: string
+          staff_pin: string | null
+          staff_pin_hash: string | null
           status: string
         }
         Insert: {
@@ -136,7 +137,8 @@ export type Database = {
           id?: string
           name: string
           slug: string
-          staff_pin: string
+          staff_pin?: string | null
+          staff_pin_hash?: string | null
           status?: string
         }
         Update: {
@@ -145,7 +147,8 @@ export type Database = {
           id?: string
           name?: string
           slug?: string
-          staff_pin?: string
+          staff_pin?: string | null
+          staff_pin_hash?: string | null
           status?: string
         }
         Relationships: []
@@ -197,6 +200,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      staff_pin_attempts: {
+        Row: {
+          failed_count: number
+          last_failed_at: string | null
+          locked_until: string | null
+          slug: string
+        }
+        Insert: {
+          failed_count?: number
+          last_failed_at?: string | null
+          locked_until?: string | null
+          slug: string
+        }
+        Update: {
+          failed_count?: number
+          last_failed_at?: string | null
+          locked_until?: string | null
+          slug?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -250,6 +274,11 @@ export type Database = {
       }
     }
     Functions: {
+      _check_staff_pin: {
+        Args: { _pin: string; _slug: string }
+        Returns: string
+      }
+      admin_exists: { Args: never; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -260,6 +289,21 @@ export type Database = {
       set_guest_selfie: {
         Args: { _code: string; _id: string; _path: string }
         Returns: boolean
+      }
+      staff_create_asset: {
+        Args: {
+          _bytes: number
+          _content_type: string
+          _guest_id: string
+          _id: string
+          _kind: string
+          _parent_asset_id: string
+          _pin: string
+          _slug: string
+          _storage_path: string
+          _variant: string
+        }
+        Returns: string
       }
       staff_list_guests: {
         Args: { _pin: string; _slug: string }

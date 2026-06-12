@@ -116,6 +116,28 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   }
 
+  async function createAsset(row: {
+    id: string; guestId: string | null; parentId: string | null;
+    kind: "photo" | "video"; variant: "original" | "web" | "thumb" | "poster";
+    path: string; contentType: string; bytes: number;
+  }) {
+    const { error } = await supabase.rpc("staff_create_asset", {
+      _slug: event.slug,
+      _pin: pin,
+      _id: row.id,
+      // generated types mark these required, but the SQL accepts NULL for unpaired/parent assets
+      _guest_id: row.guestId as unknown as string,
+      _parent_asset_id: row.parentId as unknown as string,
+      _kind: row.kind,
+      _variant: row.variant,
+      _storage_path: row.path,
+      _content_type: row.contentType,
+      _bytes: row.bytes,
+    });
+    if (error) throw error;
+
+  }
+
   async function uploadOne(item: QueueItem) {
     update(item.id, { state: "uploading", progress: 5 });
     const isVideo = item.file.type.startsWith("video/");
@@ -130,12 +152,12 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
       if (upErr) throw upErr;
       update(item.id, { progress: 40, assetId });
 
-      // create asset row (parent)
-      const parent = { id: assetId, event_id: event.id, guest_id: item.guestId, parent_asset_id: null,
-        kind, variant: "original" as const, storage_path: origPath, content_type: item.file.type,
-        bytes: item.file.size, status: "ready" as const, meta: {} };
-      const { error: aErr } = await supabase.from("assets").upsert(parent, { onConflict: "id" });
-      if (aErr) throw aErr;
+      // create asset row (parent) via PIN-validated RPC
+      await createAsset({
+        id: assetId, guestId: item.guestId, parentId: null,
+        kind, variant: "original", path: origPath,
+        contentType: item.file.type, bytes: item.file.size,
+      });
       update(item.id, { progress: 55 });
 
       // variants
@@ -147,23 +169,18 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
         await supabase.storage.from("media").upload(webPath, webBlob, { upsert: true, contentType: "image/jpeg" });
         update(item.id, { progress: 75 });
         await supabase.storage.from("media").upload(thumbPath, thumbBlob, { upsert: true, contentType: "image/jpeg" });
-        await supabase.from("assets").upsert([
-          { id: newId(), event_id: event.id, guest_id: item.guestId, parent_asset_id: assetId, kind, variant: "web", storage_path: webPath, content_type: "image/jpeg", bytes: webBlob.size, status: "ready", meta: {} },
-          { id: newId(), event_id: event.id, guest_id: item.guestId, parent_asset_id: assetId, kind, variant: "thumb", storage_path: thumbPath, content_type: "image/jpeg", bytes: thumbBlob.size, status: "ready", meta: {} },
-        ]);
+        await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "web", path: webPath, contentType: "image/jpeg", bytes: webBlob.size });
+        await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "thumb", path: thumbPath, contentType: "image/jpeg", bytes: thumbBlob.size });
       } else {
         const poster = await videoPoster(item.file);
         if (poster) {
           const posterPath = `${basePath}/poster.jpg`;
           await supabase.storage.from("media").upload(posterPath, poster, { upsert: true, contentType: "image/jpeg" });
-          await supabase.from("assets").upsert([{
-            id: newId(), event_id: event.id, guest_id: item.guestId, parent_asset_id: assetId,
-            kind, variant: "poster", storage_path: posterPath, content_type: "image/jpeg",
-            bytes: poster.size, status: "ready", meta: {},
-          }]);
+          await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "poster", path: posterPath, contentType: "image/jpeg", bytes: poster.size });
         }
       }
       update(item.id, { state: "done", progress: 100 });
+
     } catch (e) {
       const attempts = item.attempts + 1;
       const msg = (e as Error).message || "upload failed";

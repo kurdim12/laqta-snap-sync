@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
+import { applyEventTheme } from "@/lib/theme";
 import { getGalleryByCode, getDownloadUrlsByCode } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/g/$code")({
@@ -11,12 +12,6 @@ export const Route = createFileRoute("/g/$code")({
   component: Gallery,
 });
 
-function applyTheme(c: EventConfig) {
-  const r = document.documentElement.style;
-  if (c.theme.primary) r.setProperty("--primary", c.theme.primary);
-  if (c.theme.background) r.setProperty("--background", c.theme.background);
-  if (c.theme.text) r.setProperty("--foreground", c.theme.text);
-}
 
 interface GalleryAsset {
   id: string;
@@ -38,6 +33,8 @@ function Gallery() {
   const cfg = event?.config || DEFAULT_CONFIG;
   const [lang, setLang, toggleable] = useLang(cfg.locale);
 
+  const themeCleanupRef = useRef<(() => void) | null>(null);
+
   async function load() {
     try {
       const res = await fetchGallery({ data: { code } });
@@ -52,14 +49,21 @@ function Gallery() {
         config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig,
       };
       setEvent(ev);
-      applyTheme(ev.config);
+      if (themeCleanupRef.current) themeCleanupRef.current();
+      themeCleanupRef.current = applyEventTheme(ev.config.theme);
       setAssets(res.assets.map((a) => ({ id: a.id, kind: a.kind, url: a.url, thumbUrl: a.thumbUrl })));
     } catch {
       setNotFound(true);
     }
   }
 
-  useEffect(() => { load(); }, [code]);
+  useEffect(() => {
+    load();
+    return () => {
+      if (themeCleanupRef.current) { themeCleanupRef.current(); themeCleanupRef.current = null; }
+    };
+  }, [code]);
+
 
   useEffect(() => {
     if (notFound) return;
