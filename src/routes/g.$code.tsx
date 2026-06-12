@@ -35,14 +35,15 @@ function Gallery() {
   const [lang, setLang, toggleable] = useLang(cfg.locale);
 
   async function load() {
-    const { data: g } = await supabase.from("guests").select("*").eq("code", code.toUpperCase()).maybeSingle();
+    const { data: gRows } = await supabase.rpc("get_guest_by_code", { _code: code.toUpperCase() });
+    const g = Array.isArray(gRows) ? gRows[0] : gRows;
     if (!g) { setNotFound(true); return; }
     setNotFound(false);
     setGuest(g as GuestRow);
     if (!event || event.id !== g.event_id) {
-      const { data: e } = await supabase.from("events").select("*").eq("id", g.event_id).maybeSingle();
-      if (e) {
-        const ev: EventRow = { ...e, status: e.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig };
+      const { data: e } = await supabase.from("events_public").select("id,slug,name,status,config,created_at").eq("id", g.event_id).maybeSingle();
+      if (e && e.id && e.slug && e.name) {
+        const ev: EventRow = { id: e.id, slug: e.slug, name: e.name, created_at: e.created_at ?? "", status: e.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig };
         setEvent(ev);
         applyTheme(ev.config);
       }
