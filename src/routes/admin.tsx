@@ -245,6 +245,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
   const [editing, setEditing] = useState(false);
   const [showRegs, setShowRegs] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [showPhotos, setShowPhotos] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const formUrl = `${origin}/e/${ev.slug}`;
