@@ -92,6 +92,10 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
   const [liveOn, setLiveOn] = useState(false);
   const queueRef = useRef(queue);
   queueRef.current = queue;
+  // Stop the queue from running in the background after the page unmounts
+  // (prevents stray uploads / duplicate rows when navigating away).
+  const aliveRef = useRef(true);
+  useEffect(() => () => { aliveRef.current = false; }, []);
 
   useEffect(() => {
     const on = () => setOnline(true); const off = () => setOnline(false);
@@ -139,6 +143,7 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
   }
 
   async function uploadOne(item: QueueItem) {
+    if (!aliveRef.current) return;
     update(item.id, { state: "uploading", progress: 5 });
     const isVideo = item.file.type.startsWith("video/");
     const kind: "photo" | "video" = isVideo ? "video" : "photo";
@@ -190,6 +195,7 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
         update(item.id, { state: "retrying", attempts, error: msg });
         const delay = [2000, 4000, 8000, 16000, 30000][Math.min(attempts - 1, 4)];
         setTimeout(() => {
+          if (!aliveRef.current) return;
           const cur = queueRef.current.find((q) => q.id === item.id);
           if (cur && (cur.state === "retrying")) uploadOne({ ...cur });
         }, delay);
@@ -198,6 +204,7 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
   }
 
   const drain = useCallback(() => {
+    if (!aliveRef.current) return;
     const items = queueRef.current;
     const uploading = items.filter((i) => i.state === "uploading").length;
     let slots = 3 - uploading;
@@ -207,7 +214,9 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
     }
   }, []);
 
-  useEffect(() => { drain(); }, [queue.length, drain]);
+  // Re-run on every queue change (not just length) so the next file starts as
+  // soon as one finishes — otherwise the last items stall on "queued".
+  useEffect(() => { drain(); }, [queue, drain]);
 
   function onFiles(files: FileList | File[]) {
     const arr = Array.from(files);
