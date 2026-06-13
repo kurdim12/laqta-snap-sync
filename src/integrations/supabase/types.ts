@@ -128,6 +128,7 @@ export type Database = {
           name: string
           slug: string
           staff_pin: string | null
+          staff_pin_hash: string | null
           status: string
         }
         Insert: {
@@ -137,6 +138,7 @@ export type Database = {
           name: string
           slug: string
           staff_pin?: string | null
+          staff_pin_hash?: string | null
           status?: string
         }
         Update: {
@@ -146,6 +148,7 @@ export type Database = {
           name?: string
           slug?: string
           staff_pin?: string | null
+          staff_pin_hash?: string | null
           status?: string
         }
         Relationships: []
