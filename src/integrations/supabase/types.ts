@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       assets: {
         Row: {
+          approved: boolean
           bytes: number | null
           content_type: string
           created_at: string
@@ -30,6 +31,7 @@ export type Database = {
           variant: string
         }
         Insert: {
+          approved?: boolean
           bytes?: number | null
           content_type: string
           created_at?: string
@@ -44,6 +46,7 @@ export type Database = {
           variant?: string
         }
         Update: {
+          approved?: boolean
           bytes?: number | null
           content_type?: string
           created_at?: string

@@ -8,6 +8,7 @@ import { qrUrl } from "@/lib/qr";
 import { QrSheet } from "@/components/QrSheet";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
+import { resizeImage } from "@/lib/media";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -713,6 +714,18 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
                     <option value="public">Public wall</option>
                   </select>
                 </Field>
+                <Field label="Registration">
+                  <select value={config.registration || "open"} onChange={(e) => setConfig({ ...config, registration: e.target.value as "open" | "none" })} className="input">
+                    <option value="open">Open (guests register on /e/&hellip;)</option>
+                    <option value="none">None (QR opens gallery directly)</option>
+                  </select>
+                </Field>
+                <Field label="Require approval before public">
+                  <select value={String(Boolean(config.gallery?.requireApproval))} onChange={(e) => setConfig({ ...config, gallery: { ...config.gallery, requireApproval: e.target.value === "true" } })} className="input">
+                    <option value="false">No (publish immediately)</option>
+                    <option value="true">Yes (admin must approve)</option>
+                  </select>
+                </Field>
                 {config.gallery?.mode === "public" && (
                   <div className="sm:col-span-2 rounded-lg border border-[color:var(--warning)]/50 bg-[color:var(--warning)]/10 px-3 py-2 text-xs text-[color:var(--warning)]">
                     <span className="font-arabic">كل صور الفعالية رح تكون مرئية للجميع — للفعاليات العامة فقط</span>
@@ -851,8 +864,11 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [filter, setFilter] = useState<"all" | "linked" | "orphan">("all");
+  const [approval, setApproval] = useState<"all" | "pending" | "approved">("all");
   const [query, setQuery] = useState("");
   const [liveOn, setLiveOn] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -897,9 +913,13 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
   const filtered = assets.filter((a) => {
     if (filter === "linked" && !a.guest_id) return false;
     if (filter === "orphan" && a.guest_id) return false;
+    if (approval === "pending" && a.approved !== false) return false;
+    if (approval === "approved" && a.approved === false) return false;
     if (q && !(a.guestName || "").toLowerCase().includes(q) && !(a.guestCode || "").toLowerCase().includes(q)) return false;
     return true;
   });
+
+  const pendingCount = assets.filter((a) => a.approved === false).length;
 
   const items: LightboxItem[] = filtered.map((a) => ({ id: a.id, kind: a.kind === "video" ? "video" : "photo", url: a.url, thumbUrl: a.thumbUrl }));
 
@@ -914,6 +934,70 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
       link.remove();
       await new Promise((r) => setTimeout(r, 350));
     }
+  }
+
+  async function setApproved(a: EnrichedAsset, approved: boolean) {
+    await supabase.from("assets").update({ approved }).eq("event_id", event.id).or(`id.eq.${a.id},parent_asset_id.eq.${a.id}`);
+    load();
+  }
+
+  async function handleUpload(files: FileList | null) {
+    if (!files || !files.length) return;
+    setUploading(true); setUploadMsg(null);
+    let ok = 0, fail = 0;
+    for (const file of Array.from(files)) {
+      try {
+        const isVideo = file.type.startsWith("video/");
+        const ext = (file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")).toLowerCase();
+        const id = crypto.randomUUID();
+        const basePath = `${event.id}/admin/${id}`;
+        // Upload original
+        const { error: upErr } = await supabase.storage.from("media").upload(`${basePath}.${ext}`, file, { contentType: file.type, upsert: false });
+        if (upErr) throw upErr;
+        const requireApproval = Boolean(event.config.gallery?.requireApproval);
+        const { error: insErr } = await supabase.from("assets").insert({
+          id, event_id: event.id, guest_id: null, parent_asset_id: null,
+          kind: isVideo ? "video" : "photo", variant: "original",
+          storage_path: `${basePath}.${ext}`, content_type: file.type || (isVideo ? "video/mp4" : "image/jpeg"),
+          bytes: file.size, status: "ready", approved: !requireApproval,
+        });
+        if (insErr) throw insErr;
+        // Web variant for photos (snappier gallery)
+        if (!isVideo) {
+          try {
+            const web = await resizeImage(file, 1600, 0.85);
+            const webId = crypto.randomUUID();
+            const webPath = `${event.id}/admin/${webId}.jpg`;
+            const { error: webUpErr } = await supabase.storage.from("media").upload(webPath, web, { contentType: "image/jpeg", upsert: false });
+            if (!webUpErr) {
+              await supabase.from("assets").insert({
+                id: webId, event_id: event.id, guest_id: null, parent_asset_id: id,
+                kind: "photo", variant: "web", storage_path: webPath, content_type: "image/jpeg",
+                bytes: web.size, status: "ready", approved: !requireApproval,
+              });
+            }
+            const thumb = await resizeImage(file, 600, 0.8);
+            const thumbId = crypto.randomUUID();
+            const thumbPath = `${event.id}/admin/${thumbId}.jpg`;
+            const { error: thUpErr } = await supabase.storage.from("media").upload(thumbPath, thumb, { contentType: "image/jpeg", upsert: false });
+            if (!thUpErr) {
+              await supabase.from("assets").insert({
+                id: thumbId, event_id: event.id, guest_id: null, parent_asset_id: id,
+                kind: "photo", variant: "thumb", storage_path: thumbPath, content_type: "image/jpeg",
+                bytes: thumb.size, status: "ready", approved: !requireApproval,
+              });
+            }
+          } catch { /* variants are best-effort */ }
+        }
+        ok++;
+      } catch (e) {
+        console.error("upload failed", e);
+        fail++;
+      }
+    }
+    setUploading(false);
+    setUploadMsg(`${ok} uploaded${fail ? `, ${fail} failed` : ""}${event.config.gallery?.requireApproval ? " — pending your approval" : ""}`);
+    load();
   }
 
   return (
@@ -931,16 +1015,28 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <label className={`cursor-pointer rounded-lg bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground transition hover:opacity-90 ${uploading ? "opacity-60 pointer-events-none" : ""}`}>
+              {uploading ? "Uploading…" : "+ Upload"}
+              <input type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => { handleUpload(e.target.files); e.currentTarget.value = ""; }} />
+            </label>
             <button onClick={downloadAll} disabled={!filtered.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold transition hover:bg-muted disabled:opacity-50">Download all</button>
             <button onClick={load} className="rounded-lg border border-border px-3 py-1.5 text-sm">Refresh</button>
             <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm">Close</button>
           </div>
         </div>
+        {uploadMsg && <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">{uploadMsg}</div>}
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1 rounded-lg border border-border bg-background p-0.5">
             {(["all", "linked", "orphan"] as const).map((f) => (
               <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
+            ))}
+          </div>
+          <div className="flex gap-1 rounded-lg border border-border bg-background p-0.5">
+            {(["all", "pending", "approved"] as const).map((f) => (
+              <button key={f} onClick={() => setApproval(f)} className={`rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition ${approval === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                {f}{f === "pending" && pendingCount ? ` · ${pendingCount}` : ""}
+              </button>
             ))}
           </div>
           <input placeholder="Search guest name or code…" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 min-w-[180px] rounded-xl border border-border bg-input px-3 py-1.5 text-sm outline-none focus:border-primary" />
@@ -954,26 +1050,35 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
           ) : filtered.length === 0 ? (
             <div className="grid place-items-center py-20 text-center">
               <div className="text-6xl opacity-30">📷</div>
-              <p className="mt-3 text-sm text-muted-foreground">No photos yet. They'll appear here as staff or guests upload.</p>
+              <p className="mt-3 text-sm text-muted-foreground">No photos yet. Click <span className="font-bold text-primary">+ Upload</span> or wait for staff to upload.</p>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
               {filtered.map((a, i) => (
-                <button key={a.id} onClick={() => setLightbox(i)} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted transition hover:border-primary">
-                  {a.thumbUrl ? (
-                    <img src={a.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center text-2xl opacity-40">{a.kind === "video" ? "🎬" : "📷"}</div>
-                  )}
-                  {a.kind === "video" && <span className="absolute top-1 right-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">VIDEO</span>}
+                <div key={a.id} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted transition hover:border-primary">
+                  <button onClick={() => setLightbox(i)} className="absolute inset-0 h-full w-full">
+                    {a.thumbUrl ? (
+                      <img src={a.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-2xl opacity-40">{a.kind === "video" ? "🎬" : "📷"}</div>
+                    )}
+                  </button>
+                  {a.kind === "video" && <span className="pointer-events-none absolute top-1 right-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">VIDEO</span>}
+                  {a.approved === false && <span className="pointer-events-none absolute top-1 left-1 rounded bg-[color:var(--warning)]/90 px-1 text-[9px] font-bold text-black">PENDING</span>}
                   {a.guestCode && (
-                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-start text-[10px] font-bold text-white">
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-start text-[10px] font-bold text-white">
                       <span className="code-display block truncate" dir="ltr">{a.guestCode}</span>
                       {a.guestName && <span className="block truncate font-normal opacity-80">{a.guestName}</span>}
                     </span>
                   )}
-                  {!a.guest_id && <span className="absolute top-1 left-1 rounded bg-[color:var(--warning)]/90 px-1 text-[9px] font-bold text-black">orphan</span>}
-                </button>
+                  <div className="absolute right-1 bottom-1 z-10 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                    {a.approved === false ? (
+                      <button onClick={(e) => { e.stopPropagation(); setApproved(a, true); }} title="Approve" className="rounded bg-[color:var(--success)] px-1.5 py-0.5 text-[10px] font-bold text-black">✓</button>
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); setApproved(a, false); }} title="Unpublish" className="rounded bg-[color:var(--warning)] px-1.5 py-0.5 text-[10px] font-bold text-black">↩</button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           )}

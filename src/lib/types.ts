@@ -10,17 +10,20 @@ export interface EventField {
 
 export interface EventConfig {
   locale: Locale;
+  /** "open" = guests register on /e/:slug; "none" = no registration form, QR opens public gallery */
+  registration?: "open" | "none";
   theme: { primary: string; background: string; text: string; logoUrl: string };
   fields: EventField[];
   consentText: Bilingual;
   successMessage: Bilingual;
-  gallery: { allowDownloadAll: boolean; showVideos: boolean; mode: "private" | "public" };
+  gallery: { allowDownloadAll: boolean; showVideos: boolean; mode: "private" | "public"; requireApproval?: boolean };
   selfie: "required" | "optional" | "off";
   limits: { maxVideoMB: number; maxPhotoMB: number };
 }
 
 export const DEFAULT_CONFIG: EventConfig = {
   locale: "both",
+  registration: "open",
   theme: { primary: "#C9A227", background: "#0E0E10", text: "#FAFAF7", logoUrl: "" },
   fields: [
     { key: "name", type: "text", required: true, label: { ar: "الاسم", en: "Name" } },
@@ -29,7 +32,7 @@ export const DEFAULT_CONFIG: EventConfig = {
   ],
   consentText: { ar: "أوافق على استخدام صوري لأغراض الفعالية", en: "I agree to my photos being used for this event" },
   successMessage: { ar: "تم! صورك رح توصلك هون", en: "Done! Your photos will appear here" },
-  gallery: { allowDownloadAll: true, showVideos: true, mode: "private" },
+  gallery: { allowDownloadAll: true, showVideos: true, mode: "private", requireApproval: false },
   selfie: "optional",
   limits: { maxVideoMB: 50, maxPhotoMB: 25 },
 };
@@ -68,4 +71,5 @@ export interface AssetRow {
   status: "pending" | "ready" | "failed" | "hidden";
   meta: Record<string, unknown>;
   created_at: string;
+  approved?: boolean;
 }
