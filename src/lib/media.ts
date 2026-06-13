@@ -34,6 +34,21 @@ export async function resizeImage(file: File, maxSide: number, quality = 0.85): 
   return canvasToBlob(canvas, "image/jpeg", quality);
 }
 
+// Resize an uploaded logo and return a PNG data URL (preserves transparency).
+// Small enough to live inline in the event config — no storage bucket needed and
+// no signed-URL expiry, so the logo renders permanently on the form and gallery.
+export async function logoDataUrl(file: File, maxSide = 256): Promise<string> {
+  const img = await loadImage(file);
+  const ratio = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * ratio));
+  const h = Math.max(1, Math.round(img.naturalHeight * ratio));
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL("image/png");
+}
+
 export async function videoPoster(file: File): Promise<Blob | null> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
