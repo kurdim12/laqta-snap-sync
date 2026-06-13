@@ -869,6 +869,7 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
   const [liveOn, setLiveOn] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<EnrichedAsset | null>(null);
 
   async function load() {
     setLoading(true);
@@ -952,6 +953,21 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
 
   async function setApproved(a: EnrichedAsset, approved: boolean) {
     await supabase.from("assets").update({ approved }).eq("event_id", event.id).or(`id.eq.${a.id},parent_asset_id.eq.${a.id}`);
+    load();
+  }
+
+  // Permanently delete a photo: its original + all variants (rows AND files).
+  async function deletePhoto(a: EnrichedAsset) {
+    const { data: related } = await supabase
+      .from("assets")
+      .select("storage_path")
+      .eq("event_id", event.id)
+      .or(`id.eq.${a.id},parent_asset_id.eq.${a.id}`);
+    const paths = (related || []).map((r) => r.storage_path).filter(Boolean) as string[];
+    if (paths.length) await supabase.storage.from("media").remove(paths);
+    await supabase.from("assets").delete().eq("event_id", event.id).or(`id.eq.${a.id},parent_asset_id.eq.${a.id}`);
+    setConfirmDel(null);
+    if (lightbox !== null) setLightbox(null);
     load();
   }
 
@@ -1091,6 +1107,7 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
                     ) : (
                       <button onClick={(e) => { e.stopPropagation(); setApproved(a, false); }} title="Unpublish" className="rounded bg-[color:var(--warning)] px-1.5 py-0.5 text-[10px] font-bold text-black">↩</button>
                     )}
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDel(a); }} title="Delete" className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground">🗑</button>
                   </div>
                 </div>
               ))}
@@ -1108,6 +1125,17 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
             onClose={() => setLightbox(null)}
             onIndexChange={setLightbox}
             shareTitle={event.name}
+          />
+        </div>
+      )}
+      {confirmDel && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ConfirmModal
+            title="Delete photo?"
+            body={`This permanently removes the ${confirmDel.kind === "video" ? "video" : "photo"} and all its variants — the file and database record. This cannot be undone.`}
+            confirmLabel="Delete"
+            onCancel={() => setConfirmDel(null)}
+            onConfirm={() => deletePhoto(confirmDel)}
           />
         </div>
       )}
