@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as StudioRouteImport } from './routes/studio'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StaffSlugRouteImport } from './routes/staff.$slug'
@@ -17,11 +16,6 @@ import { Route as GCodeRouteImport } from './routes/g.$code'
 import { Route as ESlugRouteImport } from './routes/e.$slug'
 import { Route as ESlugGalleryRouteImport } from './routes/e.$slug.gallery'
 
-const StudioRoute = StudioRouteImport.update({
-  id: '/studio',
-  path: '/studio',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -56,7 +50,6 @@ const ESlugGalleryRoute = ESlugGalleryRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/studio': typeof StudioRoute
   '/e/$slug': typeof ESlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/staff/$slug': typeof StaffSlugRoute
@@ -65,7 +58,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/studio': typeof StudioRoute
   '/e/$slug': typeof ESlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/staff/$slug': typeof StaffSlugRoute
@@ -75,7 +67,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/studio': typeof StudioRoute
   '/e/$slug': typeof ESlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/staff/$slug': typeof StaffSlugRoute
@@ -86,7 +77,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
-    | '/studio'
     | '/e/$slug'
     | '/g/$code'
     | '/staff/$slug'
@@ -95,7 +85,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
-    | '/studio'
     | '/e/$slug'
     | '/g/$code'
     | '/staff/$slug'
@@ -104,7 +93,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
-    | '/studio'
     | '/e/$slug'
     | '/g/$code'
     | '/staff/$slug'
@@ -114,7 +102,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
-  StudioRoute: typeof StudioRoute
   ESlugRoute: typeof ESlugRouteWithChildren
   GCodeRoute: typeof GCodeRoute
   StaffSlugRoute: typeof StaffSlugRoute
@@ -122,13 +109,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/studio': {
-      id: '/studio'
-      path: '/studio'
-      fullPath: '/studio'
-      preLoaderRoute: typeof StudioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -187,7 +167,6 @@ const ESlugRouteWithChildren = ESlugRoute._addFileChildren(ESlugRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
-  StudioRoute: StudioRoute,
   ESlugRoute: ESlugRouteWithChildren,
   GCodeRoute: GCodeRoute,
   StaffSlugRoute: StaffSlugRoute,

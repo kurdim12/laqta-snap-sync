@@ -292,44 +292,51 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card transition hover:border-primary/40">
-      <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-lg font-bold">{ev.name}</h2>
-            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusTone}`}>
-              <span className="h-1.5 w-1.5 rounded-full bg-current" />
-              {ev.status}
-            </span>
-            {ev.config.gallery?.mode === "public" && (
-              <span className="rounded-full border border-primary/40 bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">public wall</span>
-            )}
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground" dir="ltr">/{ev.slug} · PIN <span className="code-display text-foreground">{ev.staff_pin || "not set"}</span></div>
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="mr-auto min-w-0 truncate text-lg font-bold">{ev.name}</h2>
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusTone}`}>
+            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            {ev.status}
+          </span>
+          {ev.config.gallery?.mode === "public" && (
+            <span className="rounded-full border border-primary/40 bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">public wall</span>
+          )}
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground" dir="ltr">/{ev.slug} · PIN <span className="code-display text-foreground">{ev.staff_pin || "not set"}</span></div>
 
-          {/* Inline KPIs */}
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <MiniStat label="Guests" value={count?.guests ?? "·"} />
-            <MiniStat label="Photos" value={count?.assets ?? "·"} />
-            <MiniStat label="Selfie" value={ev.config.selfie || "optional"} small />
-            <MiniStat label="Locale" value={ev.config.locale} small />
-          </div>
+        {/* Stats */}
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <MiniStat label="Guests" value={count?.guests ?? "·"} />
+          <MiniStat label="Photos" value={count?.assets ?? "·"} />
+          <MiniStat label="Selfie" value={ev.config.selfie || "optional"} small />
+          <MiniStat label="Locale" value={ev.config.locale} small />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
-          <button onClick={() => setShowPhotos(true)} className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
-          <button onClick={() => setShowRegs(true)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted">Registrations</button>
-          <button onClick={() => setShowQr(true)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted">QR</button>
-          <button onClick={() => setEditing(true)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted">Edit</button>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
-            {(["draft", "dryrun", "live"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => quickStatus(s)}
-                className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition ${ev.status === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >{s}</button>
-            ))}
+        {/* Primary actions */}
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <button onClick={() => setShowPhotos(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
+          <button onClick={() => setShowRegs(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Registrations</button>
+          <button onClick={() => setShowQr(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">QR code</button>
+          <button onClick={() => setEditing(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Edit</button>
+        </div>
+
+        {/* Status + delete */}
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</span>
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+              {(["draft", "dryrun", "live"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => quickStatus(s)}
+                  className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition ${ev.status === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >{s}</button>
+              ))}
+            </div>
           </div>
-          <button onClick={() => setConfirmDel(true)} className="rounded-lg border border-border px-2 py-1.5 text-xs text-destructive transition hover:bg-destructive/10" title="Delete event">✕</button>
+          <button onClick={() => setConfirmDel(true)} className="inline-flex items-center gap-1 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-semibold text-destructive transition hover:bg-destructive/10" title="Delete event">✕ Delete</button>
         </div>
       </div>
 
