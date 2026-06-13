@@ -863,8 +863,11 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [filter, setFilter] = useState<"all" | "linked" | "orphan">("all");
+  const [approval, setApproval] = useState<"all" | "pending" | "approved">("all");
   const [query, setQuery] = useState("");
   const [liveOn, setLiveOn] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
