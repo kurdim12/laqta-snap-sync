@@ -339,7 +339,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
 
       {editing && <EventEditor event={ev} onClose={() => { setEditing(false); onChange(); }} />}
       {showRegs && <RegistrationsModal event={ev} onClose={() => setShowRegs(false)} />}
-      {showQr && <QrModal url={formUrl} title={ev.name} onClose={() => setShowQr(false)} />}
+      {showQr && <QrModal url={ev.config.registration === "none" || ev.config.gallery?.mode === "public" ? galleryUrl : formUrl} title={ev.name} onClose={() => setShowQr(false)} />}
       {showPhotos && <PhotosModal event={ev} onClose={() => setShowPhotos(false)} />}
       {confirmDel && (
         <ConfirmModal
