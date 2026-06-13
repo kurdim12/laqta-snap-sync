@@ -144,7 +144,10 @@ function AdminDashboard() {
     await Promise.all(rows.map(async (ev) => {
       const [{ count: gc }, { count: ac }] = await Promise.all([
         supabase.from("guests").select("id", { count: "exact", head: true }).eq("event_id", ev.id),
-        supabase.from("assets").select("id", { count: "exact", head: true }).eq("event_id", ev.id).eq("status", "ready"),
+        // Count distinct photos/videos, not their web/thumb variants — each
+        // upload makes 3 rows (original + web + thumb); only the original is
+        // top-level (parent_asset_id is null).
+        supabase.from("assets").select("id", { count: "exact", head: true }).eq("event_id", ev.id).eq("status", "ready").is("parent_asset_id", null),
       ]);
       c[ev.id] = { guests: gc || 0, assets: ac || 0 };
     }));
