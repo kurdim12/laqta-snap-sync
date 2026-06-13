@@ -713,6 +713,18 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
                     <option value="public">Public wall</option>
                   </select>
                 </Field>
+                <Field label="Registration">
+                  <select value={config.registration || "open"} onChange={(e) => setConfig({ ...config, registration: e.target.value as "open" | "none" })} className="input">
+                    <option value="open">Open (guests register on /e/&hellip;)</option>
+                    <option value="none">None (QR opens gallery directly)</option>
+                  </select>
+                </Field>
+                <Field label="Require approval before public">
+                  <select value={String(Boolean(config.gallery?.requireApproval))} onChange={(e) => setConfig({ ...config, gallery: { ...config.gallery, requireApproval: e.target.value === "true" } })} className="input">
+                    <option value="false">No (publish immediately)</option>
+                    <option value="true">Yes (admin must approve)</option>
+                  </select>
+                </Field>
                 {config.gallery?.mode === "public" && (
                   <div className="sm:col-span-2 rounded-lg border border-[color:var(--warning)]/50 bg-[color:var(--warning)]/10 px-3 py-2 text-xs text-[color:var(--warning)]">
                     <span className="font-arabic">كل صور الفعالية رح تكون مرئية للجميع — للفعاليات العامة فقط</span>
