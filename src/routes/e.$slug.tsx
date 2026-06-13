@@ -1,4 +1,4 @@
-import { createFileRoute, useParams } from "@tanstack/react-router";
+import { createFileRoute, useParams, useChildMatches, Outlet } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
@@ -22,9 +22,15 @@ import { applyEventTheme } from "@/lib/theme";
 
 function GuestForm() {
   const { slug } = useParams({ from: "/e/$slug" });
+  // /e/$slug/gallery is a CHILD of this route, so this component also renders
+  // for the gallery. When a child route is active we must hand off to it via
+  // <Outlet/> and skip the form/redirect logic below — otherwise the
+  // registration:"none" redirect points back at the gallery and loops forever.
+  const onChild = useChildMatches().length > 0;
   const [state, setState] = useState<LoadState>({ kind: "loading" });
 
   useEffect(() => {
+    if (onChild) return;
     let alive = true;
     let cleanupTheme: (() => void) | null = null;
     (async () => {
@@ -55,8 +61,9 @@ function GuestForm() {
       setState({ kind: "ready", event });
     })();
     return () => { alive = false; if (cleanupTheme) cleanupTheme(); };
-  }, [slug]);
+  }, [slug, onChild]);
 
+  if (onChild) return <Outlet />;
 
   if (state.kind === "loading") {
     return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
