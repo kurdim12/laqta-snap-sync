@@ -912,9 +912,13 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
   const filtered = assets.filter((a) => {
     if (filter === "linked" && !a.guest_id) return false;
     if (filter === "orphan" && a.guest_id) return false;
+    if (approval === "pending" && a.approved !== false) return false;
+    if (approval === "approved" && a.approved === false) return false;
     if (q && !(a.guestName || "").toLowerCase().includes(q) && !(a.guestCode || "").toLowerCase().includes(q)) return false;
     return true;
   });
+
+  const pendingCount = assets.filter((a) => a.approved === false).length;
 
   const items: LightboxItem[] = filtered.map((a) => ({ id: a.id, kind: a.kind === "video" ? "video" : "photo", url: a.url, thumbUrl: a.thumbUrl }));
 
@@ -929,6 +933,70 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
       link.remove();
       await new Promise((r) => setTimeout(r, 350));
     }
+  }
+
+  async function setApproved(a: EnrichedAsset, approved: boolean) {
+    await supabase.from("assets").update({ approved }).eq("event_id", event.id).or(`id.eq.${a.id},parent_asset_id.eq.${a.id}`);
+    load();
+  }
+
+  async function handleUpload(files: FileList | null) {
+    if (!files || !files.length) return;
+    setUploading(true); setUploadMsg(null);
+    let ok = 0, fail = 0;
+    for (const file of Array.from(files)) {
+      try {
+        const isVideo = file.type.startsWith("video/");
+        const ext = (file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")).toLowerCase();
+        const id = crypto.randomUUID();
+        const basePath = `${event.id}/admin/${id}`;
+        // Upload original
+        const { error: upErr } = await supabase.storage.from("media").upload(`${basePath}.${ext}`, file, { contentType: file.type, upsert: false });
+        if (upErr) throw upErr;
+        const requireApproval = Boolean(event.config.gallery?.requireApproval);
+        const { error: insErr } = await supabase.from("assets").insert({
+          id, event_id: event.id, guest_id: null, parent_asset_id: null,
+          kind: isVideo ? "video" : "photo", variant: "original",
+          storage_path: `${basePath}.${ext}`, content_type: file.type || (isVideo ? "video/mp4" : "image/jpeg"),
+          bytes: file.size, status: "ready", approved: !requireApproval,
+        });
+        if (insErr) throw insErr;
+        // Web variant for photos (snappier gallery)
+        if (!isVideo) {
+          try {
+            const web = await resizeImage(file, 1600, 0.85);
+            const webId = crypto.randomUUID();
+            const webPath = `${event.id}/admin/${webId}.jpg`;
+            const { error: webUpErr } = await supabase.storage.from("media").upload(webPath, web, { contentType: "image/jpeg", upsert: false });
+            if (!webUpErr) {
+              await supabase.from("assets").insert({
+                id: webId, event_id: event.id, guest_id: null, parent_asset_id: id,
+                kind: "photo", variant: "web", storage_path: webPath, content_type: "image/jpeg",
+                bytes: web.size, status: "ready", approved: !requireApproval,
+              });
+            }
+            const thumb = await resizeImage(file, 600, 0.8);
+            const thumbId = crypto.randomUUID();
+            const thumbPath = `${event.id}/admin/${thumbId}.jpg`;
+            const { error: thUpErr } = await supabase.storage.from("media").upload(thumbPath, thumb, { contentType: "image/jpeg", upsert: false });
+            if (!thUpErr) {
+              await supabase.from("assets").insert({
+                id: thumbId, event_id: event.id, guest_id: null, parent_asset_id: id,
+                kind: "photo", variant: "thumb", storage_path: thumbPath, content_type: "image/jpeg",
+                bytes: thumb.size, status: "ready", approved: !requireApproval,
+              });
+            }
+          } catch { /* variants are best-effort */ }
+        }
+        ok++;
+      } catch (e) {
+        console.error("upload failed", e);
+        fail++;
+      }
+    }
+    setUploading(false);
+    setUploadMsg(`${ok} uploaded${fail ? `, ${fail} failed` : ""}${event.config.gallery?.requireApproval ? " — pending your approval" : ""}`);
+    load();
   }
 
   return (
