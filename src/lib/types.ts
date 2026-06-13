@@ -23,6 +23,7 @@ export interface EventConfig {
 
 export const DEFAULT_CONFIG: EventConfig = {
   locale: "both",
+  registration: "open",
   theme: { primary: "#C9A227", background: "#0E0E10", text: "#FAFAF7", logoUrl: "" },
   fields: [
     { key: "name", type: "text", required: true, label: { ar: "الاسم", en: "Name" } },
@@ -31,7 +32,7 @@ export const DEFAULT_CONFIG: EventConfig = {
   ],
   consentText: { ar: "أوافق على استخدام صوري لأغراض الفعالية", en: "I agree to my photos being used for this event" },
   successMessage: { ar: "تم! صورك رح توصلك هون", en: "Done! Your photos will appear here" },
-  gallery: { allowDownloadAll: true, showVideos: true, mode: "private" },
+  gallery: { allowDownloadAll: true, showVideos: true, mode: "private", requireApproval: false },
   selfie: "optional",
   limits: { maxVideoMB: 50, maxPhotoMB: 25 },
 };
