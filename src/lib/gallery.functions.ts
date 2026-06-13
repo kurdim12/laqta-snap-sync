@@ -169,6 +169,7 @@ export const getPublicGalleryBySlug = createServerFn({ method: "POST" })
       .select("*")
       .eq("event_id", e.id)
       .eq("status", "ready")
+      .eq("approved", true)
       .order("created_at", { ascending: false })
       .limit(500);
 
