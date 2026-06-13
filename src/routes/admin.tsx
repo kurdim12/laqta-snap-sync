@@ -1015,16 +1015,28 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <label className={`cursor-pointer rounded-lg bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground transition hover:opacity-90 ${uploading ? "opacity-60 pointer-events-none" : ""}`}>
+              {uploading ? "Uploading…" : "+ Upload"}
+              <input type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => { handleUpload(e.target.files); e.currentTarget.value = ""; }} />
+            </label>
             <button onClick={downloadAll} disabled={!filtered.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold transition hover:bg-muted disabled:opacity-50">Download all</button>
             <button onClick={load} className="rounded-lg border border-border px-3 py-1.5 text-sm">Refresh</button>
             <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm">Close</button>
           </div>
         </div>
+        {uploadMsg && <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">{uploadMsg}</div>}
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1 rounded-lg border border-border bg-background p-0.5">
             {(["all", "linked", "orphan"] as const).map((f) => (
               <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
+            ))}
+          </div>
+          <div className="flex gap-1 rounded-lg border border-border bg-background p-0.5">
+            {(["all", "pending", "approved"] as const).map((f) => (
+              <button key={f} onClick={() => setApproval(f)} className={`rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition ${approval === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                {f}{f === "pending" && pendingCount ? ` · ${pendingCount}` : ""}
+              </button>
             ))}
           </div>
           <input placeholder="Search guest name or code…" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 min-w-[180px] rounded-xl border border-border bg-input px-3 py-1.5 text-sm outline-none focus:border-primary" />
@@ -1038,26 +1050,35 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
           ) : filtered.length === 0 ? (
             <div className="grid place-items-center py-20 text-center">
               <div className="text-6xl opacity-30">📷</div>
-              <p className="mt-3 text-sm text-muted-foreground">No photos yet. They'll appear here as staff or guests upload.</p>
+              <p className="mt-3 text-sm text-muted-foreground">No photos yet. Click <span className="font-bold text-primary">+ Upload</span> or wait for staff to upload.</p>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
               {filtered.map((a, i) => (
-                <button key={a.id} onClick={() => setLightbox(i)} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted transition hover:border-primary">
-                  {a.thumbUrl ? (
-                    <img src={a.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center text-2xl opacity-40">{a.kind === "video" ? "🎬" : "📷"}</div>
-                  )}
-                  {a.kind === "video" && <span className="absolute top-1 right-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">VIDEO</span>}
+                <div key={a.id} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted transition hover:border-primary">
+                  <button onClick={() => setLightbox(i)} className="absolute inset-0 h-full w-full">
+                    {a.thumbUrl ? (
+                      <img src={a.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-2xl opacity-40">{a.kind === "video" ? "🎬" : "📷"}</div>
+                    )}
+                  </button>
+                  {a.kind === "video" && <span className="pointer-events-none absolute top-1 right-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">VIDEO</span>}
+                  {a.approved === false && <span className="pointer-events-none absolute top-1 left-1 rounded bg-[color:var(--warning)]/90 px-1 text-[9px] font-bold text-black">PENDING</span>}
                   {a.guestCode && (
-                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-start text-[10px] font-bold text-white">
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-start text-[10px] font-bold text-white">
                       <span className="code-display block truncate" dir="ltr">{a.guestCode}</span>
                       {a.guestName && <span className="block truncate font-normal opacity-80">{a.guestName}</span>}
                     </span>
                   )}
-                  {!a.guest_id && <span className="absolute top-1 left-1 rounded bg-[color:var(--warning)]/90 px-1 text-[9px] font-bold text-black">orphan</span>}
-                </button>
+                  <div className="absolute right-1 bottom-1 z-10 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                    {a.approved === false ? (
+                      <button onClick={(e) => { e.stopPropagation(); setApproved(a, true); }} title="Approve" className="rounded bg-[color:var(--success)] px-1.5 py-0.5 text-[10px] font-bold text-black">✓</button>
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); setApproved(a, false); }} title="Unpublish" className="rounded bg-[color:var(--warning)] px-1.5 py-0.5 text-[10px] font-bold text-black">↩</button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           )}
