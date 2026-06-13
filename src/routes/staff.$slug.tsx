@@ -307,7 +307,7 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
                   <li key={it.id} className="rounded-lg border border-border bg-background p-3">
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <span className="truncate font-mono">{it.file.name}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">{(it.file.size / 1024 / 1024).toFixed(1)} MB</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{it.file.size < 1024 * 1024 ? `${Math.round(it.file.size / 1024)} KB` : `${(it.file.size / 1024 / 1024).toFixed(1)} MB`}</span>
                     </div>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
                       <div className={`h-full transition-all ${it.state === "done" ? "bg-[color:var(--success)]" : it.state === "paused" ? "bg-destructive" : "bg-primary"}`} style={{ width: `${it.progress}%` }} />
