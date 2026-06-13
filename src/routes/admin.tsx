@@ -300,7 +300,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
               <span className="rounded-full border border-primary/40 bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">public wall</span>
             )}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground" dir="ltr">/{ev.slug} · PIN <span className="code-display">{ev.staff_pin_hash ? "••••••" : "not set"}</span></div>
+          <div className="mt-1 text-xs text-muted-foreground" dir="ltr">/{ev.slug} · PIN <span className="code-display text-foreground">{ev.staff_pin || "not set"}</span></div>
 
           {/* Inline KPIs */}
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -602,18 +602,17 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
   const [name, setName] = useState(event?.name || "");
   const [slug, setSlug] = useState(event?.slug || "");
   const [status, setStatus] = useState<EventRow["status"]>(event?.status || "draft");
-  const [pin, setPin] = useState(event ? "" : genPin());
+  const [pin, setPin] = useState(event?.staff_pin || genPin());
   const [config, setConfig] = useState<EventConfig>(event?.config || DEFAULT_CONFIG);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("basics");
 
   async function save() {
-    setErr(null); setBusy(true);
-    const base = { name, slug: slug || slugify(name), status, config: config as unknown as never };
-    const payload = pin ? { ...base, staff_pin: pin } : base;
-    if (!event && !pin) { setBusy(false); setErr("Staff PIN required"); return; }
-    if (pin && pin.length < 6) { setBusy(false); setErr("PIN must be 6 digits"); return; }
+    setErr(null);
+    if (!pin || pin.length !== 6) { setErr("Staff PIN must be 6 digits"); return; }
+    setBusy(true);
+    const payload = { name, slug: slug || slugify(name), status, config: config as unknown as never, staff_pin: pin };
     const q = event
       ? supabase.from("events").update(payload as never).eq("id", event.id)
       : supabase.from("events").insert(payload as never);
@@ -690,9 +689,9 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
                     {["draft", "dryrun", "live", "archived"].map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </Field>
-                <Field label={event ? "Staff PIN (leave blank to keep current)" : "Staff PIN (6 digits)"}>
+                <Field label="Staff PIN (6 digits)">
                   <div className="flex gap-2">
-                    <input dir="ltr" value={pin} maxLength={6} placeholder={event ? "•••••• (unchanged)" : ""} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} className="input flex-1 code-display" />
+                    <input dir="ltr" value={pin} maxLength={6} inputMode="numeric" onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} className="input flex-1 code-display" />
                     <button type="button" onClick={() => setPin(genPin())} className="rounded-lg border border-border px-3 text-sm" title="Generate new PIN">↻</button>
                   </div>
                 </Field>

@@ -41,7 +41,6 @@ export interface EventRow {
   status: "draft" | "dryrun" | "live" | "archived";
   config: EventConfig;
   staff_pin?: string | null;
-  staff_pin_hash?: string | null;
   created_at: string;
 }
 
