@@ -46,6 +46,11 @@ function GuestForm() {
         status: data.status as EventRow["status"],
         config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } as EventConfig,
       };
+      // If this event doesn't collect registrations, send guests straight to the public gallery
+      if (event.config.registration === "none") {
+        window.location.replace(`/e/${event.slug}/gallery`);
+        return;
+      }
       cleanupTheme = applyEventTheme(event.config.theme);
       setState({ kind: "ready", event });
     })();
