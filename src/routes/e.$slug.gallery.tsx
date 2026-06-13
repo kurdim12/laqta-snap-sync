@@ -1,11 +1,10 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
+import { supabase } from "@/integrations/supabase/client";
+import { DEFAULT_CONFIG, type AssetRow, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
 import { applyEventTheme } from "@/lib/theme";
-import { getPublicGalleryBySlug } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/e/$slug/gallery")({
   head: () => ({ meta: [{ title: "LAQTA · Gallery" }] }),
@@ -20,9 +19,40 @@ interface GalleryAsset {
   thumbUrl?: string;
 }
 
+// Sign a batch of storage paths with the anon client (RLS allows reading
+// approved public-wall objects). Returns a path -> signed URL map.
+async function signMany(paths: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  await Promise.all(
+    paths.map(async (p) => {
+      const { data } = await supabase.storage.from("media").createSignedUrl(p, 3600);
+      if (data?.signedUrl) out[p] = data.signedUrl;
+    }),
+  );
+  return out;
+}
+
+// Collapse original/web/thumb variants into one display tile each, mirroring
+// the server-side buildEnriched logic.
+function enrich(rows: AssetRow[], urls: Record<string, string>): GalleryAsset[] {
+  const originals = rows.filter((r) => r.variant === "original");
+  const webs = rows.filter((r) => r.variant === "web");
+  const thumbs = rows.filter((r) => r.variant === "thumb");
+  const display = originals.length ? originals : webs.length ? webs : rows.filter((r) => r.variant !== "thumb");
+  return display.map((r) => {
+    const web = webs.find((w) => w.parent_asset_id === r.id) || r;
+    const thumb = thumbs.find((t) => t.parent_asset_id === r.id) || web;
+    return {
+      id: r.id,
+      kind: r.kind === "video" ? "video" : "photo",
+      url: urls[web.storage_path],
+      thumbUrl: urls[thumb.storage_path],
+    };
+  });
+}
+
 function PublicGallery() {
   const { slug } = useParams({ from: "/e/$slug/gallery" });
-  const fetchGallery = useServerFn(getPublicGalleryBySlug);
   const [event, setEvent] = useState<EventRow | null>(null);
   const [assets, setAssets] = useState<GalleryAsset[]>([]);
   const [unavailable, setUnavailable] = useState(false);
@@ -34,19 +64,41 @@ function PublicGallery() {
 
   async function load() {
     try {
-      const res = await fetchGallery({ data: { slug } });
-      if (res.notFound) { setUnavailable(true); return; }
-      const e = res.event;
+      // Read the event via the safe public view (anon-readable, no staff_pin).
+      const { data: e } = await supabase
+        .from("events_public")
+        .select("id,slug,name,status,config,created_at")
+        .eq("slug", slug)
+        .maybeSingle();
+      const ecfg = (e?.config || {}) as Partial<EventConfig>;
+      if (!e || !e.id || !e.slug || !e.name || (e.status !== "live" && e.status !== "dryrun") || ecfg.gallery?.mode !== "public") {
+        setUnavailable(true);
+        return;
+      }
       const ev: EventRow = {
         id: e.id, slug: e.slug, name: e.name,
         created_at: e.created_at ?? "",
         status: e.status as EventRow["status"],
-        config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig,
+        config: { ...DEFAULT_CONFIG, ...ecfg } as EventConfig,
       };
       setEvent(ev);
       if (themeCleanupRef.current) themeCleanupRef.current();
       themeCleanupRef.current = applyEventTheme(ev.config.theme);
-      setAssets(res.assets.map((a) => ({ id: a.id, kind: a.kind, url: a.url, thumbUrl: a.thumbUrl })));
+
+      // Only approved, ready photos are visible on the public wall (RLS enforces
+      // this too; the explicit filters keep payloads small).
+      const { data: aRows } = await supabase
+        .from("assets")
+        .select("*")
+        .eq("event_id", e.id)
+        .eq("status", "ready")
+        .eq("approved", true)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      const rows = (aRows || []) as AssetRow[];
+      const paths = Array.from(new Set(rows.map((r) => r.storage_path)));
+      const urls = await signMany(paths);
+      setAssets(enrich(rows, urls));
     } catch {
       setUnavailable(true);
     }
