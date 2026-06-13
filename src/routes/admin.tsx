@@ -880,7 +880,10 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
     (gs || []).forEach((g) => guestMap.set(g.id, { code: g.code, name: (g.form_data as { name?: string })?.name || "" }));
 
     const all = (rows || []) as AssetRow[];
-    const originals = all.filter((r) => r.variant === "original" || (!all.some((x) => x.parent_asset_id === r.id) && r.variant !== "thumb"));
+    // One tile per photo: only top-level assets (no parent). The old filter also
+    // matched `web` variants (no children, not a thumb), so every photo rendered
+    // twice — once as its thumbnail and once as a stray full-res web tile.
+    const originals = all.filter((r) => r.parent_asset_id == null && r.variant !== "thumb");
     const webs = all.filter((r) => r.variant === "web");
     const thumbs = all.filter((r) => r.variant === "thumb");
     const display = (originals.length ? originals : webs.length ? webs : all);
