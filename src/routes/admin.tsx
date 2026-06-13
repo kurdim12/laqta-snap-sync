@@ -888,12 +888,14 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
     const enriched = await Promise.all(display.map(async (r) => {
       const web = webs.find((w) => w.parent_asset_id === r.id) || r;
       const thumb = thumbs.find((t) => t.parent_asset_id === r.id) || web;
-      const [{ data: u1 }, { data: u2 }] = await Promise.all([
-        supabase.storage.from("media").createSignedUrl(web.storage_path, 3600),
-        supabase.storage.from("media").createSignedUrl(thumb.storage_path, 3600),
-      ]);
+      // When an asset has no separate thumb variant, web and thumb resolve to
+      // the same path — sign it once instead of twice.
+      const { data: webU } = await supabase.storage.from("media").createSignedUrl(web.storage_path, 3600);
+      const thumbU = web.storage_path === thumb.storage_path
+        ? webU
+        : (await supabase.storage.from("media").createSignedUrl(thumb.storage_path, 3600)).data;
       const g = r.guest_id ? guestMap.get(r.guest_id) : undefined;
-      return { ...r, url: u1?.signedUrl, thumbUrl: u2?.signedUrl, guestName: g?.name, guestCode: g?.code };
+      return { ...r, url: webU?.signedUrl, thumbUrl: thumbU?.signedUrl, guestName: g?.name, guestCode: g?.code };
     }));
     setAssets(enriched);
     setLoading(false);
@@ -1080,7 +1082,7 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
                       {a.guestName && <span className="block truncate font-normal opacity-80">{a.guestName}</span>}
                     </span>
                   )}
-                  <div className="absolute right-1 bottom-1 z-10 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                  <div className="absolute right-1 bottom-1 z-10 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
                     {a.approved === false ? (
                       <button onClick={(e) => { e.stopPropagation(); setApproved(a, true); }} title="Approve" className="rounded bg-[color:var(--success)] px-1.5 py-0.5 text-[10px] font-bold text-black">✓</button>
                     ) : (
@@ -1094,13 +1096,17 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
         </div>
       </div>
       {lightbox !== null && (
-        <Lightbox
-          items={items}
-          index={lightbox}
-          onClose={() => setLightbox(null)}
-          onIndexChange={setLightbox}
-          shareTitle={event.name}
-        />
+        // Isolate the lightbox from the modal's click-to-close backdrop so its
+        // X / backdrop only closes the lightbox, not the whole Photos panel.
+        <div onClick={(e) => e.stopPropagation()}>
+          <Lightbox
+            items={items}
+            index={lightbox}
+            onClose={() => setLightbox(null)}
+            onIndexChange={setLightbox}
+            shareTitle={event.name}
+          />
+        </div>
       )}
     </div>
   );
