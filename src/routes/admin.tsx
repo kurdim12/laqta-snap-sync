@@ -926,13 +926,22 @@ function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void 
   async function downloadAll() {
     for (const a of filtered) {
       if (!a.url) continue;
-      const link = document.createElement("a");
-      link.href = a.url;
-      link.download = `${event.slug}-${a.guestCode || a.id.slice(0, 6)}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      await new Promise((r) => setTimeout(r, 350));
+      try {
+        // Signed storage URLs are cross-origin, so the <a download> attribute is
+        // ignored and the file just opens. Fetch the bytes and download a blob.
+        const res = await fetch(a.url);
+        const blob = await res.blob();
+        const ext = a.kind === "video" ? "mp4" : "jpg";
+        const objUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objUrl;
+        link.download = `${event.slug}-${a.guestCode || a.id.slice(0, 6)}.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objUrl);
+      } catch { /* skip files that fail to fetch */ }
+      await new Promise((r) => setTimeout(r, 250));
     }
   }
 
