@@ -10,11 +10,13 @@ export interface EventField {
 
 export interface EventConfig {
   locale: Locale;
+  /** "open" = guests register on /e/:slug; "none" = no registration form, QR opens public gallery */
+  registration?: "open" | "none";
   theme: { primary: string; background: string; text: string; logoUrl: string };
   fields: EventField[];
   consentText: Bilingual;
   successMessage: Bilingual;
-  gallery: { allowDownloadAll: boolean; showVideos: boolean; mode: "private" | "public" };
+  gallery: { allowDownloadAll: boolean; showVideos: boolean; mode: "private" | "public"; requireApproval?: boolean };
   selfie: "required" | "optional" | "off";
   limits: { maxVideoMB: number; maxPhotoMB: number };
 }
