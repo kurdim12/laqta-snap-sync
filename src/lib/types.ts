@@ -71,4 +71,5 @@ export interface AssetRow {
   status: "pending" | "ready" | "failed" | "hidden";
   meta: Record<string, unknown>;
   created_at: string;
+  approved?: boolean;
 }
