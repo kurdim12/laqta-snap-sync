@@ -8,7 +8,7 @@ import { qrUrl } from "@/lib/qr";
 import { QrSheet } from "@/components/QrSheet";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
-import { resizeImage } from "@/lib/media";
+import { resizeImage, logoDataUrl } from "@/lib/media";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -742,7 +742,45 @@ function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void
                   <Field label="Background"><input type="color" value={config.theme.background} onChange={(e) => setConfig({ ...config, theme: { ...config.theme, background: e.target.value } })} className="h-10 w-full rounded" /></Field>
                   <Field label="Text"><input type="color" value={config.theme.text} onChange={(e) => setConfig({ ...config, theme: { ...config.theme, text: e.target.value } })} className="h-10 w-full rounded" /></Field>
                 </div>
-                <Field label="Logo URL"><input dir="ltr" value={config.theme.logoUrl} onChange={(e) => setConfig({ ...config, theme: { ...config.theme, logoUrl: e.target.value } })} placeholder="https://…" className="input" /></Field>
+                <Field label="Logo">
+                  <div className="space-y-2">
+                    {config.theme.logoUrl && (
+                      <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-2">
+                        <img src={config.theme.logoUrl} alt="logo preview" className="h-12 max-w-[160px] object-contain" />
+                        <button type="button" onClick={() => setConfig({ ...config, theme: { ...config.theme, logoUrl: "" } })} className="text-xs font-semibold text-destructive underline">Remove</button>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="cursor-pointer rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:opacity-90">
+                        {config.theme.logoUrl ? "Replace logo" : "Upload logo"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const f = e.target.files?.[0];
+                            e.currentTarget.value = "";
+                            if (!f) return;
+                            try {
+                              const url = await logoDataUrl(f);
+                              setConfig({ ...config, theme: { ...config.theme, logoUrl: url } });
+                            } catch {
+                              alert("Couldn't read that image — try a PNG or JPG.");
+                            }
+                          }}
+                        />
+                      </label>
+                      <span className="text-[10px] text-muted-foreground">PNG/JPG — resized & embedded automatically</span>
+                    </div>
+                    <input
+                      dir="ltr"
+                      value={config.theme.logoUrl.startsWith("data:") ? "" : config.theme.logoUrl}
+                      onChange={(e) => setConfig({ ...config, theme: { ...config.theme, logoUrl: e.target.value } })}
+                      placeholder="…or paste an image URL"
+                      className="input"
+                    />
+                  </div>
+                </Field>
               </div>
             )}
 
