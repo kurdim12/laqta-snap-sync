@@ -44,7 +44,7 @@ function Admin() {
   return <AdminDashboard />;
 }
 
-function NotAuthorized() {
+export function NotAuthorized() {
   async function signOut() { await supabase.auth.signOut(); }
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6 text-center">
@@ -64,7 +64,7 @@ function NotAuthorized() {
 /* Auth                                                                */
 /* ------------------------------------------------------------------ */
 
-function AuthForm() {
+export function AuthForm() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -388,7 +388,7 @@ function CopyLink({ label, url, disabled }: { label: string; url: string; disabl
   );
 }
 
-function QrModal({ url, title, onClose }: { url: string; title: string; onClose: () => void }) {
+export function QrModal({ url, title, onClose }: { url: string; title: string; onClose: () => void }) {
   const [sheet, setSheet] = useState<number | null>(null);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
@@ -413,7 +413,7 @@ function QrModal({ url, title, onClose }: { url: string; title: string; onClose:
   );
 }
 
-function ConfirmModal({ title, body, confirmLabel, onCancel, onConfirm }: { title: string; body: string; confirmLabel: string; onCancel: () => void; onConfirm: () => void | Promise<void> }) {
+export function ConfirmModal({ title, body, confirmLabel, onCancel, onConfirm }: { title: string; body: string; confirmLabel: string; onCancel: () => void; onConfirm: () => void | Promise<void> }) {
   const [busy, setBusy] = useState(false);
   async function go() { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }
   return (
@@ -434,7 +434,7 @@ function ConfirmModal({ title, body, confirmLabel, onCancel, onConfirm }: { titl
 /* Registrations                                                       */
 /* ------------------------------------------------------------------ */
 
-function RegistrationsModal({ event, onClose }: { event: EventRow; onClose: () => void }) {
+export function RegistrationsModal({ event, onClose }: { event: EventRow; onClose: () => void }) {
   const [guests, setGuests] = useState<GuestRow[]>([]);
   const [query, setQuery] = useState("");
   const [liveOn, setLiveOn] = useState(false);
@@ -602,7 +602,7 @@ function slugify(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-")
 
 type Tab = "basics" | "branding" | "form" | "messages" | "advanced";
 
-function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void }) {
+export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void }) {
   const [name, setName] = useState(event?.name || "");
   const [slug, setSlug] = useState(event?.slug || "");
   const [status, setStatus] = useState<EventRow["status"]>(event?.status || "draft");
@@ -900,7 +900,7 @@ function PhonePreview({ config, name }: { config: EventConfig; name: string }) {
 
 type EnrichedAsset = AssetRow & { url?: string; thumbUrl?: string; guestName?: string; guestCode?: string };
 
-function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void }) {
+export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () => void }) {
   const [assets, setAssets] = useState<EnrichedAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<number | null>(null);
