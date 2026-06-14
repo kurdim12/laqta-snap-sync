@@ -86,10 +86,10 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
     } catch { /* noop */ }
   }
 
-  // Cross-origin signed URLs ignore the <a download> attribute (notably iOS
-  // Safari), so they only open. Fetch the bytes, then: on phones use the native
-  // share/save sheet, on desktop trigger a real blob download; fall back to
-  // opening the file so the user can long-press / right-click → Save.
+  // Cross-origin signed URLs ignore the <a download> attribute, so they only
+  // open. Fetch the bytes and trigger a real same-origin blob download so the
+  // browser saves the file directly (no OS share sheet). Falls back to opening
+  // the file if the fetch is blocked.
   async function downloadItem() {
     if (!item?.url || downloading) return;
     setDownloading(true);
@@ -99,17 +99,6 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
     try {
       const res = await fetch(item.url);
       const blob = await res.blob();
-      const file = new File([blob], name, { type: blob.type || (item.kind === "video" ? "video/mp4" : "image/jpeg") });
-      const nav = typeof navigator !== "undefined" ? navigator : undefined;
-      if (nav && typeof nav.canShare === "function" && nav.canShare({ files: [file] })) {
-        try {
-          await nav.share({ files: [file], title: shareTitle });
-          return;
-        } catch (e) {
-          if ((e as Error).name === "AbortError") return; // user dismissed the sheet
-          // otherwise fall through to a blob download
-        }
-      }
       const objUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = objUrl;
