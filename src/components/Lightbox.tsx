@@ -21,6 +21,7 @@ interface Props {
 export function Lightbox({ items, index, onClose, onIndexChange, showDownload = true, showShare = true, shareTitle }: Props) {
   const item = items[index];
   const [shared, setShared] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const previouslyFocusedRef = useRef<Element | null>(null);
@@ -85,6 +86,45 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
     } catch { /* noop */ }
   }
 
+  // Cross-origin signed URLs ignore the <a download> attribute (notably iOS
+  // Safari), so they only open. Fetch the bytes, then: on phones use the native
+  // share/save sheet, on desktop trigger a real blob download; fall back to
+  // opening the file so the user can long-press / right-click → Save.
+  async function downloadItem() {
+    if (!item?.url || downloading) return;
+    setDownloading(true);
+    const ext = item.kind === "video" ? "mp4" : "jpg";
+    const base = (shareTitle || "laqta").replace(/[^\w-]+/g, "_").slice(0, 40) || "laqta";
+    const name = `${base}-${item.id.slice(0, 6)}.${ext}`;
+    try {
+      const res = await fetch(item.url);
+      const blob = await res.blob();
+      const file = new File([blob], name, { type: blob.type || (item.kind === "video" ? "video/mp4" : "image/jpeg") });
+      const nav = typeof navigator !== "undefined" ? navigator : undefined;
+      if (nav && typeof nav.canShare === "function" && nav.canShare({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], title: shareTitle });
+          return;
+        } catch (e) {
+          if ((e as Error).name === "AbortError") return; // user dismissed the sheet
+          // otherwise fall through to a blob download
+        }
+      }
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objUrl), 10_000);
+    } catch {
+      try { window.open(item.url, "_blank", "noopener"); } catch { /* noop */ }
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   if (!item) return null;
   return (
     <div
@@ -111,16 +151,15 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
             </button>
           )}
           {showDownload && item.url && (
-            <a
-              href={item.url}
-              download
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground"
+            <button
+              onClick={(e) => { e.stopPropagation(); downloadItem(); }}
+              disabled={downloading}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground transition disabled:opacity-60"
               aria-label="Download"
             >
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              Download
-            </a>
+              {downloading ? "Saving…" : "Download"}
+            </button>
           )}
           <button
             ref={closeBtnRef}
