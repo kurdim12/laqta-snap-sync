@@ -86,31 +86,29 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
     } catch { /* noop */ }
   }
 
-  // Cross-origin signed URLs ignore the <a download> attribute, so they only
-  // open. Fetch the bytes and trigger a real same-origin blob download so the
-  // browser saves the file directly (no OS share sheet). Falls back to opening
-  // the file if the fetch is blocked.
-  async function downloadItem() {
+  // The <a download> attribute is ignored for cross-origin URLs, so instead we
+  // let the storage server force the save: appending `&download=<name>` makes it
+  // respond with Content-Disposition: attachment (the signature stays valid).
+  // The browser then downloads directly — works on desktop, Android Chrome and
+  // in-app WebViews, no blob/CORS fetch needed.
+  function downloadItem() {
     if (!item?.url || downloading) return;
     setDownloading(true);
     const ext = item.kind === "video" ? "mp4" : "jpg";
     const base = (shareTitle || "laqta").replace(/[^\w-]+/g, "_").slice(0, 40) || "laqta";
     const name = `${base}-${item.id.slice(0, 6)}.${ext}`;
     try {
-      const res = await fetch(item.url);
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
+      const sep = item.url.includes("?") ? "&" : "?";
+      const url = `${item.url}${sep}download=${encodeURIComponent(name)}`;
       const a = document.createElement("a");
-      a.href = objUrl;
+      a.href = url;
       a.download = name;
+      a.rel = "noopener";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(objUrl), 10_000);
-    } catch {
-      try { window.open(item.url, "_blank", "noopener"); } catch { /* noop */ }
     } finally {
-      setDownloading(false);
+      setTimeout(() => setDownloading(false), 800);
     }
   }
 
