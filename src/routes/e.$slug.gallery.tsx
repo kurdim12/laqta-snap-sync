@@ -74,6 +74,7 @@ function PublicGallery() {
   const [assets, setAssets] = useState<GalleryAsset[]>([]);
   const [unavailable, setUnavailable] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [openFolder, setOpenFolder] = useState<string | null>(null);
   const cfg = event?.config || DEFAULT_CONFIG;
   const [lang, setLang, toggleable] = useLang(cfg.locale);
 
@@ -173,6 +174,9 @@ function PublicGallery() {
     </button>
   );
   const groups = groupAlbums(assets);
+  const folderAssets = groups && openFolder !== null ? (groups.find((g) => g.name === openFolder)?.items.map((x) => x.asset) || []) : [];
+  // The lightbox shows the currently open folder's photos (or the flat list).
+  const lightboxItems = groups && openFolder !== null ? folderAssets : assets;
 
   return (
     <main className="min-h-screen bg-background px-4 py-6">
@@ -212,22 +216,47 @@ function PublicGallery() {
           <p className="mt-1 text-sm text-muted-foreground">{pick(T.comeBackSoon, lang)}</p>
         </section>
       ) : groups ? (
-        <div className="mx-auto mt-6 max-w-6xl space-y-8">
-          {groups.map((g) => (
-            <section key={g.name || "_"}>
-              {g.name && (
-                <h2 className="mb-3 flex items-center gap-2 border-b border-border pb-2 text-base font-bold text-foreground">
-                  <span className="text-primary">📁</span>
-                  <span className="truncate">{g.name}</span>
-                  <span className="text-sm font-normal text-muted-foreground">· {g.items.length}</span>
-                </h2>
-              )}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {g.items.map(({ asset: a, index: i }) => tile(a, i))}
-              </div>
-            </section>
-          ))}
-        </div>
+        openFolder === null ? (
+          // Folders only — no photo previews. Tap a folder to open it.
+          <section className="mx-auto mt-6 grid max-w-6xl grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {groups.map((g) => (
+              <button
+                key={g.name || "_"}
+                onClick={() => { setLightbox(null); setOpenFolder(g.name); }}
+                className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-6 transition hover:-translate-y-0.5 hover:border-primary/50"
+              >
+                <svg viewBox="0 0 24 24" className="h-14 w-14 text-primary transition group-hover:scale-105" fill="currentColor" aria-hidden="true">
+                  <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+                </svg>
+                <div className="w-full text-center">
+                  <div className="truncate text-sm font-bold text-foreground">{g.name || (lang === "ar" ? "عام" : "General")}</div>
+                  <div className="text-xs text-muted-foreground">{g.items.length} {lang === "ar" ? "عنصر" : "items"}</div>
+                </div>
+              </button>
+            ))}
+          </section>
+        ) : (
+          // Inside a folder — its photos.
+          <div className="mx-auto mt-6 max-w-6xl">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <button onClick={() => { setLightbox(null); setOpenFolder(null); }} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-semibold text-muted-foreground transition hover:text-foreground">
+                ← {lang === "ar" ? "المجلدات" : "Folders"}
+              </button>
+              <h2 className="flex min-w-0 items-center gap-2 text-base font-bold">
+                <span className="text-primary">📁</span>
+                <span className="truncate">{openFolder || (lang === "ar" ? "عام" : "General")}</span>
+                <span className="text-sm font-normal text-muted-foreground">· {folderAssets.length}</span>
+              </h2>
+            </div>
+            {folderAssets.length === 0 ? (
+              <p className="py-16 text-center text-sm text-muted-foreground">{pick(T.photosOnTheWay, lang)}</p>
+            ) : (
+              <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {folderAssets.map((a, i) => tile(a, i))}
+              </section>
+            )}
+          </div>
+        )
       ) : (
         <section className="mx-auto mt-6 grid max-w-6xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {assets.map((a, i) => tile(a, i))}
@@ -236,7 +265,7 @@ function PublicGallery() {
 
       {lightbox !== null && (
         <Lightbox
-          items={assets}
+          items={lightboxItems}
           index={lightbox}
           onClose={() => setLightbox(null)}
           onIndexChange={setLightbox}
