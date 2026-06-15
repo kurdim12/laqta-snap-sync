@@ -919,6 +919,7 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<EnrichedAsset | null>(null);
   const [album, setAlbum] = useState<string>("all");
+  const [uploadAlbum, setUploadAlbum] = useState<string>("");
   const folderRef = useRef<HTMLInputElement>(null);
 
   // <input webkitdirectory> isn't a typed React prop — set it on the element so
@@ -1055,7 +1056,8 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
         // file's immediate folder name as its album label.
         const rel = (file as { webkitRelativePath?: string }).webkitRelativePath || "";
         const relParts = rel.split("/").filter(Boolean);
-        const album = relParts.length > 1 ? relParts[relParts.length - 2] : "";
+        // Folder name wins; otherwise use the album typed in the toolbar.
+        const album = (relParts.length > 1 ? relParts[relParts.length - 2] : "") || uploadAlbum.trim();
         const meta = album ? { album } : {};
         const ext = (file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")).toLowerCase();
         const id = crypto.randomUUID();
@@ -1123,7 +1125,16 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
               <span className="text-muted-foreground">{filtered.length} of {assets.length}</span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              list="album-list"
+              value={uploadAlbum}
+              onChange={(e) => setUploadAlbum(e.target.value)}
+              placeholder="Album (optional)"
+              title="Type a new album or pick an existing one — uploads go into it and show as a section on the wall"
+              className="w-36 rounded-lg border border-border bg-input px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+            />
+            <datalist id="album-list">{albums.map((al) => <option key={al} value={al} />)}</datalist>
             <label className={`cursor-pointer rounded-lg bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground transition hover:opacity-90 ${uploading ? "opacity-60 pointer-events-none" : ""}`}>
               {uploading ? "Uploading…" : "+ Upload"}
               <input type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => { handleUpload(e.target.files); e.currentTarget.value = ""; }} />

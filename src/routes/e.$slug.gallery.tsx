@@ -17,6 +17,7 @@ interface GalleryAsset {
   kind: "photo" | "video";
   url?: string;
   thumbUrl?: string;
+  album?: string;
 }
 
 // Sign a batch of storage paths with the anon client (RLS allows reading
@@ -47,8 +48,24 @@ function enrich(rows: AssetRow[], urls: Record<string, string>): GalleryAsset[] 
       kind: r.kind === "video" ? "video" : "photo",
       url: urls[web.storage_path],
       thumbUrl: urls[thumb.storage_path],
+      album: (r.meta as { album?: string })?.album || "",
     };
   });
+}
+
+// Group assets into album sections (preserving each asset's flat index for the
+// lightbox). Returns null when nothing has an album, so the flat grid is used.
+function groupAlbums(assets: GalleryAsset[]): { name: string; items: { asset: GalleryAsset; index: number }[] }[] | null {
+  if (!assets.some((a) => a.album)) return null;
+  const map = new Map<string, { asset: GalleryAsset; index: number }[]>();
+  assets.forEach((asset, index) => {
+    const key = asset.album || "";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push({ asset, index });
+  });
+  const named = Array.from(map.keys()).filter(Boolean).sort();
+  const order = [...named, ...(map.has("") ? [""] : [])];
+  return order.map((name) => ({ name, items: map.get(name)! }));
 }
 
 function PublicGallery() {
@@ -139,6 +156,24 @@ function PublicGallery() {
     return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
   }
 
+  const tile = (a: GalleryAsset, i: number) => (
+    <button
+      key={a.id}
+      onClick={() => setLightbox(i)}
+      className="group relative aspect-square overflow-hidden rounded-lg bg-card animate-in fade-in"
+    >
+      {a.kind === "video" ? (
+        <>
+          <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover" />
+          <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
+        </>
+      ) : (
+        <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+      )}
+    </button>
+  );
+  const groups = groupAlbums(assets);
+
   return (
     <main className="min-h-screen bg-background px-4 py-6">
       <header className="mx-auto flex max-w-6xl items-center justify-between">
@@ -176,24 +211,26 @@ function PublicGallery() {
           <p className="mt-6 text-xl font-semibold">{pick(T.photosOnTheWay, lang)} 📸</p>
           <p className="mt-1 text-sm text-muted-foreground">{pick(T.comeBackSoon, lang)}</p>
         </section>
+      ) : groups ? (
+        <div className="mx-auto mt-6 max-w-6xl space-y-8">
+          {groups.map((g) => (
+            <section key={g.name || "_"}>
+              {g.name && (
+                <h2 className="mb-3 flex items-center gap-2 border-b border-border pb-2 text-base font-bold text-foreground">
+                  <span className="text-primary">📁</span>
+                  <span className="truncate">{g.name}</span>
+                  <span className="text-sm font-normal text-muted-foreground">· {g.items.length}</span>
+                </h2>
+              )}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {g.items.map(({ asset: a, index: i }) => tile(a, i))}
+              </div>
+            </section>
+          ))}
+        </div>
       ) : (
         <section className="mx-auto mt-6 grid max-w-6xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {assets.map((a, i) => (
-            <button
-              key={a.id}
-              onClick={() => setLightbox(i)}
-              className="group relative aspect-square overflow-hidden rounded-lg bg-card animate-in fade-in"
-            >
-              {a.kind === "video" ? (
-                <>
-                  <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover" />
-                  <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
-                </>
-              ) : (
-                <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
-              )}
-            </button>
-          ))}
+          {assets.map((a, i) => tile(a, i))}
         </section>
       )}
 
