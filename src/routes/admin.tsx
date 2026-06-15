@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_CONFIG, type EventConfig, type EventRow, type GuestRow } from "@/lib/types";
 import { T, pick } from "@/lib/i18n";
@@ -918,6 +918,19 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<EnrichedAsset | null>(null);
+  const [album, setAlbum] = useState<string>("all");
+  const folderRef = useRef<HTMLInputElement>(null);
+
+  // <input webkitdirectory> isn't a typed React prop — set it on the element so
+  // the picker lets the admin choose a whole folder (desktop browsers).
+  useEffect(() => {
+    if (folderRef.current) {
+      folderRef.current.setAttribute("webkitdirectory", "");
+      folderRef.current.setAttribute("directory", "");
+    }
+  }, []);
+
+  const albumOf = (a: EnrichedAsset) => ((a.meta as { album?: string })?.album) || "";
 
   async function load() {
     setLoading(true);
@@ -969,11 +982,20 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
     if (filter === "orphan" && a.guest_id) return false;
     if (approval === "pending" && a.approved !== false) return false;
     if (approval === "approved" && a.approved === false) return false;
-    if (q && !(a.guestName || "").toLowerCase().includes(q) && !(a.guestCode || "").toLowerCase().includes(q)) return false;
+    if (album !== "all" && albumOf(a) !== album) return false;
+    if (q && !(a.guestName || "").toLowerCase().includes(q) && !(a.guestCode || "").toLowerCase().includes(q) && !albumOf(a).toLowerCase().includes(q)) return false;
     return true;
   });
 
   const pendingCount = assets.filter((a) => a.approved === false).length;
+  const albums = useMemo(() => Array.from(new Set(assets.map(albumOf).filter(Boolean))).sort(), [assets]);
+
+  // Rename an album: rewrite the album label on every matching asset row.
+  async function renameAlbum(oldName: string, newName: string) {
+    await supabase.from("assets").update({ meta: { album: newName } }).eq("event_id", event.id).filter("meta->>album", "eq", oldName);
+    setAlbum(newName);
+    load();
+  }
 
   const items: LightboxItem[] = filtered.map((a) => ({ id: a.id, kind: a.kind === "video" ? "video" : "photo", url: a.url, thumbUrl: a.thumbUrl }));
 
@@ -1025,7 +1047,16 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
     let ok = 0, fail = 0;
     for (const file of Array.from(files)) {
       try {
-        const isVideo = file.type.startsWith("video/");
+        const lowerName = file.name.toLowerCase();
+        const isImg = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)$/.test(lowerName);
+        const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)$/.test(lowerName);
+        if (!isImg && !isVideo) continue; // folders can contain non-media files — skip them
+        // Folder uploads carry a relative path like "Album/photo.jpg" — use the
+        // file's immediate folder name as its album label.
+        const rel = (file as { webkitRelativePath?: string }).webkitRelativePath || "";
+        const relParts = rel.split("/").filter(Boolean);
+        const album = relParts.length > 1 ? relParts[relParts.length - 2] : "";
+        const meta = album ? { album } : {};
         const ext = (file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")).toLowerCase();
         const id = crypto.randomUUID();
         const basePath = `${event.id}/admin/${id}`;
@@ -1037,7 +1068,7 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
           id, event_id: event.id, guest_id: null, parent_asset_id: null,
           kind: isVideo ? "video" : "photo", variant: "original",
           storage_path: `${basePath}.${ext}`, content_type: file.type || (isVideo ? "video/mp4" : "image/jpeg"),
-          bytes: file.size, status: "ready", approved: !requireApproval,
+          bytes: file.size, status: "ready", approved: !requireApproval, meta,
         });
         if (insErr) throw insErr;
         // Web variant for photos (snappier gallery)
@@ -1051,7 +1082,7 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
               await supabase.from("assets").insert({
                 id: webId, event_id: event.id, guest_id: null, parent_asset_id: id,
                 kind: "photo", variant: "web", storage_path: webPath, content_type: "image/jpeg",
-                bytes: web.size, status: "ready", approved: !requireApproval,
+                bytes: web.size, status: "ready", approved: !requireApproval, meta,
               });
             }
             const thumb = await resizeImage(file, 600, 0.8);
@@ -1062,7 +1093,7 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
               await supabase.from("assets").insert({
                 id: thumbId, event_id: event.id, guest_id: null, parent_asset_id: id,
                 kind: "photo", variant: "thumb", storage_path: thumbPath, content_type: "image/jpeg",
-                bytes: thumb.size, status: "ready", approved: !requireApproval,
+                bytes: thumb.size, status: "ready", approved: !requireApproval, meta,
               });
             }
           } catch { /* variants are best-effort */ }
@@ -1097,6 +1128,10 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
               {uploading ? "Uploading…" : "+ Upload"}
               <input type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => { handleUpload(e.target.files); e.currentTarget.value = ""; }} />
             </label>
+            <label className={`hidden cursor-pointer rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary transition hover:bg-primary/20 sm:inline-block ${uploading ? "opacity-60 pointer-events-none" : ""}`} title="Pick a folder; each sub-folder name becomes an album (desktop only)">
+              📁 Upload folder
+              <input ref={folderRef} type="file" multiple className="hidden" onChange={(e) => { handleUpload(e.target.files); e.currentTarget.value = ""; }} />
+            </label>
             <button onClick={downloadAll} disabled={!filtered.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold transition hover:bg-muted disabled:opacity-50">Download all</button>
             <button onClick={load} className="rounded-lg border border-border px-3 py-1.5 text-sm">Refresh</button>
             <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm">Close</button>
@@ -1117,7 +1152,21 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
               </button>
             ))}
           </div>
-          <input placeholder="Search guest name or code…" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 min-w-[180px] rounded-xl border border-border bg-input px-3 py-1.5 text-sm outline-none focus:border-primary" />
+          {albums.length > 0 && (
+            <div className="flex items-center gap-1">
+              <select value={album} onChange={(e) => setAlbum(e.target.value)} className="rounded-lg border border-border bg-background px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-foreground outline-none">
+                <option value="all">📁 All albums</option>
+                {albums.map((al) => <option key={al} value={al}>{al}</option>)}
+              </select>
+              {album !== "all" && (
+                <button
+                  onClick={() => { const n = window.prompt("Rename album", album); if (n && n.trim() && n.trim() !== album) renameAlbum(album, n.trim()); }}
+                  className="rounded-md border border-border px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider transition hover:bg-muted"
+                >Rename</button>
+              )}
+            </div>
+          )}
+          <input placeholder="Search album, guest name or code…" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 min-w-[180px] rounded-xl border border-border bg-input px-3 py-1.5 text-sm outline-none focus:border-primary" />
         </div>
 
         <div className="overflow-auto" style={{ maxHeight: "70vh" }}>
@@ -1143,9 +1192,10 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
                   </button>
                   {a.kind === "video" && <span className="pointer-events-none absolute top-1 right-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">VIDEO</span>}
                   {a.approved === false && <span className="pointer-events-none absolute top-1 left-1 rounded bg-[color:var(--warning)]/90 px-1 text-[9px] font-bold text-black">PENDING</span>}
-                  {a.guestCode && (
+                  {(a.guestCode || albumOf(a)) && (
                     <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-start text-[10px] font-bold text-white">
-                      <span className="code-display block truncate" dir="ltr">{a.guestCode}</span>
+                      {albumOf(a) && <span className="block truncate opacity-90">📁 {albumOf(a)}</span>}
+                      {a.guestCode && <span className="code-display block truncate" dir="ltr">{a.guestCode}</span>}
                       {a.guestName && <span className="block truncate font-normal opacity-80">{a.guestName}</span>}
                     </span>
                   )}
