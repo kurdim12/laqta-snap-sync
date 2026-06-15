@@ -142,6 +142,15 @@ function PublicGallery() {
     return () => { clearInterval(i); window.removeEventListener("pointerdown", onActivity); };
   }, [unavailable, slug]);
 
+  // Make the browser Back button close an open folder (return to the folder
+  // list) instead of leaving the gallery. Opening a folder pushes a history
+  // entry; Back pops it and fires popstate.
+  useEffect(() => {
+    function onPop() { setOpenFolder(null); setLightbox(null); }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   if (unavailable) {
     return (
       <main className="grid min-h-screen place-items-center bg-background px-6 text-center">
@@ -155,6 +164,12 @@ function PublicGallery() {
   }
   if (!event) {
     return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+  }
+
+  function openFolderNav(name: string) {
+    setLightbox(null);
+    setOpenFolder(name);
+    if (typeof window !== "undefined") window.history.pushState({ laqtaFolder: name }, "");
   }
 
   const tile = (a: GalleryAsset, i: number) => (
@@ -222,7 +237,7 @@ function PublicGallery() {
             {groups.map((g) => (
               <button
                 key={g.name || "_"}
-                onClick={() => { setLightbox(null); setOpenFolder(g.name); }}
+                onClick={() => openFolderNav(g.name)}
                 className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-6 transition hover:-translate-y-0.5 hover:border-primary/50"
               >
                 <svg viewBox="0 0 24 24" className="h-14 w-14 text-primary transition group-hover:scale-105" fill="currentColor" aria-hidden="true">
@@ -238,11 +253,16 @@ function PublicGallery() {
         ) : (
           // Inside a folder — its photos.
           <div className="mx-auto mt-6 max-w-6xl">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              <button onClick={() => { setLightbox(null); setOpenFolder(null); }} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-semibold text-muted-foreground transition hover:text-foreground">
-                ← {lang === "ar" ? "المجلدات" : "Folders"}
+            <div className="mb-5 flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => { if (typeof window !== "undefined") window.history.back(); else setOpenFolder(null); }}
+                aria-label={lang === "ar" ? "رجوع" : "Back"}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-bold text-primary shadow-sm transition hover:bg-primary/20 active:scale-95"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d={lang === "ar" ? "M9 18l6-6-6-6" : "M15 18l-6-6 6-6"} /></svg>
+                {lang === "ar" ? "رجوع" : "Back"}
               </button>
-              <h2 className="flex min-w-0 items-center gap-2 text-base font-bold">
+              <h2 className="flex min-w-0 items-center gap-2 text-lg font-bold">
                 <span className="text-primary">📁</span>
                 <span className="truncate">{openFolder || (lang === "ar" ? "عام" : "General")}</span>
                 <span className="text-sm font-normal text-muted-foreground">· {folderAssets.length}</span>
