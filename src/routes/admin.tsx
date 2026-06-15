@@ -920,6 +920,7 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
   const [confirmDel, setConfirmDel] = useState<EnrichedAsset | null>(null);
   const [album, setAlbum] = useState<string>("all");
   const [uploadAlbum, setUploadAlbum] = useState<string>("");
+  const [createdAlbums, setCreatedAlbums] = useState<string[]>([]);
   const folderRef = useRef<HTMLInputElement>(null);
 
   // <input webkitdirectory> isn't a typed React prop — set it on the element so
@@ -989,11 +990,28 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
   });
 
   const pendingCount = assets.filter((a) => a.approved === false).length;
-  const albums = useMemo(() => Array.from(new Set(assets.map(albumOf).filter(Boolean))).sort(), [assets]);
+  // Folders that exist in the data (from uploaded photos) plus any just created
+  // this session — so a new, still-empty folder is selectable right away.
+  const albums = useMemo(
+    () => Array.from(new Set([...createdAlbums, ...assets.map(albumOf).filter(Boolean)])).sort(),
+    [assets, createdAlbums],
+  );
+
+  // Create an empty folder, select it as the upload target, and focus it.
+  function createFolder() {
+    const n = window.prompt("New folder / album name");
+    const name = (n || "").trim();
+    if (!name) return;
+    setCreatedAlbums((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    setUploadAlbum(name);
+    setAlbum(name);
+  }
 
   // Rename an album: rewrite the album label on every matching asset row.
   async function renameAlbum(oldName: string, newName: string) {
     await supabase.from("assets").update({ meta: { album: newName } }).eq("event_id", event.id).filter("meta->>album", "eq", oldName);
+    setCreatedAlbums((prev) => prev.map((a) => (a === oldName ? newName : a)));
+    if (uploadAlbum === oldName) setUploadAlbum(newName);
     setAlbum(newName);
     load();
   }
@@ -1126,6 +1144,11 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={createFolder}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold transition hover:bg-muted"
+              title="Create a folder, then upload photos into it"
+            >📁 New folder</button>
             <input
               list="album-list"
               value={uploadAlbum}
