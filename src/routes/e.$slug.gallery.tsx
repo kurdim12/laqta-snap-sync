@@ -38,16 +38,21 @@ async function signMany(paths: string[]): Promise<Record<string, string>> {
 function enrich(rows: AssetRow[], urls: Record<string, string>): GalleryAsset[] {
   const originals = rows.filter((r) => r.variant === "original");
   const webs = rows.filter((r) => r.variant === "web");
-  const thumbs = rows.filter((r) => r.variant === "thumb");
-  const display = originals.length ? originals : webs.length ? webs : rows.filter((r) => r.variant !== "thumb");
+  const thumbs = rows.filter((r) => r.variant === "thumb" || r.variant === "poster");
+  const display = originals.length ? originals : webs.length ? webs : rows.filter((r) => r.variant !== "thumb" && r.variant !== "poster");
   return display.map((r) => {
-    const web = webs.find((w) => w.parent_asset_id === r.id) || r;
-    const thumb = thumbs.find((t) => t.parent_asset_id === r.id) || web;
+    const isVideo = r.kind === "video";
+    const web = webs.find((w) => w.parent_asset_id === r.id);
+    const thumb = thumbs.find((t) => t.parent_asset_id === r.id);
+    const full = web || r;
+    // Photos fall back to the full image as a thumbnail; a video only has an
+    // image thumbnail if it has a poster — otherwise the tile shows its frame.
+    const thumbAsset = thumb || (isVideo ? undefined : full);
     return {
       id: r.id,
-      kind: r.kind === "video" ? "video" : "photo",
-      url: urls[web.storage_path],
-      thumbUrl: urls[thumb.storage_path],
+      kind: isVideo ? "video" : "photo",
+      url: urls[full.storage_path],
+      thumbUrl: thumbAsset ? urls[thumbAsset.storage_path] : undefined,
       album: (r.meta as { album?: string })?.album || "",
     };
   });
@@ -180,7 +185,11 @@ function PublicGallery() {
     >
       {a.kind === "video" ? (
         <>
-          <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover" />
+          {a.thumbUrl ? (
+            <img src={a.thumbUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <video src={`${a.url || ""}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+          )}
           <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
         </>
       ) : (

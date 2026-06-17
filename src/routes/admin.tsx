@@ -8,7 +8,7 @@ import { qrUrl } from "@/lib/qr";
 import { QrSheet } from "@/components/QrSheet";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
-import { resizeImage, logoDataUrl } from "@/lib/media";
+import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -949,20 +949,22 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
     // twice — once as its thumbnail and once as a stray full-res web tile.
     const originals = all.filter((r) => r.parent_asset_id == null && r.variant !== "thumb");
     const webs = all.filter((r) => r.variant === "web");
-    const thumbs = all.filter((r) => r.variant === "thumb");
+    const thumbs = all.filter((r) => r.variant === "thumb" || r.variant === "poster");
     const display = (originals.length ? originals : webs.length ? webs : all);
 
     const enriched = await Promise.all(display.map(async (r) => {
+      const isVideo = r.kind === "video";
       const web = webs.find((w) => w.parent_asset_id === r.id) || r;
-      const thumb = thumbs.find((t) => t.parent_asset_id === r.id) || web;
-      // When an asset has no separate thumb variant, web and thumb resolve to
-      // the same path — sign it once instead of twice.
+      const thumbChild = thumbs.find((t) => t.parent_asset_id === r.id);
       const { data: webU } = await supabase.storage.from("media").createSignedUrl(web.storage_path, 3600);
-      const thumbU = web.storage_path === thumb.storage_path
-        ? webU
-        : (await supabase.storage.from("media").createSignedUrl(thumb.storage_path, 3600)).data;
+      let thumbSigned = webU;
+      if (thumbChild && thumbChild.storage_path !== web.storage_path) {
+        thumbSigned = (await supabase.storage.from("media").createSignedUrl(thumbChild.storage_path, 3600)).data;
+      } else if (!thumbChild && isVideo) {
+        thumbSigned = null; // a video with no poster has no image thumbnail
+      }
       const g = r.guest_id ? guestMap.get(r.guest_id) : undefined;
-      return { ...r, url: webU?.signedUrl, thumbUrl: thumbU?.signedUrl, guestName: g?.name, guestCode: g?.code };
+      return { ...r, url: webU?.signedUrl, thumbUrl: thumbSigned?.signedUrl, guestName: g?.name, guestCode: g?.code };
     }));
     setAssets(enriched);
     setLoading(false);
@@ -1117,6 +1119,23 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
               });
             }
           } catch { /* variants are best-effort */ }
+        } else {
+          // Generate a poster (first frame) so videos show a thumbnail.
+          try {
+            const poster = await videoPoster(file);
+            if (poster) {
+              const posterId = crypto.randomUUID();
+              const posterPath = `${event.id}/admin/${posterId}.jpg`;
+              const { error: pErr } = await supabase.storage.from("media").upload(posterPath, poster, { contentType: "image/jpeg", upsert: false });
+              if (!pErr) {
+                await supabase.from("assets").insert({
+                  id: posterId, event_id: event.id, guest_id: null, parent_asset_id: id,
+                  kind: "video", variant: "poster", storage_path: posterPath, content_type: "image/jpeg",
+                  bytes: poster.size, status: "ready", approved: !requireApproval, meta,
+                });
+              }
+            }
+          } catch { /* poster is best-effort */ }
         }
         ok++;
       } catch (e) {
