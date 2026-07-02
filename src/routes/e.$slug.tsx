@@ -5,7 +5,7 @@ import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
 import { generateCode, newId } from "@/lib/code";
 import { addOutbox, queueState, startSyncEngine, trySync } from "@/lib/outbox";
-import { qrUrl } from "@/lib/qr";
+import { QrCode } from "@/components/QrCode";
 import { resizeImage } from "@/lib/media";
 
 export const Route = createFileRoute("/e/$slug")({
@@ -174,7 +174,7 @@ function ReadyForm({ event }: { event: EventRow }) {
           <p className="mt-6 text-xl text-foreground">{pick(config.successMessage, lang)}</p>
           <div className="mt-8 text-sm uppercase tracking-widest text-muted-foreground">{pick(T.yourCode, lang)}</div>
           <div className="code-display mt-3 text-6xl text-primary md:text-7xl" dir="ltr">{success.code}</div>
-          <img src={qrUrl(url, 240)} alt="QR" className="mt-8 rounded-lg bg-white p-3" width={240} height={240} />
+          <QrCode value={url} size={240} alt="QR" className="mt-8 rounded-lg bg-white p-3" />
           <p className="mt-6 text-lg font-semibold text-primary">{pick(T.screenshot, lang)}</p>
           <p className="mt-2 text-xs text-muted-foreground" dir="ltr">{url}</p>
           <p className="mt-2 text-sm text-muted-foreground">{pick(T.galleryHint, lang)}</p>

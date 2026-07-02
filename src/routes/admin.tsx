@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_CONFIG, type EventConfig, type EventRow, type GuestRow } from "@/lib/types";
 import { T, pick } from "@/lib/i18n";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
-import { qrUrl } from "@/lib/qr";
+import { QrCode } from "@/components/QrCode";
+import { checkAdminExists } from "@/lib/admin.functions";
 import { QrSheet } from "@/components/QrSheet";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
@@ -75,9 +76,8 @@ export function AuthForm() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const { data } = await supabase.rpc("admin_exists");
+      const { exists } = await checkAdminExists().catch(() => ({ exists: false }));
       if (!alive) return;
-      const exists = Boolean(data);
       setAdminExists(exists);
       if (exists) setMode("signin");
     })();
@@ -402,7 +402,7 @@ export function QrModal({ url, title, onClose }: { url: string; title: string; o
       <div className="grid w-full max-w-sm gap-3 rounded-2xl border border-border bg-card p-5 text-center" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-bold">{title}</h3>
         <div className="mx-auto rounded-xl bg-white p-3">
-          <img src={qrUrl(url, 280)} alt="QR code" className="block h-[260px] w-[260px]" />
+          <QrCode value={url} size={280} alt="QR code" className="block h-[260px] w-[260px]" />
         </div>
         <div className="break-all rounded-lg border border-border bg-background px-3 py-2 text-xs" dir="ltr">{url}</div>
         <div className="grid grid-cols-3 gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

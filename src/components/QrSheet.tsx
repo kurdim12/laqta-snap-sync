@@ -1,4 +1,4 @@
-import { qrUrl } from "@/lib/qr";
+import { QrCode } from "@/components/QrCode";
 
 interface Props {
   eventName: string;
@@ -36,7 +36,7 @@ export function QrSheet({ eventName, url, count, onClose }: Props) {
                 <div className="text-[9px] font-semibold uppercase tracking-wider text-neutral-500">LAQTA</div>
                 <div className="truncate text-xs font-bold text-neutral-900">{eventName}</div>
               </div>
-              <img src={qrUrl(url, 280)} alt={`QR ${n}`} className="my-2 h-32 w-32" />
+              <QrCode value={url} size={280} alt={`QR ${n}`} className="my-2 h-32 w-32" />
               <div className="w-full text-center">
                 <div className="text-[9px] uppercase tracking-wider text-neutral-500">scan to register</div>
                 <div className="mt-1 inline-block rounded-md bg-black px-2 py-0.5 text-[11px] font-black text-white">#{n}</div>
