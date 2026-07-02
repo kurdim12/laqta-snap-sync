@@ -1,0 +1,9 @@
+fastapi>=0.111
+uvicorn[standard]>=0.30
+pydantic>=2.7
+# Inference (uncomment when implementing /embed):
+# insightface>=0.7.3
+# onnxruntime>=1.18
+# numpy>=1.26
+# pillow>=10.3
+# httpx>=0.27
