@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { generateCode } from "./code";
+import { mintGuestSelfieUrl } from "./upload.functions";
 
 const DB_NAME = "laqta-outbox";
 const STORE = "submissions";
@@ -105,16 +106,27 @@ async function insertGuestRow(entry: OutboxEntry): Promise<{ ok: true } | { ok: 
 
 async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
   if (!entry.selfie) return true;
-  const path = `${entry.eventId}/selfies/${entry.id}.jpg`;
   try {
-    const upP = supabase.storage.from("media").upload(path, entry.selfie, {
-      upsert: true,
-      contentType: "image/jpeg",
+    // The anon client can no longer write storage directly. Ask the server for
+    // a signed upload URL scoped to this guest's own selfie object (authorized
+    // by the guest code), then upload straight to storage with the token.
+    const mintP = mintGuestSelfieUrl({
+      data: {
+        eventId: entry.eventId,
+        guestId: entry.id,
+        code: entry.code,
+        contentType: "image/jpeg",
+        bytes: entry.selfie.size,
+      },
     });
+    const { url } = await withTimeout(mintP, 8000);
+    const upP = supabase.storage
+      .from("media")
+      .uploadToSignedUrl(url.path, url.token, entry.selfie, { contentType: "image/jpeg" });
     const { error: upErr } = await withTimeout(upP as unknown as Promise<{ error: unknown }>, 30000);
     if (upErr) return false;
     const updP: Promise<{ error: unknown }> = Promise.resolve(
-      supabase.rpc("set_guest_selfie", { _id: entry.id, _code: entry.code, _path: path }),
+      supabase.rpc("set_guest_selfie", { _id: entry.id, _code: entry.code, _path: url.path }),
     );
     const { error: updErr } = await withTimeout(updP, 8000);
     return !updErr;

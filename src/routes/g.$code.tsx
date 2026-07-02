@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_CONFIG, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
 import { applyEventTheme } from "@/lib/theme";
+import { getGalleryByCode, getDownloadUrlsByCode } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/g/$code")({
   head: () => ({ meta: [{ title: "LAQTA · Your photos" }] }),
@@ -19,50 +19,9 @@ interface GalleryAsset {
   thumbUrl?: string;
 }
 
-interface CodeAsset {
-  id: string;
-  kind: string;
-  variant: string;
-  parent_asset_id: string | null;
-  storage_path: string;
-  created_at: string;
-}
-
-async function signMany(paths: string[]): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
-  await Promise.all(
-    paths.map(async (p) => {
-      const { data } = await supabase.storage.from("media").createSignedUrl(p, 3600);
-      if (data?.signedUrl) out[p] = data.signedUrl;
-    }),
-  );
-  return out;
-}
-
-function enrichCode(rows: CodeAsset[], urls: Record<string, string>): GalleryAsset[] {
-  const originals = rows.filter((r) => r.variant === "original");
-  const webs = rows.filter((r) => r.variant === "web");
-  const thumbs = rows.filter((r) => r.variant === "thumb" || r.variant === "poster");
-  const display = originals.length ? originals : webs.length ? webs : rows.filter((r) => r.variant !== "thumb" && r.variant !== "poster");
-  return display.map((r) => {
-    const isVideo = r.kind === "video";
-    const web = webs.find((w) => w.parent_asset_id === r.id);
-    const thumb = thumbs.find((t) => t.parent_asset_id === r.id);
-    const full = web || r;
-    const thumbAsset = thumb || (isVideo ? undefined : full);
-    return {
-      id: r.id,
-      kind: isVideo ? "video" : "photo",
-      url: urls[full.storage_path],
-      thumbUrl: thumbAsset ? urls[thumbAsset.storage_path] : undefined,
-    };
-  });
-}
-
 function Gallery() {
   const { code } = useParams({ from: "/g/$code" });
   const navigate = useNavigate();
-  const rawAssetsRef = useRef<CodeAsset[]>([]);
   const [guestCode, setGuestCode] = useState<string | null>(null);
   const [event, setEvent] = useState<EventRow | null>(null);
   const [assets, setAssets] = useState<GalleryAsset[]>([]);
@@ -75,14 +34,10 @@ function Gallery() {
 
   async function load() {
     try {
-      const { data: res, error } = await supabase.rpc("get_code_gallery", { _code: code });
-      const r = res as unknown as {
-        notFound?: boolean;
-        guest?: { code: string };
-        event?: { id: string; slug: string; name: string; status: string; config: unknown; created_at: string };
-        assets?: CodeAsset[];
-      } | null;
-      if (error || !r || r.notFound || !r.event || !r.guest) { setNotFound(true); return; }
+      // Signing happens server-side (service role, rate limited). The anon
+      // client no longer reads assets or calls get_code_gallery directly.
+      const r = await getGalleryByCode({ data: { code } });
+      if (r.notFound || !r.event || !r.guest) { setNotFound(true); return; }
       setNotFound(false);
       setGuestCode(r.guest.code);
       const e = r.event;
@@ -95,11 +50,14 @@ function Gallery() {
       setEvent(ev);
       if (themeCleanupRef.current) themeCleanupRef.current();
       themeCleanupRef.current = applyEventTheme(ev.config.theme);
-      const rows = (r.assets || []) as CodeAsset[];
-      rawAssetsRef.current = rows;
-      const paths = Array.from(new Set(rows.map((a) => a.storage_path)));
-      const urls = await signMany(paths);
-      setAssets(enrichCode(rows, urls));
+      setAssets(
+        (r.assets || []).map((a) => ({
+          id: a.id,
+          kind: a.kind === "video" ? "video" : "photo",
+          url: a.url,
+          thumbUrl: a.thumbUrl,
+        })),
+      );
     } catch {
       setNotFound(true);
     }
@@ -153,23 +111,24 @@ function Gallery() {
   }
 
   async function downloadAll() {
-    const rows = rawAssetsRef.current;
-    const originals = rows.filter((r) => r.variant === "original");
-    const webs = rows.filter((r) => r.variant === "web");
-    const display = originals.length ? originals : webs;
-    for (const r of display) {
+    // Full-res download URLs are minted server-side (service role, rate limited)
+    // with a forced Content-Disposition: attachment.
+    const { urls } = await getDownloadUrlsByCode({
+      data: { code, prefix: `${event?.name || "laqta"}-${guestCode || ""}` },
+    });
+    let i = 0;
+    for (const u of urls) {
+      i += 1;
       try {
-        const { data } = await supabase.storage.from("media").createSignedUrl(r.storage_path, 3600);
-        if (!data?.signedUrl) continue;
         // Cross-origin signed URLs ignore the <a download> attribute, so fetch
         // the bytes and download a same-origin blob instead.
-        const resp = await fetch(data.signedUrl);
+        const resp = await fetch(u);
         const blob = await resp.blob();
-        const ext = r.storage_path.split(".").pop() || (r.kind === "video" ? "mp4" : "jpg");
+        const ext = new URL(u).pathname.split(".").pop() || "jpg";
         const objUrl = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = objUrl;
-        link.download = `${event?.name || "laqta"}-${guestCode}-${r.id.slice(0, 6)}.${ext}`;
+        link.download = `${event?.name || "laqta"}-${guestCode}-${i}.${ext}`;
         document.body.appendChild(link);
         link.click();
         link.remove();

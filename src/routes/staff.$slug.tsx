@@ -6,6 +6,7 @@ import { T, pick } from "@/lib/i18n";
 import { newId } from "@/lib/code";
 import { resizeImage, videoPoster } from "@/lib/media";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
+import { mintStaffUploadUrls } from "@/lib/upload.functions";
 
 export const Route = createFileRoute("/staff/$slug")({
   head: () => ({ meta: [{ title: "LAQTA · Staff" }] }),
@@ -142,6 +143,26 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
 
   }
 
+  // Upload a blob through a server-minted signed upload URL. The anon client can
+  // no longer write to storage directly (see migration 20260702120000); the
+  // server authorizes via the staff PIN and validates path/MIME/size first.
+  async function uploadViaSigned(
+    path: string,
+    blob: Blob,
+    contentType: string,
+    kind: "photo" | "video",
+  ) {
+    const { urls } = await mintStaffUploadUrls({
+      data: { slug: event.slug, pin, files: [{ path, contentType, bytes: blob.size, kind }] },
+    });
+    const target = urls[0];
+    if (!target) throw new Error("upload authorization failed");
+    const { error } = await supabase.storage
+      .from("media")
+      .uploadToSignedUrl(target.path, target.token, blob, { contentType });
+    if (error) throw error;
+  }
+
   async function uploadOne(item: QueueItem) {
     if (!aliveRef.current) return;
     update(item.id, { state: "uploading", progress: 5 });
@@ -153,8 +174,7 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
     try {
       // upload original
       const origPath = `${basePath}/original.${ext}`;
-      const { error: upErr } = await supabase.storage.from("media").upload(origPath, item.file, { upsert: true, contentType: item.file.type });
-      if (upErr) throw upErr;
+      await uploadViaSigned(origPath, item.file, item.file.type || (isVideo ? "video/mp4" : "image/jpeg"), kind);
       update(item.id, { progress: 40, assetId });
 
       // create asset row (parent) via PIN-validated RPC
@@ -171,16 +191,16 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
         const thumbBlob = await resizeImage(item.file, 400, 0.8);
         const webPath = `${basePath}/web.jpg`;
         const thumbPath = `${basePath}/thumb.jpg`;
-        await supabase.storage.from("media").upload(webPath, webBlob, { upsert: true, contentType: "image/jpeg" });
+        await uploadViaSigned(webPath, webBlob, "image/jpeg", "photo");
         update(item.id, { progress: 75 });
-        await supabase.storage.from("media").upload(thumbPath, thumbBlob, { upsert: true, contentType: "image/jpeg" });
+        await uploadViaSigned(thumbPath, thumbBlob, "image/jpeg", "photo");
         await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "web", path: webPath, contentType: "image/jpeg", bytes: webBlob.size });
         await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "thumb", path: thumbPath, contentType: "image/jpeg", bytes: thumbBlob.size });
       } else {
         const poster = await videoPoster(item.file);
         if (poster) {
           const posterPath = `${basePath}/poster.jpg`;
-          await supabase.storage.from("media").upload(posterPath, poster, { upsert: true, contentType: "image/jpeg" });
+          await uploadViaSigned(posterPath, poster, "image/jpeg", "photo");
           await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "poster", path: posterPath, contentType: "image/jpeg", bytes: poster.size });
         }
       }
@@ -218,12 +238,23 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
   // soon as one finishes — otherwise the last items stall on "queued".
   useEffect(() => { drain(); }, [queue, drain]);
 
+  // Must match the server allowlist (upload.functions.ts) and the bucket's
+  // allowed_mime_types — otherwise the upload is rejected and burns 5 retries.
+  const ACCEPTED_MIME = new Set([
+    "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
+    "video/mp4", "video/quicktime",
+  ]);
+
   function onFiles(files: FileList | File[]) {
     const arr = Array.from(files);
     const lim = event.config.limits;
     const next: QueueItem[] = [];
     for (const f of arr) {
       const isVideo = f.type.startsWith("video/");
+      if (f.type && !ACCEPTED_MIME.has(f.type)) {
+        alert(`${f.name}: unsupported type (${f.type || "unknown"})`);
+        continue;
+      }
       const maxMB = isVideo ? lim.maxVideoMB : lim.maxPhotoMB;
       if (f.size > maxMB * 1024 * 1024) {
         alert(`${f.name}: exceeds ${maxMB}MB limit`);

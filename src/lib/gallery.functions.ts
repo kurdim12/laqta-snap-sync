@@ -17,7 +17,9 @@ function rateLimit(key: string, max: number, windowMs: number): boolean {
 
 function ipKey(): string {
   try {
-    return getRequestIP({ xForwardedFor: true }) || "anon";
+    // Use the platform-trusted remote address (e.g. Cloudflare's
+    // cf-connecting-ip), NOT the client-spoofable X-Forwarded-For.
+    return getRequestIP() || "anon";
   } catch {
     return "anon";
   }
@@ -82,15 +84,25 @@ async function signManyDownload(paths: string[], filenamePrefix: string): Promis
 function buildEnriched(rows: AssetLite[], urls: Record<string, string>) {
   const originals = rows.filter((r) => r.variant === "original");
   const webs = rows.filter((r) => r.variant === "web");
-  const thumbs = rows.filter((r) => r.variant === "thumb");
-  const display = originals.length ? originals : webs.length ? webs : rows;
+  // A video's thumbnail is its `poster` variant, not `thumb`. Mirror the
+  // client-side enrich: include poster, and leave a posterless video's thumbUrl
+  // undefined so the UI falls back to a <video> frame instead of an <img> of
+  // the mp4 (which renders as a broken image).
+  const thumbs = rows.filter((r) => r.variant === "thumb" || r.variant === "poster");
+  const display = originals.length
+    ? originals
+    : webs.length
+      ? webs
+      : rows.filter((r) => r.variant !== "thumb" && r.variant !== "poster");
   return display.map((r) => {
+    const isVideo = r.kind === "video";
     const web = webs.find((w) => w.parent_asset_id === r.id) || r;
-    const thumb = thumbs.find((t) => t.parent_asset_id === r.id) || web;
+    const thumb = thumbs.find((t) => t.parent_asset_id === r.id);
+    const thumbAsset = thumb || (isVideo ? undefined : web);
     return {
       ...r,
       url: urls[web.storage_path],
-      thumbUrl: urls[thumb.storage_path],
+      thumbUrl: thumbAsset ? urls[thumbAsset.storage_path] : undefined,
     };
   });
 }
