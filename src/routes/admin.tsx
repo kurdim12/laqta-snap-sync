@@ -6,7 +6,7 @@ import { T, pick } from "@/lib/i18n";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { QrCode } from "@/components/QrCode";
 import { checkAdminExists } from "@/lib/admin.functions";
-import { sendGuestCodeEmail } from "@/lib/delivery.functions";
+import { adminResendGuestCode } from "@/lib/delivery.functions";
 import { QrSheet } from "@/components/QrSheet";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
@@ -591,7 +591,10 @@ function GuestDetail({ guest, onDelete }: { guest: GuestRow; onDelete: () => voi
   async function resend() {
     setSending(true); setNote(null);
     try {
-      const res = await sendGuestCodeEmail({ data: { code: guest.code, force: true } });
+      const { data: s } = await supabase.auth.getSession();
+      const accessToken = s.session?.access_token;
+      if (!accessToken) { setNote("Session expired — sign in again"); setSending(false); return; }
+      const res = await adminResendGuestCode({ data: { code: guest.code, accessToken } });
       setNote(
         res.status === "sent" ? "Email sent" :
         res.status === "queued" ? "Queued (no email provider configured)" :

@@ -46,6 +46,26 @@ bundle was scanned to confirm **no Resend key / service-role symbols leak**.
   `codeEmail` (bilingual subject, code, link, embedded QR data URL, HTML-escaped
   name, text part), `resendSend` with no key → `queued`, no throw, no network.
 
+## Adversarial review outcome (2 lenses) + fixes
+
+- **HIGH — anon email-bomb via `force`:** `force` was honored on the unauthed
+  server fn, and codes are public (in `/g/CODE` links). **Fixed** by splitting
+  the API: `sendGuestCodeEmail` (anon, outbox) is always idempotent — no resend;
+  `adminResendGuestCode` verifies the caller's Supabase session is an admin
+  (`auth.getUser(token)` + `has_role`) before forcing a resend.
+- **MEDIUM — NAT'd venue drops emails:** the throttle now runs only for real
+  sends, is raised to 300/min/IP, and records a visible `queued` delivery row
+  on overflow instead of silently dropping.
+- **MEDIUM — `appOrigin` Host-header fallback:** largely defanged by the fix
+  above (no anon resend). Tightened to https-only; `APP_ORIGIN` documented as
+  the production requirement.
+- **LOW — consent was client-only:** added a **DB-level** guarantee — migration
+  `20260702131500_enforce_consent_on_insert.sql` makes the anon guests INSERT
+  policy require `consent IS TRUE`, so a stale/replayed insert can't persist a
+  non-consented registration.
+- **LOW — select-then-insert idempotency race:** documented; a partial unique
+  index on `deliveries(guest_id, channel)` is the race-proof follow-up.
+
 ## Config needed to go live (runtime env — not required to build/deploy)
 
 - `RESEND_API_KEY` — Resend API key.
