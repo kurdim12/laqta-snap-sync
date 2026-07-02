@@ -95,23 +95,35 @@ export type Database = {
         Row: {
           channel: string
           created_at: string
+          destination: string | null
+          error: string | null
           guest_id: string
           id: string
+          provider_message_id: string | null
           status: string
+          updated_at: string
         }
         Insert: {
           channel?: string
           created_at?: string
+          destination?: string | null
+          error?: string | null
           guest_id: string
           id?: string
+          provider_message_id?: string | null
           status?: string
+          updated_at?: string
         }
         Update: {
           channel?: string
           created_at?: string
+          destination?: string | null
+          error?: string | null
           guest_id?: string
           id?: string
+          provider_message_id?: string | null
           status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -160,6 +172,7 @@ export type Database = {
         Row: {
           code: string
           consent: boolean
+          consent_at: string | null
           created_at: string
           event_id: string
           form_data: Json
@@ -170,6 +183,7 @@ export type Database = {
         Insert: {
           code: string
           consent?: boolean
+          consent_at?: string | null
           created_at?: string
           event_id: string
           form_data?: Json
@@ -180,6 +194,7 @@ export type Database = {
         Update: {
           code?: string
           consent?: boolean
+          consent_at?: string | null
           created_at?: string
           event_id?: string
           form_data?: Json

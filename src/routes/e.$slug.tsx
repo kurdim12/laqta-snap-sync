@@ -138,6 +138,9 @@ function ReadyForm({ event }: { event: EventRow }) {
     if (selfieMode === "required" && !selfie) {
       errs.__selfie = lang === "ar" ? "الرجاء التقاط صورة" : "Please take a selfie";
     }
+    if (!consent) {
+      errs.__consent = lang === "ar" ? "يرجى الموافقة للمتابعة" : "Please accept to continue";
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -149,7 +152,7 @@ function ReadyForm({ event }: { event: EventRow }) {
     const code = generateCode();
     await addOutbox({
       id, eventSlug: event.slug, eventId: event.id, code,
-      payload: { form_data: values, consent, source: "primary" },
+      payload: { form_data: values, consent, consent_at: new Date().toISOString(), source: "primary" },
       selfie: selfie ?? null,
       selfieUploaded: !selfie,
       rowSynced: false,
@@ -237,11 +240,12 @@ function ReadyForm({ event }: { event: EventRow }) {
             <input
               type="checkbox"
               checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-              className="mt-1 h-5 w-5 accent-[color:var(--primary)]"
+              onChange={(e) => { setConsent(e.target.checked); if (e.target.checked) setErrors((x) => { const { __consent, ...rest } = x; void __consent; return rest; }); }}
+              className={`mt-1 h-5 w-5 accent-[color:var(--primary)] ${errors.__consent ? "outline outline-2 outline-destructive" : ""}`}
             />
             <span>{pick(config.consentText, lang)}</span>
           </label>
+          {errors.__consent && <p className="-mt-2 text-sm text-destructive">{errors.__consent}</p>}
           <button
             type="submit"
             className="w-full rounded-xl bg-primary px-6 py-4 text-lg font-bold text-primary-foreground transition active:scale-[0.98]"

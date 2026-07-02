@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { generateCode } from "./code";
 import { mintGuestSelfieUrl } from "./upload.functions";
+import { sendGuestCodeEmail } from "./delivery.functions";
 
 const DB_NAME = "laqta-outbox";
 const STORE = "submissions";
@@ -13,6 +14,7 @@ export interface OutboxEntry {
   payload: {
     form_data: Record<string, string>;
     consent: boolean;
+    consent_at?: string | null;
     source: string;
   };
   selfie?: Blob | null;          // raw blob; IndexedDB stores Blobs natively
@@ -86,6 +88,7 @@ async function insertGuestRow(entry: OutboxEntry): Promise<{ ok: true } | { ok: 
         code: entry.code,
         form_data: entry.payload.form_data,
         consent: entry.payload.consent,
+        consent_at: entry.payload.consent_at ?? null,
         source: entry.payload.source,
       }),
     );
@@ -182,6 +185,14 @@ export async function trySync(): Promise<void> {
           continue;
         }
       }
+
+      // Best-effort code delivery once the row (and any selfie) is synced.
+      // Idempotent server-side (one 'sent' email per guest); no-op when the
+      // guest gave no email or no provider key is configured. A transient
+      // failure is not retried here — the admin can resend from the dashboard.
+      try {
+        await withTimeout(sendGuestCodeEmail({ data: { code: entry.code } }), 8000);
+      } catch { /* delivery is a convenience; the code is already on-screen */ }
 
       // Done
       entry.state = "synced";

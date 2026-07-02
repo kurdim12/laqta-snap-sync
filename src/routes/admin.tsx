@@ -6,6 +6,7 @@ import { T, pick } from "@/lib/i18n";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { QrCode } from "@/components/QrCode";
 import { checkAdminExists } from "@/lib/admin.functions";
+import { sendGuestCodeEmail } from "@/lib/delivery.functions";
 import { QrSheet } from "@/components/QrSheet";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
@@ -572,16 +573,54 @@ function timeAgo(iso: string): string {
 }
 
 function GuestDetail({ guest, onDelete }: { guest: GuestRow; onDelete: () => void }) {
+  const [delivery, setDelivery] = useState<{ status: string; destination: string | null } | null>(null);
+  const [sending, setSending] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function loadDelivery() {
+    const { data } = await supabase
+      .from("deliveries")
+      .select("status, destination")
+      .eq("guest_id", guest.id)
+      .eq("channel", "email")
+      .maybeSingle();
+    setDelivery(data ?? null);
+  }
+  useEffect(() => { setNote(null); loadDelivery(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [guest.id]);
+
+  async function resend() {
+    setSending(true); setNote(null);
+    try {
+      const res = await sendGuestCodeEmail({ data: { code: guest.code, force: true } });
+      setNote(
+        res.status === "sent" ? "Email sent" :
+        res.status === "queued" ? "Queued (no email provider configured)" :
+        res.status === "skipped" ? `Skipped: ${res.reason ?? "no email"}` :
+        `Failed: ${res.reason ?? "error"}`,
+      );
+      await loadDelivery();
+    } catch { setNote("Failed to send"); } finally { setSending(false); }
+  }
+
+  const dTone = delivery?.status === "sent" ? "bg-[color:var(--success)]/20 text-[color:var(--success)]"
+    : delivery?.status === "failed" ? "bg-destructive/20 text-destructive"
+    : "bg-muted text-muted-foreground";
+
   return (
     <div className="space-y-3">
       <div className="flex flex-col items-center">
         <SelfieAvatar path={guest.selfie_path} name={guest.form_data.name || ""} size={120} />
         <div className="mt-3 text-lg font-bold">{guest.form_data.name || "—"}</div>
         <div className="code-display text-sm text-primary" dir="ltr">{guest.code}</div>
-        <div className="mt-1 flex gap-1.5">
+        <div className="mt-1 flex flex-wrap justify-center gap-1.5">
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${guest.consent ? "bg-[color:var(--success)]/20 text-[color:var(--success)]" : "bg-destructive/20 text-destructive"}`}>{guest.consent ? "consented" : "no consent"}</span>
           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{guest.source}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${dTone}`}>{delivery ? `email ${delivery.status}` : "email —"}</span>
         </div>
+        <button onClick={resend} disabled={sending} className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted disabled:opacity-60">
+          {sending ? "Sending…" : "Resend code email"}
+        </button>
+        {note && <p className="mt-1 text-[11px] text-muted-foreground">{note}</p>}
       </div>
       <dl className="grid gap-1 text-sm">
         {Object.entries(guest.form_data).map(([k, v]) => (
