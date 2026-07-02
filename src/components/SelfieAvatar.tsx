@@ -22,27 +22,42 @@ export function SelfieAvatar({
   size?: number;
   signedUrl?: string | null;
 }) {
-  const [url, setUrl] = useState<string | null>(() =>
-    signedUrl ?? (path ? cache.get(path) ?? null : null),
+  const [url, setUrl] = useState<string | null>(
+    () => signedUrl ?? (path ? (cache.get(path) ?? null) : null),
   );
 
   useEffect(() => {
     let alive = true;
-    if (signedUrl) { setUrl(signedUrl); if (path) cache.set(path, signedUrl); return; }
-    if (!path) { setUrl(null); return; }
+    if (signedUrl) {
+      setUrl(signedUrl);
+      if (path) cache.set(path, signedUrl);
+      return;
+    }
+    if (!path) {
+      setUrl(null);
+      return;
+    }
     const cached = cache.get(path);
-    if (cached) { setUrl(cached); return; }
+    if (cached) {
+      setUrl(cached);
+      return;
+    }
     (async () => {
       const { data } = await supabase.storage.from("media").createSignedUrl(path, 3600);
       if (!alive || !data) return;
       cache.set(path, data.signedUrl);
       setUrl(data.signedUrl);
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [path, signedUrl]);
 
-
-  const style = { width: size, height: size, fontSize: Math.round(size * 0.36) } as React.CSSProperties;
+  const style = {
+    width: size,
+    height: size,
+    fontSize: Math.round(size * 0.36),
+  } as React.CSSProperties;
 
   if (url) {
     return (

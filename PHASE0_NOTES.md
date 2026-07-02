@@ -2,7 +2,7 @@
 
 Status of each Phase 0 item, how it was verified, and what remains. **No
 production data was modified. No migrations were applied** — the SQL under
-`supabase/migrations/` is ready to apply through your normal pipeline *after*
+`supabase/migrations/` is ready to apply through your normal pipeline _after_
 local verification; the SQL under `supabase/drafts/` is not yet ready.
 
 ## Environment note (why some items are "drafted, not applied")
@@ -16,17 +16,17 @@ with the harness in a few minutes.
 
 ## Shipped & verified here
 
-| Item | What | Verification |
-|---|---|---|
-| 0.4.2 Local QR | `src/lib/qr.ts` + `src/components/QrCode.tsx`; replaced all 3 `api.qrserver.com` `<img>` uses (admin, guest success, QR sheet). Private `/g/CODE` links no longer leave the app. | Unit test: `qrDataUrl()` returns a local `data:image/png` URL with no `http`. |
-| 0.4.3 Security headers | `src/lib/security-headers.ts` applied in `src/server.ts` to every response: CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (keeps `camera=(self)` for selfie capture). Dev-tolerant (ws/`unsafe-eval` only in dev). | Unit test asserts header values + prod/dev branches + body/status preserved. |
+| Item                   | What                                                                                                                                                                                                                                                           | Verification                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 0.4.2 Local QR         | `src/lib/qr.ts` + `src/components/QrCode.tsx`; replaced all 3 `api.qrserver.com` `<img>` uses (admin, guest success, QR sheet). Private `/g/CODE` links no longer leave the app.                                                                               | Unit test: `qrDataUrl()` returns a local `data:image/png` URL with no `http`. |
+| 0.4.3 Security headers | `src/lib/security-headers.ts` applied in `src/server.ts` to every response: CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (keeps `camera=(self)` for selfie capture). Dev-tolerant (ws/`unsafe-eval` only in dev). | Unit test asserts header values + prod/dev branches + body/status preserved.  |
 
 ## Implemented, type-checked, tree-shake-verified — apply + verify DB before deploy
 
-| Item | Migration / code | Notes |
-|---|---|---|
+| Item                        | Migration / code                                                                                                                                                                                                                                                                                         | Notes                                                                                                                                     |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | 0.1 Drop anon storage write | `supabase/migrations/20260702120000_lock_storage_writes.sql` + `src/lib/upload.functions.ts` (`mintStaffUploadUrls`, `mintGuestSelfieUrl`) + rewired staff upload (`staff.$slug.tsx`) and guest selfie (`outbox.ts`) to **signed upload URLs**; bucket `file_size_limit` (200MB) + `allowed_mime_types`. | Admin uploads keep working via a new `media admins insert` policy. Confirmed the client bundle contains **no** service-role symbols/keys. |
-| 0.2 Revoke anon RPCs | `supabase/migrations/20260702120500_revoke_anon_rpcs.sql` + `checkAdminExists` server fn + `/g/CODE` rewired to `getGalleryByCode` / `getDownloadUrlsByCode` (rate-limited, service-role signing). | `get_code_gallery` and `admin_exists` no longer anon-callable. |
+| 0.2 Revoke anon RPCs        | `supabase/migrations/20260702120500_revoke_anon_rpcs.sql` + `checkAdminExists` server fn + `/g/CODE` rewired to `getGalleryByCode` / `getDownloadUrlsByCode` (rate-limited, service-role signing).                                                                                                       | `get_code_gallery` and `admin_exists` no longer anon-callable.                                                                            |
 
 ## How to verify (5 min, local)
 
@@ -58,6 +58,7 @@ migrations close.
 ## Adversarial review outcome (4 parallel lenses)
 
 The storage-lockdown lens came back clean. Findings fixed in this branch:
+
 - **Video poster regression (fix):** `buildEnriched` (gallery.functions.ts) now
   includes the `poster` variant and leaves a posterless video's `thumbUrl`
   undefined, so `/g/CODE` video tiles fall back to a `<video>` frame instead of
@@ -72,6 +73,7 @@ The storage-lockdown lens came back clean. Findings fixed in this branch:
   server/bucket allowlist up front instead of failing after 5 retries.
 
 Known, accepted limitations (documented, not blocking):
+
 - **Client-reported size/MIME is advisory** for signed-URL uploads — the real
   server-side bound is the bucket `file_size_limit` (200 MB) + `allowed_mime_types`.
   A tighter per-object selfie cap would need post-upload verification or a

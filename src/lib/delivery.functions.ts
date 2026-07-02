@@ -99,8 +99,13 @@ async function deliverCode(
   // row instead of silently dropping.
   const upsert = async (status: string, providerId: string | null, error: string | null) => {
     const row = {
-      guest_id: g.id, channel: "email", status, destination: email,
-      provider_message_id: providerId, error, updated_at: new Date().toISOString(),
+      guest_id: g.id,
+      channel: "email",
+      status,
+      destination: email,
+      provider_message_id: providerId,
+      error,
+      updated_at: new Date().toISOString(),
     };
     if (existing?.id) await supabaseAdmin.from("deliveries").update(row).eq("id", existing.id);
     else await supabaseAdmin.from("deliveries").insert(row);
@@ -119,8 +124,11 @@ async function deliverCode(
   });
   const { resendSend } = await import("./delivery/resend");
   const result = await resendSend({
-    channel: "email", to: email,
-    subject: composed.subject, html: composed.html, text: composed.text,
+    channel: "email",
+    to: email,
+    subject: composed.subject,
+    html: composed.html,
+    text: composed.text,
   });
   await upsert(result.status, result.providerMessageId ?? null, result.error ?? null);
   return { status: result.status, reason: result.error };

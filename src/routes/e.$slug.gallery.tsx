@@ -11,7 +11,6 @@ export const Route = createFileRoute("/e/$slug/gallery")({
   component: PublicGallery,
 });
 
-
 interface GalleryAsset {
   id: string;
   kind: "photo" | "video";
@@ -39,7 +38,11 @@ function enrich(rows: AssetRow[], urls: Record<string, string>): GalleryAsset[] 
   const originals = rows.filter((r) => r.variant === "original");
   const webs = rows.filter((r) => r.variant === "web");
   const thumbs = rows.filter((r) => r.variant === "thumb" || r.variant === "poster");
-  const display = originals.length ? originals : webs.length ? webs : rows.filter((r) => r.variant !== "thumb" && r.variant !== "poster");
+  const display = originals.length
+    ? originals
+    : webs.length
+      ? webs
+      : rows.filter((r) => r.variant !== "thumb" && r.variant !== "poster");
   return display.map((r) => {
     const isVideo = r.kind === "video";
     const web = webs.find((w) => w.parent_asset_id === r.id);
@@ -60,7 +63,9 @@ function enrich(rows: AssetRow[], urls: Record<string, string>): GalleryAsset[] 
 
 // Group assets into album sections (preserving each asset's flat index for the
 // lightbox). Returns null when nothing has an album, so the flat grid is used.
-function groupAlbums(assets: GalleryAsset[]): { name: string; items: { asset: GalleryAsset; index: number }[] }[] | null {
+function groupAlbums(
+  assets: GalleryAsset[],
+): { name: string; items: { asset: GalleryAsset; index: number }[] }[] | null {
   if (!assets.some((a) => a.album)) return null;
   const map = new Map<string, { asset: GalleryAsset; index: number }[]>();
   assets.forEach((asset, index) => {
@@ -94,12 +99,21 @@ function PublicGallery() {
         .eq("slug", slug)
         .maybeSingle();
       const ecfg = (e?.config || {}) as Partial<EventConfig>;
-      if (!e || !e.id || !e.slug || !e.name || (e.status !== "live" && e.status !== "dryrun") || ecfg.gallery?.mode !== "public") {
+      if (
+        !e ||
+        !e.id ||
+        !e.slug ||
+        !e.name ||
+        (e.status !== "live" && e.status !== "dryrun") ||
+        ecfg.gallery?.mode !== "public"
+      ) {
         setUnavailable(true);
         return;
       }
       const ev: EventRow = {
-        id: e.id, slug: e.slug, name: e.name,
+        id: e.id,
+        slug: e.slug,
+        name: e.name,
         created_at: e.created_at ?? "",
         status: e.status as EventRow["status"],
         config: { ...DEFAULT_CONFIG, ...ecfg } as EventConfig,
@@ -130,28 +144,38 @@ function PublicGallery() {
   useEffect(() => {
     load();
     return () => {
-      if (themeCleanupRef.current) { themeCleanupRef.current(); themeCleanupRef.current = null; }
+      if (themeCleanupRef.current) {
+        themeCleanupRef.current();
+        themeCleanupRef.current = null;
+      }
     };
   }, [slug]);
-
 
   useEffect(() => {
     if (unavailable) return;
     let last = Date.now();
-    const onActivity = () => { last = Date.now(); };
+    const onActivity = () => {
+      last = Date.now();
+    };
     window.addEventListener("pointerdown", onActivity);
     const i = setInterval(() => {
       if (Date.now() - last > 10 * 60_000) return;
       load();
     }, 20_000);
-    return () => { clearInterval(i); window.removeEventListener("pointerdown", onActivity); };
+    return () => {
+      clearInterval(i);
+      window.removeEventListener("pointerdown", onActivity);
+    };
   }, [unavailable, slug]);
 
   // Make the browser Back button close an open folder (return to the folder
   // list) instead of leaving the gallery. Opening a folder pushes a history
   // entry; Back pops it and fires popstate.
   useEffect(() => {
-    function onPop() { setOpenFolder(null); setLightbox(null); }
+    function onPop() {
+      setOpenFolder(null);
+      setLightbox(null);
+    }
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -161,14 +185,20 @@ function PublicGallery() {
       <main className="grid min-h-screen place-items-center bg-background px-6 text-center">
         <div>
           <div className="code-display text-4xl text-primary">LAQTA</div>
-          <p className="mt-6 font-arabic text-lg text-muted-foreground">{pick(T.eventUnavailable, "ar")}</p>
+          <p className="mt-6 font-arabic text-lg text-muted-foreground">
+            {pick(T.eventUnavailable, "ar")}
+          </p>
           <p className="text-sm text-muted-foreground">{pick(T.eventUnavailable, "en")}</p>
         </div>
       </main>
     );
   }
   if (!event) {
-    return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+    return (
+      <main className="grid min-h-screen place-items-center bg-background">
+        <div className="text-muted-foreground">···</div>
+      </main>
+    );
   }
 
   function openFolderNav(name: string) {
@@ -188,17 +218,32 @@ function PublicGallery() {
           {a.thumbUrl ? (
             <img src={a.thumbUrl} alt="" className="h-full w-full object-cover" />
           ) : (
-            <video src={`${a.url || ""}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+            <video
+              src={`${a.url || ""}#t=0.1`}
+              muted
+              playsInline
+              preload="metadata"
+              className="h-full w-full object-cover"
+            />
           )}
-          <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
+          <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">
+            ▶
+          </span>
         </>
       ) : (
-        <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+        <img
+          src={a.thumbUrl || a.url}
+          alt=""
+          className="h-full w-full object-cover transition group-hover:scale-105"
+        />
       )}
     </button>
   );
   const groups = groupAlbums(assets);
-  const folderAssets = groups && openFolder !== null ? (groups.find((g) => g.name === openFolder)?.items.map((x) => x.asset) || []) : [];
+  const folderAssets =
+    groups && openFolder !== null
+      ? groups.find((g) => g.name === openFolder)?.items.map((x) => x.asset) || []
+      : [];
   // The lightbox shows the currently open folder's photos (or the flat list).
   const lightboxItems = groups && openFolder !== null ? folderAssets : assets;
 
@@ -207,7 +252,11 @@ function PublicGallery() {
       <header className="mx-auto flex max-w-6xl items-center justify-between">
         <div>
           {event.config.theme.logoUrl ? (
-            <img src={event.config.theme.logoUrl} alt={event.name} className="h-10 object-contain" />
+            <img
+              src={event.config.theme.logoUrl}
+              alt={event.name}
+              className="h-10 object-contain"
+            />
           ) : (
             <div className="text-xl font-bold text-primary">{event.name}</div>
           )}
@@ -217,7 +266,10 @@ function PublicGallery() {
         </div>
         <div className="flex items-center gap-2">
           {toggleable && (
-            <button onClick={() => setLang(lang === "ar" ? "en" : "ar")} className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground">
+            <button
+              onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+              className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground"
+            >
               {lang === "ar" ? "EN" : "ع"}
             </button>
           )}
@@ -225,15 +277,25 @@ function PublicGallery() {
             onClick={() => sharePage(event.name)}
             className="rounded-full border border-border bg-card px-3 py-2 text-sm font-semibold"
             aria-label="Share"
-          >↗</button>
+          >
+            ↗
+          </button>
         </div>
       </header>
 
       {assets.length === 0 ? (
         <section className="mx-auto mt-20 max-w-md text-center">
           <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-card text-primary">
-            <svg viewBox="0 0 24 24" className="h-12 w-12" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="3" y="6" width="18" height="13" rx="2" /><circle cx="12" cy="13" r="3.5" /><path d="M8 6l1.5-2h5L16 6" />
+            <svg
+              viewBox="0 0 24 24"
+              className="h-12 w-12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <rect x="3" y="6" width="18" height="13" rx="2" />
+              <circle cx="12" cy="13" r="3.5" />
+              <path d="M8 6l1.5-2h5L16 6" />
             </svg>
           </div>
           <p className="mt-6 text-xl font-semibold">{pick(T.photosOnTheWay, lang)} 📸</p>
@@ -249,12 +311,21 @@ function PublicGallery() {
                 onClick={() => openFolderNav(g.name)}
                 className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-6 transition hover:-translate-y-0.5 hover:border-primary/50"
               >
-                <svg viewBox="0 0 24 24" className="h-14 w-14 text-primary transition group-hover:scale-105" fill="currentColor" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-14 w-14 text-primary transition group-hover:scale-105"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
                   <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
                 </svg>
                 <div className="w-full text-center">
-                  <div className="truncate text-sm font-bold text-foreground">{g.name || (lang === "ar" ? "عام" : "General")}</div>
-                  <div className="text-xs text-muted-foreground">{g.items.length} {lang === "ar" ? "عنصر" : "items"}</div>
+                  <div className="truncate text-sm font-bold text-foreground">
+                    {g.name || (lang === "ar" ? "عام" : "General")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {g.items.length} {lang === "ar" ? "عنصر" : "items"}
+                  </div>
                 </div>
               </button>
             ))}
@@ -264,21 +335,40 @@ function PublicGallery() {
           <div className="mx-auto mt-6 max-w-6xl">
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <button
-                onClick={() => { if (typeof window !== "undefined") window.history.back(); else setOpenFolder(null); }}
+                onClick={() => {
+                  if (typeof window !== "undefined") window.history.back();
+                  else setOpenFolder(null);
+                }}
                 aria-label={lang === "ar" ? "رجوع" : "Back"}
                 className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-bold text-primary shadow-sm transition hover:bg-primary/20 active:scale-95"
               >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d={lang === "ar" ? "M9 18l6-6-6-6" : "M15 18l-6-6 6-6"} /></svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d={lang === "ar" ? "M9 18l6-6-6-6" : "M15 18l-6-6 6-6"} />
+                </svg>
                 {lang === "ar" ? "رجوع" : "Back"}
               </button>
               <h2 className="flex min-w-0 items-center gap-2 text-lg font-bold">
                 <span className="text-primary">📁</span>
-                <span className="truncate">{openFolder || (lang === "ar" ? "عام" : "General")}</span>
-                <span className="text-sm font-normal text-muted-foreground">· {folderAssets.length}</span>
+                <span className="truncate">
+                  {openFolder || (lang === "ar" ? "عام" : "General")}
+                </span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  · {folderAssets.length}
+                </span>
               </h2>
             </div>
             {folderAssets.length === 0 ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">{pick(T.photosOnTheWay, lang)}</p>
+              <p className="py-16 text-center text-sm text-muted-foreground">
+                {pick(T.photosOnTheWay, lang)}
+              </p>
             ) : (
               <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {folderAssets.map((a, i) => tile(a, i))}
@@ -309,6 +399,17 @@ function PublicGallery() {
 async function sharePage(name: string) {
   const url = typeof window !== "undefined" ? window.location.href : "";
   const data: ShareData = { title: `${name} · LAQTA`, text: `Live photos from ${name}`, url };
-  try { if (navigator.share) { await navigator.share(data); return; } } catch { /* cancelled */ }
-  try { await navigator.clipboard.writeText(url); } catch { /* noop */ }
+  try {
+    if (navigator.share) {
+      await navigator.share(data);
+      return;
+    }
+  } catch {
+    /* cancelled */
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    /* noop */
+  }
 }

@@ -41,7 +41,10 @@ export interface ComposedEmail {
 }
 
 function esc(s: string): string {
-  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+  return s.replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+  );
 }
 
 // Bilingual "your photos are ready" email with the code, a direct gallery link,
@@ -68,8 +71,7 @@ export async function codeEmail(input: CodeEmailInput): Promise<ComposedEmail> {
     hint: "احتفظ بهذا الرمز — يفتح معرضك الخاص.",
   };
 
-  const subject =
-    lang === "ar" ? `${ar.title} · ${en.title}` : `${en.title} · ${ar.title}`;
+  const subject = lang === "ar" ? `${ar.title} · ${en.title}` : `${en.title} · ${ar.title}`;
 
   const block = (t: typeof en, dir: "ltr" | "rtl") => `
     <div dir="${dir}" style="text-align:${dir === "rtl" ? "right" : "left"};padding:8px 0">

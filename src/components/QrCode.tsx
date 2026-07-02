@@ -22,9 +22,15 @@ export function QrCode({ value, size = 280, className, alt = "QR code" }: Props)
   useEffect(() => {
     let alive = true;
     qrDataUrl(value, size)
-      .then((url) => { if (alive) setSrc(url); })
-      .catch(() => { if (alive) setSrc(null); });
-    return () => { alive = false; };
+      .then((url) => {
+        if (alive) setSrc(url);
+      })
+      .catch(() => {
+        if (alive) setSrc(null);
+      });
+    return () => {
+      alive = false;
+    };
   }, [value, size]);
 
   if (!src) {

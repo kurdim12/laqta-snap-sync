@@ -17,7 +17,7 @@ bundle was scanned to confirm **no Resend key / service-role symbols leak**.
 ## Phase 1 — Resend code delivery (behind a provider interface)
 
 - **Provider abstraction** (`src/lib/delivery/types.ts`): `DeliveryProvider.send`
-  + `DeliveryChannel = email | sms | whatsapp`, so Twilio/WhatsApp slot in later.
+  - `DeliveryChannel = email | sms | whatsapp`, so Twilio/WhatsApp slot in later.
 - **Resend impl** (`src/lib/delivery/resend.ts`): `fetch` to the Resend API (no
   SDK dep; works on Cloudflare Workers). Reads `RESEND_API_KEY` / `RESEND_FROM`
   at request time. **If the key is unset the send is recorded as `queued`** — the

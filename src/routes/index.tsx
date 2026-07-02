@@ -6,7 +6,10 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "LAQTA · لقطة — Event Photos & Videos" },
-      { name: "description", content: "Find your event photos & videos. Enter your code or pick an event." },
+      {
+        name: "description",
+        content: "Find your event photos & videos. Enter your code or pick an event.",
+      },
       { property: "og:title", content: "LAQTA · لقطة" },
       { property: "og:description", content: "Premium event photo & video delivery." },
     ],
@@ -29,7 +32,13 @@ function Landing() {
         .select("slug,name,status")
         .in("status", ["live", "dryrun"])
         .order("created_at", { ascending: false });
-      setEvents((data ?? []).filter((e): e is { slug: string; name: string; status: string | null } => !!e.slug && !!e.name).map((e) => ({ slug: e.slug, name: e.name })));
+      setEvents(
+        (data ?? [])
+          .filter(
+            (e): e is { slug: string; name: string; status: string | null } => !!e.slug && !!e.name,
+          )
+          .map((e) => ({ slug: e.slug, name: e.name })),
+      );
     })();
   }, []);
 

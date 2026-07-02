@@ -18,7 +18,15 @@ interface Props {
   shareTitle?: string;
 }
 
-export function Lightbox({ items, index, onClose, onIndexChange, showDownload = true, showShare = true, shareTitle }: Props) {
+export function Lightbox({
+  items,
+  index,
+  onClose,
+  onIndexChange,
+  showDownload = true,
+  showShare = true,
+  shareTitle,
+}: Props) {
   const item = items[index];
   const [shared, setShared] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -26,8 +34,14 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const previouslyFocusedRef = useRef<Element | null>(null);
 
-  const prev = useCallback(() => onIndexChange((index - 1 + items.length) % items.length), [index, items.length, onIndexChange]);
-  const next = useCallback(() => onIndexChange((index + 1) % items.length), [index, items.length, onIndexChange]);
+  const prev = useCallback(
+    () => onIndexChange((index - 1 + items.length) % items.length),
+    [index, items.length, onIndexChange],
+  );
+  const next = useCallback(
+    () => onIndexChange((index + 1) % items.length),
+    [index, items.length, onIndexChange],
+  );
 
   // Focus management + body scroll lock
   useEffect(() => {
@@ -45,9 +59,18 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
   // Keyboard: Esc + arrows + Tab focus trap
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key === "ArrowLeft") { prev(); return; }
-      if (e.key === "ArrowRight") { next(); return; }
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        prev();
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        next();
+        return;
+      }
       if (e.key === "Tab" && containerRef.current) {
         const focusables = containerRef.current.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"]), video[controls]',
@@ -55,8 +78,13 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
         if (!focusables.length) return;
         const first = focusables[0];
         const last = focusables[focusables.length - 1];
-        if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-        else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+        if (e.shiftKey && document.activeElement === first) {
+          last.focus();
+          e.preventDefault();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          first.focus();
+          e.preventDefault();
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -65,7 +93,9 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
 
   // touch swipe
   const [touchX, setTouchX] = useState<number | null>(null);
-  function onTouchStart(e: React.TouchEvent) { setTouchX(e.touches[0].clientX); }
+  function onTouchStart(e: React.TouchEvent) {
+    setTouchX(e.touches[0].clientX);
+  }
   function onTouchEnd(e: React.TouchEvent) {
     if (touchX == null) return;
     const dx = e.changedTouches[0].clientX - touchX;
@@ -77,13 +107,20 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
     if (!item?.url) return;
     const data: ShareData = { title: shareTitle, url: item.url };
     try {
-      if (navigator.share) { await navigator.share(data); return; }
-    } catch { /* user cancelled */ }
+      if (navigator.share) {
+        await navigator.share(data);
+        return;
+      }
+    } catch {
+      /* user cancelled */
+    }
     try {
       await navigator.clipboard.writeText(item.url);
       setShared("Copied link");
       setTimeout(() => setShared(null), 1400);
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
   }
 
   // The <a download> attribute is ignored for cross-origin URLs, so instead we
@@ -125,11 +162,16 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
       onTouchEnd={onTouchEnd}
     >
       <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 bg-gradient-to-b from-black/60 to-transparent px-4 py-3 text-white">
-        <div className="text-xs opacity-70">{index + 1} / {items.length}</div>
+        <div className="text-xs opacity-70">
+          {index + 1} / {items.length}
+        </div>
         <div className="flex items-center gap-2">
           {showShare && (
             <button
-              onClick={(e) => { e.stopPropagation(); share(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                share();
+              }}
               className="inline-flex items-center gap-1.5 rounded-full border border-white/30 px-3 py-1 text-xs font-semibold transition hover:bg-white/10"
               aria-label="Share"
             >
@@ -139,7 +181,10 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
           )}
           {showDownload && item.url && (
             <button
-              onClick={(e) => { e.stopPropagation(); downloadItem(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                downloadItem();
+              }}
               disabled={downloading}
               className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground transition disabled:opacity-60"
               aria-label="Download"
@@ -162,14 +207,20 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
       {items.length > 1 && (
         <>
           <button
-            onClick={(e) => { e.stopPropagation(); prev(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              prev();
+            }}
             className="absolute start-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 sm:grid"
             aria-label="Previous image"
           >
             <ChevronLeft className="h-6 w-6" aria-hidden="true" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); next(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              next();
+            }}
             className="absolute end-2 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 sm:grid"
             aria-label="Next image"
           >
@@ -178,11 +229,18 @@ export function Lightbox({ items, index, onClose, onIndexChange, showDownload = 
         </>
       )}
 
-      <div className="grid h-full place-items-center p-4 pt-16" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="grid h-full place-items-center p-4 pt-16"
+        onClick={(e) => e.stopPropagation()}
+      >
         {item.kind === "video" ? (
           <video src={item.url} controls autoPlay className="max-h-[85vh] max-w-full" />
         ) : (
-          <img src={item.url} alt="" className="max-h-[85vh] max-w-full object-contain animate-in fade-in" />
+          <img
+            src={item.url}
+            alt=""
+            className="max-h-[85vh] max-w-full object-contain animate-in fade-in"
+          />
         )}
       </div>
     </div>

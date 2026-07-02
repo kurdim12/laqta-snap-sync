@@ -17,10 +17,11 @@ function NotFoundComponent() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-primary code-display">404</h1>
-        <p className="mt-4 text-sm text-muted-foreground">
-          Page not found · هذه الصفحة غير موجودة
-        </p>
-        <Link to="/" className="mt-6 inline-block rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
+        <p className="mt-4 text-sm text-muted-foreground">Page not found · هذه الصفحة غير موجودة</p>
+        <Link
+          to="/"
+          className="mt-6 inline-block rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+        >
           LAQTA
         </Link>
       </div>
@@ -40,7 +41,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <h1 className="text-2xl font-semibold text-foreground">Something went wrong</h1>
         <p className="mt-2 text-sm text-muted-foreground">حدث خطأ. حاول مرة أخرى.</p>
         <button
-          onClick={() => { router.invalidate(); reset(); }}
+          onClick={() => {
+            router.invalidate();
+            reset();
+          }}
           className="mt-6 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
         >
           Retry
@@ -62,8 +66,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "LAQTA · لقطة" },
       { property: "og:description", content: "Premium event photo & video delivery" },
       { name: "twitter:description", content: "Premium event photo & video delivery" },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/49ac5b59-c1fb-465e-a0ff-2d3352409bbc" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/49ac5b59-c1fb-465e-a0ff-2d3352409bbc" },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/49ac5b59-c1fb-465e-a0ff-2d3352409bbc",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/49ac5b59-c1fb-465e-a0ff-2d3352409bbc",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],

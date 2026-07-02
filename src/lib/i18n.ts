@@ -11,8 +11,7 @@ export function pick(b: Bilingual | undefined, lang: Lang): string {
 const STORAGE_KEY = "laqta:lang";
 
 export function useLang(eventLocale: Locale = "both"): [Lang, (l: Lang) => void, boolean] {
-  const initial: Lang =
-    eventLocale === "ar" ? "ar" : eventLocale === "en" ? "en" : "ar";
+  const initial: Lang = eventLocale === "ar" ? "ar" : eventLocale === "en" ? "en" : "ar";
   const [lang, setLangState] = useState<Lang>(initial);
   const toggleable = eventLocale === "both";
 

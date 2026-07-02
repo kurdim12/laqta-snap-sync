@@ -34,7 +34,11 @@ export async function loadImage(file: File | Blob): Promise<HTMLImageElement> {
   }
 }
 
-async function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+async function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality: number,
+): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("blob failed"))), type, quality);
   });
@@ -46,7 +50,8 @@ export async function resizeImage(file: File, maxSide: number, quality = 0.85): 
   const w = Math.round(img.naturalWidth * ratio);
   const h = Math.round(img.naturalHeight * ratio);
   const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(img, 0, 0, w, h);
   return canvasToBlob(canvas, "image/jpeg", quality);
@@ -61,7 +66,8 @@ export async function logoDataUrl(file: File, maxSide = 256): Promise<string> {
   const w = Math.max(1, Math.round(img.naturalWidth * ratio));
   const h = Math.max(1, Math.round(img.naturalHeight * ratio));
   const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(img, 0, 0, w, h);
   return canvas.toDataURL("image/png");
@@ -93,6 +99,9 @@ export async function videoPoster(file: File): Promise<Blob | null> {
         resolve(null);
       }
     };
-    v.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    v.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
   });
 }

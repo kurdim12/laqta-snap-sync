@@ -13,10 +13,7 @@ export const Route = createFileRoute("/e/$slug")({
   component: GuestForm,
 });
 
-type LoadState =
-  | { kind: "loading" }
-  | { kind: "unavailable" }
-  | { kind: "ready"; event: EventRow };
+type LoadState = { kind: "loading" } | { kind: "unavailable" } | { kind: "ready"; event: EventRow };
 
 import { applyEventTheme } from "@/lib/theme";
 
@@ -40,7 +37,14 @@ function GuestForm() {
         .eq("slug", slug)
         .maybeSingle();
       if (!alive) return;
-      if (error || !data || !data.id || !data.slug || !data.name || (data.status !== "live" && data.status !== "dryrun")) {
+      if (
+        error ||
+        !data ||
+        !data.id ||
+        !data.slug ||
+        !data.name ||
+        (data.status !== "live" && data.status !== "dryrun")
+      ) {
         setState({ kind: "unavailable" });
         return;
       }
@@ -60,13 +64,20 @@ function GuestForm() {
       cleanupTheme = applyEventTheme(event.config.theme);
       setState({ kind: "ready", event });
     })();
-    return () => { alive = false; if (cleanupTheme) cleanupTheme(); };
+    return () => {
+      alive = false;
+      if (cleanupTheme) cleanupTheme();
+    };
   }, [slug, onChild]);
 
   if (onChild) return <Outlet />;
 
   if (state.kind === "loading") {
-    return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+    return (
+      <main className="grid min-h-screen place-items-center bg-background">
+        <div className="text-muted-foreground">···</div>
+      </main>
+    );
   }
   if (state.kind === "unavailable") {
     return (
@@ -102,16 +113,24 @@ function ReadyForm({ event }: { event: EventRow }) {
       setStatusDot(q.pending > 0 ? "amber" : "green");
       if (q.pending > 0 && q.oldestAgeMs > 60_000) {
         const mins = Math.floor(q.oldestAgeMs / 60_000);
-        setBottomBar(`${pick(T.lastSync, lang)} ${mins}${lang === "ar" ? " " : ""}${pick(T.minutes, lang)} — ${pick(T.dataSafe, lang)}`);
+        setBottomBar(
+          `${pick(T.lastSync, lang)} ${mins}${lang === "ar" ? " " : ""}${pick(T.minutes, lang)} — ${pick(T.dataSafe, lang)}`,
+        );
       } else {
         setBottomBar(null);
       }
     }, 2000);
-    return () => { stop(); clearInterval(i); };
+    return () => {
+      stop();
+      clearInterval(i);
+    };
   }, [lang]);
 
   useEffect(() => {
-    if (!selfie) { setSelfiePreview(null); return; }
+    if (!selfie) {
+      setSelfiePreview(null);
+      return;
+    }
     const url = URL.createObjectURL(selfie);
     setSelfiePreview(url);
     return () => URL.revokeObjectURL(url);
@@ -131,9 +150,14 @@ function ReadyForm({ event }: { event: EventRow }) {
     const errs: Record<string, string> = {};
     for (const f of config.fields) {
       const v = (values[f.key] || "").trim();
-      if (f.required && !v) { errs[f.key] = pick(T.required, lang); continue; }
-      if (v && f.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) errs[f.key] = pick(T.invalidEmail, lang);
-      if (v && f.type === "tel" && !/^[+0-9\s\-()]{6,}$/.test(v)) errs[f.key] = pick(T.invalidPhone, lang);
+      if (f.required && !v) {
+        errs[f.key] = pick(T.required, lang);
+        continue;
+      }
+      if (v && f.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
+        errs[f.key] = pick(T.invalidEmail, lang);
+      if (v && f.type === "tel" && !/^[+0-9\s\-()]{6,}$/.test(v))
+        errs[f.key] = pick(T.invalidPhone, lang);
     }
     if (selfieMode === "required" && !selfie) {
       errs.__selfie = lang === "ar" ? "الرجاء التقاط صورة" : "Please take a selfie";
@@ -151,12 +175,23 @@ function ReadyForm({ event }: { event: EventRow }) {
     const id = newId();
     const code = generateCode();
     await addOutbox({
-      id, eventSlug: event.slug, eventId: event.id, code,
-      payload: { form_data: values, consent, consent_at: new Date().toISOString(), source: "primary" },
+      id,
+      eventSlug: event.slug,
+      eventId: event.id,
+      code,
+      payload: {
+        form_data: values,
+        consent,
+        consent_at: new Date().toISOString(),
+        source: "primary",
+      },
       selfie: selfie ?? null,
       selfieUploaded: !selfie,
       rowSynced: false,
-      state: "queued", attempts: 0, createdAt: Date.now(), lastTriedAt: 0,
+      state: "queued",
+      attempts: 0,
+      createdAt: Date.now(),
+      lastTriedAt: 0,
     });
     setSuccess({ code });
     setStatusDot("amber");
@@ -164,7 +199,11 @@ function ReadyForm({ event }: { event: EventRow }) {
   }
 
   function reset() {
-    setValues({}); setConsent(false); setSelfie(null); setErrors({}); setSuccess(null);
+    setValues({});
+    setConsent(false);
+    setSelfie(null);
+    setErrors({});
+    setSuccess(null);
   }
 
   if (success) {
@@ -175,13 +214,22 @@ function ReadyForm({ event }: { event: EventRow }) {
         <div className="mx-auto flex max-w-md flex-col items-center text-center">
           <CheckMark />
           <p className="mt-6 text-xl text-foreground">{pick(config.successMessage, lang)}</p>
-          <div className="mt-8 text-sm uppercase tracking-widest text-muted-foreground">{pick(T.yourCode, lang)}</div>
-          <div className="code-display mt-3 text-6xl text-primary md:text-7xl" dir="ltr">{success.code}</div>
+          <div className="mt-8 text-sm uppercase tracking-widest text-muted-foreground">
+            {pick(T.yourCode, lang)}
+          </div>
+          <div className="code-display mt-3 text-6xl text-primary md:text-7xl" dir="ltr">
+            {success.code}
+          </div>
           <QrCode value={url} size={240} alt="QR" className="mt-8 rounded-lg bg-white p-3" />
           <p className="mt-6 text-lg font-semibold text-primary">{pick(T.screenshot, lang)}</p>
-          <p className="mt-2 text-xs text-muted-foreground" dir="ltr">{url}</p>
+          <p className="mt-2 text-xs text-muted-foreground" dir="ltr">
+            {url}
+          </p>
           <p className="mt-2 text-sm text-muted-foreground">{pick(T.galleryHint, lang)}</p>
-          <button onClick={reset} className="mt-10 w-full rounded-xl bg-primary px-6 py-4 text-lg font-bold text-primary-foreground">
+          <button
+            onClick={reset}
+            className="mt-10 w-full rounded-xl bg-primary px-6 py-4 text-lg font-bold text-primary-foreground"
+          >
             {pick(T.next, lang)}
           </button>
         </div>
@@ -203,7 +251,11 @@ function ReadyForm({ event }: { event: EventRow }) {
       )}
       <div className="mx-auto max-w-md">
         {config.theme.logoUrl ? (
-          <img src={config.theme.logoUrl} alt={event.name} className="mx-auto mt-4 h-16 object-contain" />
+          <img
+            src={config.theme.logoUrl}
+            alt={event.name}
+            className="mx-auto mt-4 h-16 object-contain"
+          />
         ) : (
           <div className="mt-4 text-center text-3xl font-bold text-primary">{event.name}</div>
         )}
@@ -240,7 +292,15 @@ function ReadyForm({ event }: { event: EventRow }) {
             <input
               type="checkbox"
               checked={consent}
-              onChange={(e) => { setConsent(e.target.checked); if (e.target.checked) setErrors((x) => { const { __consent, ...rest } = x; void __consent; return rest; }); }}
+              onChange={(e) => {
+                setConsent(e.target.checked);
+                if (e.target.checked)
+                  setErrors((x) => {
+                    const { __consent, ...rest } = x;
+                    void __consent;
+                    return rest;
+                  });
+              }}
               className={`mt-1 h-5 w-5 accent-[color:var(--primary)] ${errors.__consent ? "outline outline-2 outline-destructive" : ""}`}
             />
             <span>{pick(config.consentText, lang)}</span>
@@ -260,7 +320,12 @@ function ReadyForm({ event }: { event: EventRow }) {
 }
 
 function SelfieCapture({
-  preview, required, lang, error, onPick, onClear,
+  preview,
+  required,
+  lang,
+  error,
+  onPick,
+  onClear,
 }: {
   preview: string | null;
   required: boolean;
@@ -277,7 +342,8 @@ function SelfieCapture({
   return (
     <div className="flex flex-col items-center">
       <label className="mb-2 block text-sm font-semibold text-foreground">
-        {label}{required && <span className="ms-1 text-primary">*</span>}
+        {label}
+        {required && <span className="ms-1 text-primary">*</span>}
       </label>
       <button
         type="button"
@@ -299,17 +365,29 @@ function SelfieCapture({
         accept="image/*"
         capture="user"
         className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = ""; }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onPick(f);
+          e.target.value = "";
+        }}
       />
       <input
         ref={galleryRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = ""; }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onPick(f);
+          e.target.value = "";
+        }}
       />
       <div className="mt-2 flex gap-3 text-xs">
-        <button type="button" onClick={() => galleryRef.current?.click()} className="text-muted-foreground underline">
+        <button
+          type="button"
+          onClick={() => galleryRef.current?.click()}
+          className="text-muted-foreground underline"
+        >
           {choose}
         </button>
         {preview && (
@@ -341,7 +419,15 @@ function BottomBar({ text }: { text: string }) {
 function CheckMark() {
   return (
     <div className="grid h-24 w-24 place-items-center rounded-full bg-primary text-primary-foreground animate-in zoom-in duration-300">
-      <svg viewBox="0 0 24 24" className="h-12 w-12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-12 w-12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M5 12l5 5L20 7" />
       </svg>
     </div>

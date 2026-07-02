@@ -13,14 +13,14 @@ pgvector, no per-image vendor cost, photos stay on our infra).
 
 ## Delivered scaffolding
 
-| File | What |
-|---|---|
-| `supabase/drafts/5.2_face_schema.sql` | pgvector + `face_embeddings` (512-d, HNSW), `asset_guests` junction, guest `face_consent*`, event face settings. **Service-role only**, no anon/authenticated access. |
-| `supabase/drafts/6.1_pipeline_jobs.sql` | `pipeline_jobs` queue (FOR UPDATE SKIP LOCKED pattern), `events.pipeline_mode`, `assets.moderation`. Service-role only. |
-| `supabase/drafts/7.1_ai_generations.sql` | `ai_generations` + per-event AI toggle (default OFF), style prompt, per-guest cap, budget. Service-role only. |
-| `src/lib/face/types.ts` | `FaceProvider` interface (`detectAndEmbed`, `matchGuest`) + types. Compiles. |
-| `src/lib/ai/openrouter.ts` | Server-only OpenRouter image call; `skipped` without `OPENROUTER_API_KEY`. Server-composed prompt + guest's own selfie only. Compiles. |
-| `services/face-worker/` | FastAPI worker scaffold (`/health`, `/embed`), `FACE_SERVICE_SECRET` auth, requirements, Dockerfile. `/embed` inference is a TODO stub. |
+| File                                     | What                                                                                                                                                                  |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase/drafts/5.2_face_schema.sql`    | pgvector + `face_embeddings` (512-d, HNSW), `asset_guests` junction, guest `face_consent*`, event face settings. **Service-role only**, no anon/authenticated access. |
+| `supabase/drafts/6.1_pipeline_jobs.sql`  | `pipeline_jobs` queue (FOR UPDATE SKIP LOCKED pattern), `events.pipeline_mode`, `assets.moderation`. Service-role only.                                               |
+| `supabase/drafts/7.1_ai_generations.sql` | `ai_generations` + per-event AI toggle (default OFF), style prompt, per-guest cap, budget. Service-role only.                                                         |
+| `src/lib/face/types.ts`                  | `FaceProvider` interface (`detectAndEmbed`, `matchGuest`) + types. Compiles.                                                                                          |
+| `src/lib/ai/openrouter.ts`               | Server-only OpenRouter image call; `skipped` without `OPENROUTER_API_KEY`. Server-composed prompt + guest's own selfie only. Compiles.                                |
+| `services/face-worker/`                  | FastAPI worker scaffold (`/health`, `/embed`), `FACE_SERVICE_SECRET` auth, requirements, Dockerfile. `/embed` inference is a TODO stub.                               |
 
 ## Hard prerequisites before implementing (unchanged)
 

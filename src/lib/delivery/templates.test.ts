@@ -7,7 +7,9 @@ describe("extractEmail", () => {
     { key: "name", type: "text" },
   ];
   it("finds a valid email from the typed field", () => {
-    expect(extractEmail(fields, { email: "guest@example.com", name: "X" })).toBe("guest@example.com");
+    expect(extractEmail(fields, { email: "guest@example.com", name: "X" })).toBe(
+      "guest@example.com",
+    );
   });
   it("returns null when absent", () => {
     expect(extractEmail(fields, { name: "X" })).toBeNull();

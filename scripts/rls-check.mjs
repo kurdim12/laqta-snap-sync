@@ -23,8 +23,7 @@ const KEY =
   process.env.SUPABASE_PUBLISHABLE_KEY ||
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const ALLOW_WRITES =
-  process.argv.includes("--allow-writes") ||
-  /localhost|127\.0\.0\.1/.test(URL || "");
+  process.argv.includes("--allow-writes") || /localhost|127\.0\.0\.1/.test(URL || "");
 
 if (!URL || !KEY) {
   console.error("Set SUPABASE_URL and SUPABASE_ANON_KEY (or PUBLISHABLE_KEY).");
@@ -35,7 +34,7 @@ const sb = createClient(URL, KEY, { auth: { persistSession: false } });
 let pass = 0;
 let fail = 0;
 function ok(name, cond, detail = "") {
-  (cond ? pass++ : fail++);
+  cond ? pass++ : fail++;
   console.log(`${cond ? "PASS" : "FAIL"}  ${name}${detail ? "  — " + detail : ""}`);
 }
 
@@ -84,7 +83,11 @@ async function main() {
       .from("media")
       .upload(path, new Blob(["x"]), { upsert: true, contentType: "text/plain" });
     ok("anon storage upload denied", !!error, error?.message || "UPLOAD SUCCEEDED (hole open!)");
-    if (!error) await sb.storage.from("media").remove([path]).catch(() => {});
+    if (!error)
+      await sb.storage
+        .from("media")
+        .remove([path])
+        .catch(() => {});
   } else {
     console.log("SKIP  anon storage upload denied — pass --allow-writes on a LOCAL instance");
   }

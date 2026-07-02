@@ -45,7 +45,7 @@
   --card-foreground: oklch(0.97 0.01 90);
   --popover: oklch(0.18 0.008 270);
   --popover-foreground: oklch(0.97 0.01 90);
-  --primary: oklch(0.78 0.13 85);            /* gold #C9A227 */
+  --primary: oklch(0.78 0.13 85); /* gold #C9A227 */
   --primary-foreground: oklch(0.15 0.01 270);
   --secondary: oklch(0.25 0.01 270);
   --secondary-foreground: oklch(0.97 0.01 90);
@@ -62,20 +62,32 @@
   --warning: oklch(0.78 0.16 70);
 }
 
-.dark { color-scheme: dark; }
+.dark {
+  color-scheme: dark;
+}
 
 @layer base {
-  * { border-color: var(--color-border); }
-  html { font-family: var(--font-sans); }
-  html[lang="ar"] { font-family: var(--font-arabic); }
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  html[lang="ar"] {
+    font-family: var(--font-arabic);
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
-  .font-arabic { font-family: var(--font-arabic); }
-  .font-mono { font-family: var(--font-mono); }
+  .font-arabic {
+    font-family: var(--font-arabic);
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
   .code-display {
     font-family: var(--font-mono);
     letter-spacing: 0.2em;

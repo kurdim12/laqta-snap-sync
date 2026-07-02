@@ -28,15 +28,15 @@ public wall, a PIN-gated staff upload console, and an admin dashboard.
 
 ## Environment variables
 
-| Var | Where | Purpose |
-|---|---|---|
-| `VITE_SUPABASE_URL` / `SUPABASE_URL` | client + server | Supabase project URL |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_PUBLISHABLE_KEY` | client + server | anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | service role for server functions |
-| `APP_ORIGIN` | server | canonical origin for links in outbound email (recommended) |
-| `RESEND_API_KEY` | server | Resend key; without it, email is recorded `queued` |
-| `RESEND_FROM` | server | verified sender, e.g. `LAQTA <noreply@domain>` |
-| `MEDIA_PIPELINE` | server | `off` (default) or `cloudflare-stream` (deferred) |
+| Var                                                          | Where           | Purpose                                                    |
+| ------------------------------------------------------------ | --------------- | ---------------------------------------------------------- |
+| `VITE_SUPABASE_URL` / `SUPABASE_URL`                         | client + server | Supabase project URL                                       |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_PUBLISHABLE_KEY` | client + server | anon key                                                   |
+| `SUPABASE_SERVICE_ROLE_KEY`                                  | **server only** | service role for server functions                          |
+| `APP_ORIGIN`                                                 | server          | canonical origin for links in outbound email (recommended) |
+| `RESEND_API_KEY`                                             | server          | Resend key; without it, email is recorded `queued`         |
+| `RESEND_FROM`                                                | server          | verified sender, e.g. `LAQTA <noreply@domain>`             |
+| `MEDIA_PIPELINE`                                             | server          | `off` (default) or `cloudflare-stream` (deferred)          |
 
 Never expose `SUPABASE_SERVICE_ROLE_KEY` / `RESEND_API_KEY` to the client — they
 are only read inside server-function handlers (verified by a bundle scan).

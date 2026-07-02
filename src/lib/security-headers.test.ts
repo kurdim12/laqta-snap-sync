@@ -15,14 +15,16 @@ describe("withSecurityHeaders", () => {
   });
 
   it("keeps camera=(self) for selfie capture but denies mic/geo", () => {
-    const pp = withSecurityHeaders(new Response("x"), false).headers.get("permissions-policy") || "";
+    const pp =
+      withSecurityHeaders(new Response("x"), false).headers.get("permissions-policy") || "";
     expect(pp).toContain("camera=(self)");
     expect(pp).toContain("microphone=()");
     expect(pp).toContain("geolocation=()");
   });
 
   it("relaxes CSP in dev (unsafe-eval + ws for HMR)", () => {
-    const csp = withSecurityHeaders(new Response("x"), true).headers.get("content-security-policy") || "";
+    const csp =
+      withSecurityHeaders(new Response("x"), true).headers.get("content-security-policy") || "";
     expect(csp).toContain("'unsafe-eval'");
     expect(csp).toContain("ws:");
   });

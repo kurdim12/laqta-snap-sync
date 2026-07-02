@@ -11,7 +11,6 @@ export const Route = createFileRoute("/g/$code")({
   component: Gallery,
 });
 
-
 interface GalleryAsset {
   id: string;
   kind: "photo" | "video";
@@ -37,12 +36,17 @@ function Gallery() {
       // Signing happens server-side (service role, rate limited). The anon
       // client no longer reads assets or calls get_code_gallery directly.
       const r = await getGalleryByCode({ data: { code } });
-      if (r.notFound || !r.event || !r.guest) { setNotFound(true); return; }
+      if (r.notFound || !r.event || !r.guest) {
+        setNotFound(true);
+        return;
+      }
       setNotFound(false);
       setGuestCode(r.guest.code);
       const e = r.event;
       const ev: EventRow = {
-        id: e.id, slug: e.slug, name: e.name,
+        id: e.id,
+        slug: e.slug,
+        name: e.name,
         created_at: e.created_at ?? "",
         status: e.status as EventRow["status"],
         config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig,
@@ -66,21 +70,28 @@ function Gallery() {
   useEffect(() => {
     load();
     return () => {
-      if (themeCleanupRef.current) { themeCleanupRef.current(); themeCleanupRef.current = null; }
+      if (themeCleanupRef.current) {
+        themeCleanupRef.current();
+        themeCleanupRef.current = null;
+      }
     };
   }, [code]);
-
 
   useEffect(() => {
     if (notFound) return;
     let last = Date.now();
-    const onActivity = () => { last = Date.now(); };
+    const onActivity = () => {
+      last = Date.now();
+    };
     window.addEventListener("pointerdown", onActivity);
     const i = setInterval(() => {
       if (Date.now() - last > 10 * 60_000) return;
       load();
     }, 20_000);
-    return () => { clearInterval(i); window.removeEventListener("pointerdown", onActivity); };
+    return () => {
+      clearInterval(i);
+      window.removeEventListener("pointerdown", onActivity);
+    };
   }, [notFound, code]);
 
   if (notFound) {
@@ -107,7 +118,11 @@ function Gallery() {
   }
 
   if (!guestCode) {
-    return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+    return (
+      <main className="grid min-h-screen place-items-center bg-background">
+        <div className="text-muted-foreground">···</div>
+      </main>
+    );
   }
 
   async function downloadAll() {
@@ -133,7 +148,9 @@ function Gallery() {
         link.click();
         link.remove();
         URL.revokeObjectURL(objUrl);
-      } catch { /* skip files that fail to fetch */ }
+      } catch {
+        /* skip files that fail to fetch */
+      }
       await new Promise((res) => setTimeout(res, 250));
     }
   }
@@ -143,17 +160,27 @@ function Gallery() {
       <header className="mx-auto flex max-w-5xl items-center justify-between">
         <div>
           {event?.config.theme.logoUrl ? (
-            <img src={event.config.theme.logoUrl} alt={event.name} className="h-10 object-contain" />
+            <img
+              src={event.config.theme.logoUrl}
+              alt={event.name}
+              className="h-10 object-contain"
+            />
           ) : (
             <div className="text-xl font-bold text-primary">{event?.name}</div>
           )}
           <div className="mt-1 text-xs text-muted-foreground">
-            {pick(T.yourCode, lang)}: <span className="code-display text-primary" dir="ltr">{guestCode}</span>
+            {pick(T.yourCode, lang)}:{" "}
+            <span className="code-display text-primary" dir="ltr">
+              {guestCode}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {toggleable && (
-            <button onClick={() => setLang(lang === "ar" ? "en" : "ar")} className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground">
+            <button
+              onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+              className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground"
+            >
               {lang === "ar" ? "EN" : "ع"}
             </button>
           )}
@@ -167,10 +194,17 @@ function Gallery() {
           )}
           {typeof navigator !== "undefined" && (
             <button
-              onClick={() => shareGallery(event?.name || "LAQTA", typeof window !== "undefined" ? window.location.href : "")}
+              onClick={() =>
+                shareGallery(
+                  event?.name || "LAQTA",
+                  typeof window !== "undefined" ? window.location.href : "",
+                )
+              }
               className="rounded-full border border-border bg-card px-3 py-2 text-sm font-semibold"
               aria-label="Share gallery"
-            >↗</button>
+            >
+              ↗
+            </button>
           )}
         </div>
       </header>
@@ -178,14 +212,24 @@ function Gallery() {
       {assets.length === 0 ? (
         <section className="mx-auto mt-20 max-w-md text-center">
           <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-card text-primary">
-            <svg viewBox="0 0 24 24" className="h-12 w-12" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="3" y="6" width="18" height="13" rx="2" /><circle cx="12" cy="13" r="3.5" /><path d="M8 6l1.5-2h5L16 6" />
+            <svg
+              viewBox="0 0 24 24"
+              className="h-12 w-12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <rect x="3" y="6" width="18" height="13" rx="2" />
+              <circle cx="12" cy="13" r="3.5" />
+              <path d="M8 6l1.5-2h5L16 6" />
             </svg>
           </div>
           <p className="mt-6 text-xl font-semibold">{pick(T.photosOnTheWay, lang)} 📸</p>
           <p className="mt-1 text-sm text-muted-foreground">{pick(T.comeBackSoon, lang)}</p>
           <p className="mt-6 text-xs text-muted-foreground">{pick(T.yourCode, lang)}</p>
-          <p className="code-display mt-1 text-3xl text-primary" dir="ltr">{guestCode}</p>
+          <p className="code-display mt-1 text-3xl text-primary" dir="ltr">
+            {guestCode}
+          </p>
         </section>
       ) : (
         <section className="mx-auto mt-6 grid max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
@@ -200,12 +244,24 @@ function Gallery() {
                   {a.thumbUrl ? (
                     <img src={a.thumbUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <video src={`${a.url || ""}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                    <video
+                      src={`${a.url || ""}#t=0.1`}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
                   )}
-                  <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
+                  <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">
+                    ▶
+                  </span>
                 </>
               ) : (
-                <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                <img
+                  src={a.thumbUrl || a.url}
+                  alt=""
+                  className="h-full w-full object-cover transition group-hover:scale-105"
+                />
               )}
             </button>
           ))}
@@ -227,6 +283,17 @@ function Gallery() {
 
 async function shareGallery(name: string, url: string) {
   const data: ShareData = { title: `${name} · LAQTA`, text: `Photos from ${name}`, url };
-  try { if (navigator.share) { await navigator.share(data); return; } } catch { /* cancelled */ }
-  try { await navigator.clipboard.writeText(url); } catch { /* noop */ }
+  try {
+    if (navigator.share) {
+      await navigator.share(data);
+      return;
+    }
+  } catch {
+    /* cancelled */
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    /* noop */
+  }
 }

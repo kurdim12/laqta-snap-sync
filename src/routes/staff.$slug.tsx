@@ -24,14 +24,28 @@ function StaffConsole() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("events_public").select("id,slug,name,status,config,created_at").eq("slug", slug).maybeSingle();
+      const { data } = await supabase
+        .from("events_public")
+        .select("id,slug,name,status,config,created_at")
+        .eq("slug", slug)
+        .maybeSingle();
       if (data && data.id && data.slug && data.name) {
-        setEvent({ id: data.id, slug: data.slug, name: data.name, created_at: data.created_at ?? "", status: data.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } });
+        setEvent({
+          id: data.id,
+          slug: data.slug,
+          name: data.name,
+          created_at: data.created_at ?? "",
+          status: data.status as EventRow["status"],
+          config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) },
+        });
       }
       const stored = typeof window !== "undefined" ? sessionStorage.getItem(PIN_KEY(slug)) : null;
       if (stored && data) {
         const { data: ev } = await supabase.rpc("verify_staff_pin", { _slug: slug, _pin: stored });
-        if (ev) { setPin(stored); setPinOk(true); }
+        if (ev) {
+          setPin(stored);
+          setPinOk(true);
+        }
       }
     })();
   }, [slug]);
@@ -39,13 +53,20 @@ function StaffConsole() {
   async function submitPin() {
     setPinErr(null);
     const { data, error } = await supabase.rpc("verify_staff_pin", { _slug: slug, _pin: pin });
-    if (error || !data) { setPinErr("Wrong PIN / رمز خاطئ"); return; }
+    if (error || !data) {
+      setPinErr("Wrong PIN / رمز خاطئ");
+      return;
+    }
     sessionStorage.setItem(PIN_KEY(slug), pin);
     setPinOk(true);
   }
 
   if (!event) {
-    return <main className="grid min-h-screen place-items-center bg-background"><div className="text-muted-foreground">···</div></main>;
+    return (
+      <main className="grid min-h-screen place-items-center bg-background">
+        <div className="text-muted-foreground">···</div>
+      </main>
+    );
   }
   if (!pinOk) {
     return (
@@ -64,18 +85,28 @@ function StaffConsole() {
             className="code-display mt-6 w-full rounded-xl border border-border bg-input px-4 py-5 text-center text-3xl text-foreground outline-none focus:border-primary"
           />
           {pinErr && <p className="mt-2 text-sm text-destructive">{pinErr}</p>}
-          <button onClick={submitPin} className="mt-6 w-full rounded-xl bg-primary px-6 py-4 text-lg font-bold text-primary-foreground">
+          <button
+            onClick={submitPin}
+            className="mt-6 w-full rounded-xl bg-primary px-6 py-4 text-lg font-bold text-primary-foreground"
+          >
             ✓
           </button>
         </div>
       </main>
     );
   }
-  return <StaffMain event={event} pin={pin || (typeof window !== "undefined" ? sessionStorage.getItem(PIN_KEY(slug)) || "" : "")} />;
+  return (
+    <StaffMain
+      event={event}
+      pin={
+        pin || (typeof window !== "undefined" ? sessionStorage.getItem(PIN_KEY(slug)) || "" : "")
+      }
+    />
+  );
 }
 
 interface QueueItem {
-  id: string;            // local
+  id: string; // local
   file: File;
   guestId: string | null;
   state: "queued" | "uploading" | "done" | "retrying" | "paused";
@@ -96,12 +127,22 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
   // Stop the queue from running in the background after the page unmounts
   // (prevents stray uploads / duplicate rows when navigating away).
   const aliveRef = useRef(true);
-  useEffect(() => () => { aliveRef.current = false; }, []);
+  useEffect(
+    () => () => {
+      aliveRef.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
-    const on = () => setOnline(true); const off = () => setOnline(false);
-    window.addEventListener("online", on); window.addEventListener("offline", off);
-    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
   }, []);
 
   async function loadGuests() {
@@ -113,7 +154,9 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
     // polling (realtime is admin-only after security hardening)
     setLiveOn(false);
     const i = setInterval(loadGuests, 5000);
-    return () => { clearInterval(i); };
+    return () => {
+      clearInterval(i);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.id, pin]);
 
@@ -122,9 +165,14 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
   }
 
   async function createAsset(row: {
-    id: string; guestId: string | null; parentId: string | null;
-    kind: "photo" | "video"; variant: "original" | "web" | "thumb" | "poster";
-    path: string; contentType: string; bytes: number;
+    id: string;
+    guestId: string | null;
+    parentId: string | null;
+    kind: "photo" | "video";
+    variant: "original" | "web" | "thumb" | "poster";
+    path: string;
+    contentType: string;
+    bytes: number;
   }) {
     const { error } = await supabase.rpc("staff_create_asset", {
       _slug: event.slug,
@@ -140,7 +188,6 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
       _bytes: row.bytes,
     });
     if (error) throw error;
-
   }
 
   // Upload a blob through a server-minted signed upload URL. The anon client can
@@ -174,14 +221,24 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
     try {
       // upload original
       const origPath = `${basePath}/original.${ext}`;
-      await uploadViaSigned(origPath, item.file, item.file.type || (isVideo ? "video/mp4" : "image/jpeg"), kind);
+      await uploadViaSigned(
+        origPath,
+        item.file,
+        item.file.type || (isVideo ? "video/mp4" : "image/jpeg"),
+        kind,
+      );
       update(item.id, { progress: 40, assetId });
 
       // create asset row (parent) via PIN-validated RPC
       await createAsset({
-        id: assetId, guestId: item.guestId, parentId: null,
-        kind, variant: "original", path: origPath,
-        contentType: item.file.type, bytes: item.file.size,
+        id: assetId,
+        guestId: item.guestId,
+        parentId: null,
+        kind,
+        variant: "original",
+        path: origPath,
+        contentType: item.file.type,
+        bytes: item.file.size,
       });
       update(item.id, { progress: 55 });
 
@@ -194,18 +251,44 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
         await uploadViaSigned(webPath, webBlob, "image/jpeg", "photo");
         update(item.id, { progress: 75 });
         await uploadViaSigned(thumbPath, thumbBlob, "image/jpeg", "photo");
-        await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "web", path: webPath, contentType: "image/jpeg", bytes: webBlob.size });
-        await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "thumb", path: thumbPath, contentType: "image/jpeg", bytes: thumbBlob.size });
+        await createAsset({
+          id: newId(),
+          guestId: item.guestId,
+          parentId: assetId,
+          kind,
+          variant: "web",
+          path: webPath,
+          contentType: "image/jpeg",
+          bytes: webBlob.size,
+        });
+        await createAsset({
+          id: newId(),
+          guestId: item.guestId,
+          parentId: assetId,
+          kind,
+          variant: "thumb",
+          path: thumbPath,
+          contentType: "image/jpeg",
+          bytes: thumbBlob.size,
+        });
       } else {
         const poster = await videoPoster(item.file);
         if (poster) {
           const posterPath = `${basePath}/poster.jpg`;
           await uploadViaSigned(posterPath, poster, "image/jpeg", "photo");
-          await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "poster", path: posterPath, contentType: "image/jpeg", bytes: poster.size });
+          await createAsset({
+            id: newId(),
+            guestId: item.guestId,
+            parentId: assetId,
+            kind,
+            variant: "poster",
+            path: posterPath,
+            contentType: "image/jpeg",
+            bytes: poster.size,
+          });
         }
       }
       update(item.id, { state: "done", progress: 100 });
-
     } catch (e) {
       const attempts = item.attempts + 1;
       const msg = (e as Error).message || "upload failed";
@@ -217,7 +300,7 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
         setTimeout(() => {
           if (!aliveRef.current) return;
           const cur = queueRef.current.find((q) => q.id === item.id);
-          if (cur && (cur.state === "retrying")) uploadOne({ ...cur });
+          if (cur && cur.state === "retrying") uploadOne({ ...cur });
         }, delay);
       }
     }
@@ -230,19 +313,29 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
     let slots = 3 - uploading;
     for (const it of items) {
       if (slots <= 0) break;
-      if (it.state === "queued") { slots--; uploadOne({ ...it }); }
+      if (it.state === "queued") {
+        slots--;
+        uploadOne({ ...it });
+      }
     }
   }, []);
 
   // Re-run on every queue change (not just length) so the next file starts as
   // soon as one finishes — otherwise the last items stall on "queued".
-  useEffect(() => { drain(); }, [queue, drain]);
+  useEffect(() => {
+    drain();
+  }, [queue, drain]);
 
   // Must match the server allowlist (upload.functions.ts) and the bucket's
   // allowed_mime_types — otherwise the upload is rejected and burns 5 retries.
   const ACCEPTED_MIME = new Set([
-    "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
-    "video/mp4", "video/quicktime",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+    "video/mp4",
+    "video/quicktime",
   ]);
 
   function onFiles(files: FileList | File[]) {
@@ -260,7 +353,14 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
         alert(`${f.name}: exceeds ${maxMB}MB limit`);
         continue;
       }
-      next.push({ id: newId(), file: f, guestId: active?.id || null, state: "queued", progress: 0, attempts: 0 });
+      next.push({
+        id: newId(),
+        file: f,
+        guestId: active?.id || null,
+        state: "queued",
+        progress: 0,
+        attempts: 0,
+      });
     }
     setQueue((q) => [...q, ...next]);
   }
@@ -280,19 +380,32 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
             <div className="text-lg font-bold">{event.name}</div>
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <span className={`inline-flex items-center gap-1 ${online ? "text-[color:var(--success)]" : "text-[color:var(--warning)]"}`}>
-              <span className="inline-block h-2 w-2 rounded-full bg-current" /> {online ? "online" : "offline"}
+            <span
+              className={`inline-flex items-center gap-1 ${online ? "text-[color:var(--success)]" : "text-[color:var(--warning)]"}`}
+            >
+              <span className="inline-block h-2 w-2 rounded-full bg-current" />{" "}
+              {online ? "online" : "offline"}
             </span>
-            <span className={`inline-flex items-center gap-1 ${liveOn ? "text-[color:var(--success)]" : "text-muted-foreground"}`}>
+            <span
+              className={`inline-flex items-center gap-1 ${liveOn ? "text-[color:var(--success)]" : "text-muted-foreground"}`}
+            >
               {liveOn ? "● live" : "○ refreshing"}
             </span>
-            <span className="text-muted-foreground">{summary.done} {pick(T.done, "en")} · {summary.uploading} {pick(T.uploading, "en")} · {summary.retrying} {pick(T.retrying, "en")}</span>
+            <span className="text-muted-foreground">
+              {summary.done} {pick(T.done, "en")} · {summary.uploading} {pick(T.uploading, "en")} ·{" "}
+              {summary.retrying} {pick(T.retrying, "en")}
+            </span>
           </div>
         </div>
         {active ? (
           <div className="border-t border-primary/40 bg-primary px-4 py-2 text-center text-sm font-bold text-primary-foreground">
-            {pick(T.uploadingFor, "en")}: {active.form_data.name || "—"} · <span className="code-display" dir="ltr">{active.code}</span>
-            <button onClick={() => setActive(null)} className="ms-3 underline">clear</button>
+            {pick(T.uploadingFor, "en")}: {active.form_data.name || "—"} ·{" "}
+            <span className="code-display" dir="ltr">
+              {active.code}
+            </span>
+            <button onClick={() => setActive(null)} className="ms-3 underline">
+              clear
+            </button>
           </div>
         ) : (
           <div className="border-t border-border bg-muted/50 px-4 py-2 text-center text-sm text-muted-foreground">
@@ -303,7 +416,9 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
 
       <div className="mx-auto grid max-w-6xl gap-4 px-4 py-6 md:grid-cols-[1fr_2fr]">
         <section className="rounded-xl border border-border bg-card p-3">
-          <h2 className="mb-3 text-sm font-bold text-muted-foreground">{pick(T.guests, "en")} ({guests.length})</h2>
+          <h2 className="mb-3 text-sm font-bold text-muted-foreground">
+            {pick(T.guests, "en")} ({guests.length})
+          </h2>
           <ul className="max-h-[70vh] space-y-2 overflow-auto">
             {guests.map((g) => (
               <li key={g.id}>
@@ -311,15 +426,23 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
                   onClick={() => setActive(g)}
                   className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-start transition ${active?.id === g.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
                 >
-                  <SelfieAvatar path={g.selfie_path || null} name={g.form_data.name || ""} size={56} />
+                  <SelfieAvatar
+                    path={g.selfie_path || null}
+                    name={g.form_data.name || ""}
+                    size={56}
+                  />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-base font-bold">{g.form_data.name || "—"}</span>
+                    <span className="block truncate text-base font-bold">
+                      {g.form_data.name || "—"}
+                    </span>
                     <span className="block text-xs opacity-75" dir="ltr">
                       <span className="code-display">{g.code}</span>
                       {g.form_data.phone && <span className="ms-2">{g.form_data.phone}</span>}
                     </span>
                   </span>
-                  <span className="shrink-0 text-xs opacity-70">{new Date(g.created_at).toLocaleTimeString()}</span>
+                  <span className="shrink-0 text-xs opacity-70">
+                    {new Date(g.created_at).toLocaleTimeString()}
+                  </span>
                 </button>
               </li>
             ))}
@@ -334,30 +457,47 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
               <p className="py-8 text-center text-sm text-muted-foreground">—</p>
             ) : (
               <ul className="space-y-2">
-                {queue.slice().reverse().map((it) => (
-                  <li key={it.id} className="rounded-lg border border-border bg-background p-3">
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="truncate font-mono">{it.file.name}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">{it.file.size < 1024 * 1024 ? `${Math.round(it.file.size / 1024)} KB` : `${(it.file.size / 1024 / 1024).toFixed(1)} MB`}</span>
-                    </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                      <div className={`h-full transition-all ${it.state === "done" ? "bg-[color:var(--success)]" : it.state === "paused" ? "bg-destructive" : "bg-primary"}`} style={{ width: `${it.progress}%` }} />
-                    </div>
-                    <div className="mt-1 flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">
-                        {it.state === "done" && "✓ done"}
-                        {it.state === "uploading" && `${it.progress}%`}
-                        {it.state === "queued" && "queued"}
-                        {it.state === "retrying" && `retrying (${it.attempts})…`}
-                        {it.state === "paused" && `paused — ${it.error || "failed"}`}
-                      </span>
-                      {it.state === "paused" && (
-                        <button onClick={() => { update(it.id, { state: "queued", attempts: 0 }); setTimeout(drain, 0); }}
-                          className="rounded-full bg-primary px-3 py-0.5 font-semibold text-primary-foreground">{pick(T.retry, "en")}</button>
-                      )}
-                    </div>
-                  </li>
-                ))}
+                {queue
+                  .slice()
+                  .reverse()
+                  .map((it) => (
+                    <li key={it.id} className="rounded-lg border border-border bg-background p-3">
+                      <div className="flex items-center justify-between gap-2 text-sm">
+                        <span className="truncate font-mono">{it.file.name}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {it.file.size < 1024 * 1024
+                            ? `${Math.round(it.file.size / 1024)} KB`
+                            : `${(it.file.size / 1024 / 1024).toFixed(1)} MB`}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full transition-all ${it.state === "done" ? "bg-[color:var(--success)]" : it.state === "paused" ? "bg-destructive" : "bg-primary"}`}
+                          style={{ width: `${it.progress}%` }}
+                        />
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {it.state === "done" && "✓ done"}
+                          {it.state === "uploading" && `${it.progress}%`}
+                          {it.state === "queued" && "queued"}
+                          {it.state === "retrying" && `retrying (${it.attempts})…`}
+                          {it.state === "paused" && `paused — ${it.error || "failed"}`}
+                        </span>
+                        {it.state === "paused" && (
+                          <button
+                            onClick={() => {
+                              update(it.id, { state: "queued", attempts: 0 });
+                              setTimeout(drain, 0);
+                            }}
+                            className="rounded-full bg-primary px-3 py-0.5 font-semibold text-primary-foreground"
+                          >
+                            {pick(T.retry, "en")}
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
               </ul>
             )}
           </div>
@@ -372,13 +512,26 @@ function Dropzone({ onFiles }: { onFiles: (f: FileList | File[]) => void }) {
   const [over, setOver] = useState(false);
   return (
     <label
-      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOver(true);
+      }}
       onDragLeave={() => setOver(false)}
-      onDrop={(e) => { e.preventDefault(); setOver(false); if (e.dataTransfer.files.length) onFiles(e.dataTransfer.files); }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        if (e.dataTransfer.files.length) onFiles(e.dataTransfer.files);
+      }}
       className={`block cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition ${over ? "border-primary bg-primary/10" : "border-border bg-card"}`}
     >
-      <input ref={inputRef} type="file" multiple accept="image/*,video/*" className="hidden"
-        onChange={(e) => e.target.files && onFiles(e.target.files)} />
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={(e) => e.target.files && onFiles(e.target.files)}
+      />
       <div className="text-4xl">📷</div>
       <p className="mt-3 text-base font-semibold">{pick(T.dropFiles, "en")}</p>
       <p className="text-sm text-muted-foreground font-arabic">{pick(T.dropFiles, "ar")}</p>

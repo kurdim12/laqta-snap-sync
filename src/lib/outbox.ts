@@ -7,7 +7,7 @@ const DB_NAME = "laqta-outbox";
 const STORE = "submissions";
 
 export interface OutboxEntry {
-  id: string;            // guest id
+  id: string; // guest id
   eventSlug: string;
   eventId: string;
   code: string;
@@ -17,7 +17,7 @@ export interface OutboxEntry {
     consent_at?: string | null;
     source: string;
   };
-  selfie?: Blob | null;          // raw blob; IndexedDB stores Blobs natively
+  selfie?: Blob | null; // raw blob; IndexedDB stores Blobs natively
   selfieUploaded?: boolean;
   rowSynced?: boolean;
   state: "queued" | "synced";
@@ -40,7 +40,10 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-async function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T> | Promise<T>): Promise<T> {
+async function tx<T>(
+  mode: IDBTransactionMode,
+  fn: (store: IDBObjectStore) => IDBRequest<T> | Promise<T>,
+): Promise<T> {
   const db = await openDB();
   return new Promise<T>((resolve, reject) => {
     const t = db.transaction(STORE, mode);
@@ -75,11 +78,22 @@ export async function removeOutbox(id: string): Promise<void> {
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("timeout")), ms);
-    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
   });
 }
 
-async function insertGuestRow(entry: OutboxEntry): Promise<{ ok: true } | { ok: false; collision: boolean }> {
+async function insertGuestRow(
+  entry: OutboxEntry,
+): Promise<{ ok: true } | { ok: false; collision: boolean }> {
   try {
     const p: Promise<{ error: { code?: string; message?: string } | null }> = Promise.resolve(
       supabase.from("guests").insert({
@@ -126,7 +140,10 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
     const upP = supabase.storage
       .from("media")
       .uploadToSignedUrl(url.path, url.token, entry.selfie, { contentType: "image/jpeg" });
-    const { error: upErr } = await withTimeout(upP as unknown as Promise<{ error: unknown }>, 30000);
+    const { error: upErr } = await withTimeout(
+      upP as unknown as Promise<{ error: unknown }>,
+      30000,
+    );
     if (upErr) return false;
     const updP: Promise<{ error: unknown }> = Promise.resolve(
       supabase.rpc("set_guest_selfie", { _id: entry.id, _code: entry.code, _path: url.path }),
@@ -192,7 +209,9 @@ export async function trySync(): Promise<void> {
       // failure is not retried here — the admin can resend from the dashboard.
       try {
         await withTimeout(sendGuestCodeEmail({ data: { code: entry.code } }), 8000);
-      } catch { /* delivery is a convenience; the code is already on-screen */ }
+      } catch {
+        /* delivery is a convenience; the code is already on-screen */
+      }
 
       // Done
       entry.state = "synced";
@@ -207,7 +226,9 @@ export async function trySync(): Promise<void> {
 export function startSyncEngine(): () => void {
   if (typeof window === "undefined") return () => {};
   const handleOnline = () => trySync();
-  const handleVis = () => { if (document.visibilityState === "visible") trySync(); };
+  const handleVis = () => {
+    if (document.visibilityState === "visible") trySync();
+  };
   window.addEventListener("online", handleOnline);
   document.addEventListener("visibilitychange", handleVis);
   trySync();
