@@ -1,6 +1,24 @@
 // Client-side image/video variant generation using canvas APIs.
 
-export async function loadImage(file: File): Promise<HTMLImageElement> {
+// iPhone HEIC/HEIF can't be decoded by <canvas> in most browsers, so the resize
+// pipeline would throw and the photo would get no web/thumb variants. Convert
+// HEIC to JPEG first (heic2any is browser-only and dynamically imported so it
+// never runs during SSR or bloats the initial bundle).
+export async function toDecodable(file: File | Blob): Promise<File | Blob> {
+  const type = (file as File).type || "";
+  const name = ((file as File).name || "").toLowerCase();
+  const isHeic = /image\/(heic|heif)/.test(type) || /\.(heic|heif)$/.test(name);
+  if (!isHeic) return file;
+  try {
+    const heic2any = (await import("heic2any")).default;
+    const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+    return (Array.isArray(out) ? out[0] : out) as Blob;
+  } catch {
+    return file; // fall back to the original; caller handles decode failure
+  }
+}
+
+export async function loadImage(file: File | Blob): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();
@@ -23,7 +41,7 @@ async function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: nu
 }
 
 export async function resizeImage(file: File, maxSide: number, quality = 0.85): Promise<Blob> {
-  const img = await loadImage(file);
+  const img = await loadImage(await toDecodable(file));
   const ratio = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
   const w = Math.round(img.naturalWidth * ratio);
   const h = Math.round(img.naturalHeight * ratio);

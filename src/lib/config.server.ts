@@ -19,8 +19,12 @@ import process from "node:process";
 export function getServerConfig() {
   return {
     nodeEnv: process.env.NODE_ENV,
-    // Add server-only values here, e.g.:
-    //   databaseUrl: process.env.DATABASE_URL,
-    //   stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+    // Canonical origin used for links in outbound email (see delivery.functions).
+    appOrigin: process.env.APP_ORIGIN,
+    // Video handling decision point. "off" (default) = store the original + a
+    // client-generated poster frame (today's behavior). "cloudflare-stream"
+    // would transcode via Cloudflare Stream (requires CLOUDFLARE_STREAM_TOKEN);
+    // ffmpeg-in-Workers is intentionally NOT attempted.
+    mediaPipeline: (process.env.MEDIA_PIPELINE as "off" | "cloudflare-stream") || "off",
   };
 }

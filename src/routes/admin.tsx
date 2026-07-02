@@ -7,6 +7,7 @@ import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { QrCode } from "@/components/QrCode";
 import { checkAdminExists } from "@/lib/admin.functions";
 import { adminResendGuestCode } from "@/lib/delivery.functions";
+import { adminSweepEventOrphans } from "@/lib/storage.functions";
 import { QrSheet } from "@/components/QrSheet";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
@@ -489,6 +490,8 @@ export function RegistrationsModal({ event, onClose }: { event: EventRow; onClos
   }
 
   async function deleteGuest(g: GuestRow) {
+    // Remove the guest's selfie file so it doesn't linger as an orphan.
+    if (g.selfie_path) await supabase.storage.from("media").remove([g.selfie_path]).catch(() => {});
     await supabase.from("guests").delete().eq("id", g.id);
     setConfirmDel(null);
     if (active?.id === g.id) setActive(null);
@@ -1053,7 +1056,17 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
 
   // Rename an album: rewrite the album label on every matching asset row.
   async function renameAlbum(oldName: string, newName: string) {
-    await supabase.from("assets").update({ meta: { album: newName } }).eq("event_id", event.id).filter("meta->>album", "eq", oldName);
+    // Merge, don't overwrite: the old code replaced the whole `meta` jsonb and
+    // dropped any other keys. Read each affected row and rewrite only `album`.
+    const { data: rows } = await supabase
+      .from("assets")
+      .select("id, meta")
+      .eq("event_id", event.id)
+      .filter("meta->>album", "eq", oldName);
+    for (const r of rows || []) {
+      const meta = { ...((r.meta as Record<string, unknown>) || {}), album: newName };
+      await supabase.from("assets").update({ meta }).eq("id", r.id);
+    }
     setCreatedAlbums((prev) => prev.map((a) => (a === oldName ? newName : a)));
     if (uploadAlbum === oldName) setUploadAlbum(newName);
     setAlbum(newName);
@@ -1061,6 +1074,18 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
   }
 
   const items: LightboxItem[] = filtered.map((a) => ({ id: a.id, kind: a.kind === "video" ? "video" : "photo", url: a.url, thumbUrl: a.thumbUrl }));
+
+  async function sweepOrphans() {
+    const { data: s } = await supabase.auth.getSession();
+    const accessToken = s.session?.access_token;
+    if (!accessToken) return;
+    const probe = await adminSweepEventOrphans({ data: { eventId: event.id, accessToken, dryRun: true } }).catch(() => null);
+    if (!probe) { window.alert("Sweep failed"); return; }
+    if (probe.orphans === 0) { window.alert(`No orphaned files (scanned ${probe.scanned}).`); return; }
+    if (!window.confirm(`Delete ${probe.orphans} orphaned file(s) not linked to any photo or selfie? (scanned ${probe.scanned})`)) return;
+    const res = await adminSweepEventOrphans({ data: { eventId: event.id, accessToken } }).catch(() => null);
+    window.alert(res ? `Deleted ${res.deleted} orphaned file(s).` : "Sweep failed");
+  }
 
   async function downloadAll() {
     for (const a of filtered) {
@@ -1228,6 +1253,7 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
               <input ref={folderRef} type="file" multiple className="hidden" onChange={(e) => { handleUpload(e.target.files); e.currentTarget.value = ""; }} />
             </label>
             <button onClick={downloadAll} disabled={!filtered.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold transition hover:bg-muted disabled:opacity-50">Download all</button>
+            <button onClick={sweepOrphans} className="rounded-lg border border-border px-3 py-1.5 text-sm" title="Delete storage files not linked to any photo or selfie">Sweep orphans</button>
             <button onClick={load} className="rounded-lg border border-border px-3 py-1.5 text-sm">Refresh</button>
             <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm">Close</button>
           </div>
