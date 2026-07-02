@@ -55,6 +55,30 @@ migrations close.
 - **0.4.1 Approved-only media read** — `supabase/drafts/0.4.1_approved_only_media_read.sql`. Apply only after the public wall is moved to `getPublicGalleryBySlug` and staff selfies to `getStaffSelfieUrls` (`<SelfieAvatar signedUrl=…>`), else staff selfie thumbnails break.
 - **Registration abuse control (0.2.4)** — add a honeypot field + move the guest insert behind a rate-limited server fn. Deferred to avoid destabilizing the **offline outbox** without runtime testing. Cloudflare Turnstile needs site/secret keys (not available here).
 
+## Adversarial review outcome (4 parallel lenses)
+
+The storage-lockdown lens came back clean. Findings fixed in this branch:
+- **Video poster regression (fix):** `buildEnriched` (gallery.functions.ts) now
+  includes the `poster` variant and leaves a posterless video's `thumbUrl`
+  undefined, so `/g/CODE` video tiles fall back to a `<video>` frame instead of
+  a broken `<img>` of the mp4.
+- **`ilike` wildcard bypass (fix):** `mintGuestSelfieUrl` sanitizes the guest
+  code (`[^A-Z0-9]` stripped) before the lookup — a `%` can no longer match an
+  arbitrary code for a known guest id.
+- **Spoofable rate-limit key (fix):** both server-fn `ipKey()`s now use the
+  platform remote address (Cloudflare `cf-connecting-ip`) instead of the
+  client-controllable `X-Forwarded-For`.
+- **Staff MIME mismatch (fix):** the staff picker rejects types outside the
+  server/bucket allowlist up front instead of failing after 5 retries.
+
+Known, accepted limitations (documented, not blocking):
+- **Client-reported size/MIME is advisory** for signed-URL uploads — the real
+  server-side bound is the bucket `file_size_limit` (200 MB) + `allowed_mime_types`.
+  A tighter per-object selfie cap would need post-upload verification or a
+  dedicated selfie bucket (follow-up).
+- **In-memory rate limits are per-instance.** A shared KV/DB limiter is the
+  production-grade version (follow-up).
+
 ## Follow-up phases
 
 Phases 1–4 (code delivery, media pipeline, correctness fixes, tests/CI) are

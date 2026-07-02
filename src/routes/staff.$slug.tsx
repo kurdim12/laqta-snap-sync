@@ -238,12 +238,23 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
   // soon as one finishes — otherwise the last items stall on "queued".
   useEffect(() => { drain(); }, [queue, drain]);
 
+  // Must match the server allowlist (upload.functions.ts) and the bucket's
+  // allowed_mime_types — otherwise the upload is rejected and burns 5 retries.
+  const ACCEPTED_MIME = new Set([
+    "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
+    "video/mp4", "video/quicktime",
+  ]);
+
   function onFiles(files: FileList | File[]) {
     const arr = Array.from(files);
     const lim = event.config.limits;
     const next: QueueItem[] = [];
     for (const f of arr) {
       const isVideo = f.type.startsWith("video/");
+      if (f.type && !ACCEPTED_MIME.has(f.type)) {
+        alert(`${f.name}: unsupported type (${f.type || "unknown"})`);
+        continue;
+      }
       const maxMB = isVideo ? lim.maxVideoMB : lim.maxPhotoMB;
       if (f.size > maxMB * 1024 * 1024) {
         alert(`${f.name}: exceeds ${maxMB}MB limit`);

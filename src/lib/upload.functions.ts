@@ -32,7 +32,11 @@ function rateLimit(key: string, max: number, windowMs: number): boolean {
 
 function ipKey(): string {
   try {
-    return getRequestIP({ xForwardedFor: true }) || "anon";
+    // Use the platform-trusted remote address (e.g. Cloudflare's
+    // cf-connecting-ip), NOT the client-spoofable X-Forwarded-For — otherwise
+    // an attacker rotates a forged header and never trips the limit. NOTE: this
+    // Map is per-instance; a shared KV/DB store is the production-grade limiter.
+    return getRequestIP() || "anon";
   } catch {
     return "anon";
   }
