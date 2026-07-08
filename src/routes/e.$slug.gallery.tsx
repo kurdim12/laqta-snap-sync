@@ -323,5 +323,11 @@ async function sharePage(name: string) {
   const url = typeof window !== "undefined" ? window.location.href : "";
   const data: ShareData = { title: `${name} · LAQTA`, text: `Live photos from ${name}`, url };
   try { if (navigator.share) { await navigator.share(data); return; } } catch { /* cancelled */ }
-  try { await navigator.clipboard.writeText(url); } catch { /* noop */ }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copied");
+  } catch {
+    toast.error("Could not copy link");
+  }
 }
+
