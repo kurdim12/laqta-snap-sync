@@ -31,7 +31,7 @@ export function QrSheet({ eventName, url, count, onClose }: Props) {
 
         <div className="grid grid-cols-3 gap-3 print:gap-2">
           {items.map((n) => (
-            <div key={n} className="flex flex-col items-center justify-between rounded-xl border border-neutral-200 p-3 print:break-inside-avoid">
+            <div key={n} data-qr-card className="flex flex-col items-center justify-between rounded-xl border border-neutral-200 p-3 print:break-inside-avoid">
               <div className="w-full text-start">
                 <div className="text-[9px] font-semibold uppercase tracking-wider text-neutral-500">LAQTA</div>
                 <div className="truncate text-xs font-bold text-neutral-900">{eventName}</div>
@@ -49,11 +49,17 @@ export function QrSheet({ eventName, url, count, onClose }: Props) {
 
       <style>{`
         @media print {
-          @page { size: A4; margin: 10mm; }
-          body { background: white !important; }
-          .qr-sheet-shell { max-width: none !important; }
+          @page { size: A4; margin: 8mm; }
+          html, body { background: white !important; }
+          .qr-sheet-shell { max-width: none !important; box-shadow: none !important; }
+          .qr-sheet-shell .grid { gap: 4mm !important; }
+          .qr-sheet-shell [data-qr-card] {
+            border: 1px dashed #d4d4d4 !important;
+            page-break-inside: avoid;
+          }
         }
       `}</style>
+
     </div>
   );
 }

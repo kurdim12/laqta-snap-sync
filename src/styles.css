@@ -60,6 +60,18 @@
   --ring: oklch(0.78 0.13 85);
   --success: oklch(0.72 0.16 145);
   --warning: oklch(0.78 0.16 70);
+
+  /* Status tokens for curation workflow */
+  --status-pending: oklch(0.78 0.16 70);
+  --status-approved: oklch(0.72 0.16 145);
+  --status-hidden: oklch(0.55 0.02 270);
+
+  /* Gradients + shadows */
+  --gradient-primary: linear-gradient(135deg, oklch(0.78 0.13 85), oklch(0.86 0.10 95));
+  --gradient-hero: radial-gradient(60% 55% at 50% 0%, color-mix(in oklab, var(--primary) 28%, transparent), transparent 72%);
+  --gradient-card: linear-gradient(180deg, color-mix(in oklab, var(--card) 92%, transparent), color-mix(in oklab, var(--background) 80%, transparent));
+  --shadow-elegant: 0 20px 60px -30px color-mix(in oklab, var(--primary) 55%, transparent);
+  --shadow-glow: 0 0 40px -10px color-mix(in oklab, var(--primary) 65%, transparent);
 }
 
 .dark { color-scheme: dark; }
@@ -80,5 +92,52 @@
     font-family: var(--font-mono);
     letter-spacing: 0.2em;
     font-weight: 800;
+  }
+}
+
+/* Shimmer skeleton for gallery tiles while signed URLs resolve */
+@utility shimmer {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--muted) 60%, transparent);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--foreground) 8%, transparent),
+      transparent
+    );
+    animation: shimmer 1.4s infinite;
+  }
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+/* Masonry column layout for galleries */
+@utility masonry {
+  column-count: 2;
+  column-gap: 0.5rem;
+}
+@media (min-width: 640px) { .masonry { column-count: 3; } }
+@media (min-width: 768px) { .masonry { column-count: 4; } }
+@media (min-width: 1024px) { .masonry { column-count: 5; } }
+@utility masonry-item {
+  break-inside: avoid;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+/* Ambient hero gradient utility */
+@utility hero-glow {
+  background: var(--gradient-hero);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

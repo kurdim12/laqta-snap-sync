@@ -1,10 +1,12 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_CONFIG, type AssetRow, type EventConfig, type EventRow } from "@/lib/types";
 import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
 import { applyEventTheme } from "@/lib/theme";
+
 
 export const Route = createFileRoute("/e/$slug/gallery")({
   head: () => ({ meta: [{ title: "LAQTA · Gallery" }] }),
@@ -181,19 +183,28 @@ function PublicGallery() {
     <button
       key={a.id}
       onClick={() => setLightbox(i)}
-      className="group relative aspect-square overflow-hidden rounded-lg bg-card animate-in fade-in"
+      className="masonry-item group relative w-full overflow-hidden rounded-lg bg-card animate-in fade-in"
     >
       {a.kind === "video" ? (
-        <>
+        <div className="relative aspect-square">
           {a.thumbUrl ? (
-            <img src={a.thumbUrl} alt="" className="h-full w-full object-cover" />
+            <img src={a.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          ) : a.url ? (
+            <video src={`${a.url}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
           ) : (
-            <video src={`${a.url || ""}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+            <div className="shimmer h-full w-full" />
           )}
           <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
-        </>
+        </div>
+      ) : a.thumbUrl || a.url ? (
+        <img
+          src={a.thumbUrl || a.url}
+          alt=""
+          loading="lazy"
+          className="block h-auto w-full object-cover transition group-hover:scale-[1.02]"
+        />
       ) : (
-        <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+        <div className="shimmer aspect-square w-full" />
       )}
     </button>
   );
@@ -201,6 +212,7 @@ function PublicGallery() {
   const folderAssets = groups && openFolder !== null ? (groups.find((g) => g.name === openFolder)?.items.map((x) => x.asset) || []) : [];
   // The lightbox shows the currently open folder's photos (or the flat list).
   const lightboxItems = groups && openFolder !== null ? folderAssets : assets;
+
 
   return (
     <main className="min-h-screen bg-background px-4 py-6">
@@ -280,17 +292,18 @@ function PublicGallery() {
             {folderAssets.length === 0 ? (
               <p className="py-16 text-center text-sm text-muted-foreground">{pick(T.photosOnTheWay, lang)}</p>
             ) : (
-              <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              <section className="masonry">
                 {folderAssets.map((a, i) => tile(a, i))}
               </section>
             )}
           </div>
         )
       ) : (
-        <section className="mx-auto mt-6 grid max-w-6xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <section className="masonry mx-auto mt-6 max-w-6xl">
           {assets.map((a, i) => tile(a, i))}
         </section>
       )}
+
 
       {lightbox !== null && (
         <Lightbox
@@ -310,5 +323,11 @@ async function sharePage(name: string) {
   const url = typeof window !== "undefined" ? window.location.href : "";
   const data: ShareData = { title: `${name} · LAQTA`, text: `Live photos from ${name}`, url };
   try { if (navigator.share) { await navigator.share(data); return; } } catch { /* cancelled */ }
-  try { await navigator.clipboard.writeText(url); } catch { /* noop */ }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copied");
+  } catch {
+    toast.error("Could not copy link");
+  }
 }
+
