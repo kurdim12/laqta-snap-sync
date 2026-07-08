@@ -181,19 +181,28 @@ function PublicGallery() {
     <button
       key={a.id}
       onClick={() => setLightbox(i)}
-      className="group relative aspect-square overflow-hidden rounded-lg bg-card animate-in fade-in"
+      className="masonry-item group relative w-full overflow-hidden rounded-lg bg-card animate-in fade-in"
     >
       {a.kind === "video" ? (
-        <>
+        <div className="relative aspect-square">
           {a.thumbUrl ? (
-            <img src={a.thumbUrl} alt="" className="h-full w-full object-cover" />
+            <img src={a.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          ) : a.url ? (
+            <video src={`${a.url}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
           ) : (
-            <video src={`${a.url || ""}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+            <div className="shimmer h-full w-full" />
           )}
           <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
-        </>
+        </div>
+      ) : a.thumbUrl || a.url ? (
+        <img
+          src={a.thumbUrl || a.url}
+          alt=""
+          loading="lazy"
+          className="block h-auto w-full object-cover transition group-hover:scale-[1.02]"
+        />
       ) : (
-        <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+        <div className="shimmer aspect-square w-full" />
       )}
     </button>
   );
@@ -201,6 +210,7 @@ function PublicGallery() {
   const folderAssets = groups && openFolder !== null ? (groups.find((g) => g.name === openFolder)?.items.map((x) => x.asset) || []) : [];
   // The lightbox shows the currently open folder's photos (or the flat list).
   const lightboxItems = groups && openFolder !== null ? folderAssets : assets;
+
 
   return (
     <main className="min-h-screen bg-background px-4 py-6">
