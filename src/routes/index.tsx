@@ -46,18 +46,31 @@ function Landing() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
-      {/* ambient gradient */}
+      {/* Layered ambient background */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 hero-glow opacity-70" />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-60"
+        className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
         style={{
-          background:
-            "radial-gradient(60% 50% at 50% 0%, color-mix(in oklab, var(--primary) 25%, transparent), transparent 70%)",
+          backgroundImage:
+            "radial-gradient(1px 1px at 20% 30%, white, transparent), radial-gradient(1px 1px at 70% 60%, white, transparent), radial-gradient(1px 1px at 40% 80%, white, transparent)",
+          backgroundSize: "120px 120px, 200px 200px, 90px 90px",
         }}
       />
 
       <section className="relative mx-auto flex min-h-screen w-full max-w-xl flex-col items-center justify-center px-6 py-16 text-center">
-        <div className="code-display text-6xl tracking-tight text-primary md:text-7xl">LAQTA</div>
+        {/* Wordmark with parallax Arabic behind */}
+        <div className="relative">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 flex items-center justify-center font-arabic text-[7rem] leading-none text-primary/10 md:text-[9rem]"
+          >
+            لقطة
+          </div>
+          <div className="code-display relative text-6xl tracking-tight text-primary md:text-7xl">
+            LAQTA
+          </div>
+        </div>
         <div className="mt-2 font-arabic text-3xl text-muted-foreground">لقطة</div>
         <p className="mt-5 max-w-sm text-sm leading-relaxed text-muted-foreground">
           Find your event photos & videos. Enter the code you received, or pick your event below.
@@ -68,7 +81,8 @@ function Landing() {
         {/* Gallery code entry */}
         <form
           onSubmit={onSubmitCode}
-          className="mt-10 w-full rounded-2xl border border-border bg-card p-5 text-start shadow-[0_10px_40px_-20px_color-mix(in_oklab,var(--primary)_40%,transparent)]"
+          className="mt-10 w-full rounded-2xl border border-border bg-card p-5 text-start"
+          style={{ boxShadow: "var(--shadow-elegant)" }}
         >
           <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Gallery code
@@ -86,7 +100,8 @@ function Landing() {
             />
             <button
               type="submit"
-              className="rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+              className="rounded-lg px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+              style={{ background: "var(--gradient-primary)" }}
             >
               Open
             </button>
@@ -111,7 +126,7 @@ function Landing() {
                   <Link
                     to="/e/$slug"
                     params={{ slug: ev.slug }}
-                    className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-start transition hover:border-primary"
+                    className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-start transition hover:border-primary hover:-translate-y-0.5"
                   >
                     <span className="text-sm font-semibold text-foreground">{ev.name}</span>
                     <span className="code-display text-xs text-primary">/{ev.slug}</span>
@@ -122,10 +137,36 @@ function Landing() {
           )}
         </div>
 
-        <p className="mt-12 text-[10px] uppercase tracking-[0.3em] text-muted-foreground/60">
-          LAQTA · Event Media Delivery
-        </p>
+        {/* How it works */}
+        <div className="mt-12 grid w-full grid-cols-3 gap-2">
+          {[
+            { n: "1", ar: "سجّل", en: "Register" },
+            { n: "2", ar: "التقط", en: "Snap" },
+            { n: "3", ar: "شارك", en: "Share" },
+          ].map((s) => (
+            <div
+              key={s.n}
+              className="rounded-xl border border-border bg-card/60 px-3 py-4 text-center"
+            >
+              <div className="code-display mx-auto grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-xs text-primary">
+                {s.n}
+              </div>
+              <div className="mt-2 text-xs font-semibold">{s.en}</div>
+              <div className="font-arabic text-xs text-muted-foreground">{s.ar}</div>
+            </div>
+          ))}
+        </div>
+
+        <footer className="mt-16 w-full border-t border-border/50 pt-6 text-center">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground/60">
+            LAQTA · Event Media Delivery
+          </p>
+          <p className="mt-1 font-arabic text-[10px] text-muted-foreground/60">
+            تسليم صور وفيديوهات الفعاليات
+          </p>
+        </footer>
       </section>
     </main>
   );
 }
+
