@@ -290,17 +290,18 @@ function PublicGallery() {
             {folderAssets.length === 0 ? (
               <p className="py-16 text-center text-sm text-muted-foreground">{pick(T.photosOnTheWay, lang)}</p>
             ) : (
-              <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              <section className="masonry">
                 {folderAssets.map((a, i) => tile(a, i))}
               </section>
             )}
           </div>
         )
       ) : (
-        <section className="mx-auto mt-6 grid max-w-6xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <section className="masonry mx-auto mt-6 max-w-6xl">
           {assets.map((a, i) => tile(a, i))}
         </section>
       )}
+
 
       {lightbox !== null && (
         <Lightbox
