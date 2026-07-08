@@ -131,7 +131,6 @@ export type Database = {
           name: string
           slug: string
           staff_pin: string | null
-          staff_pin_hash: string | null
           status: string
         }
         Insert: {
@@ -141,7 +140,6 @@ export type Database = {
           name: string
           slug: string
           staff_pin?: string | null
-          staff_pin_hash?: string | null
           status?: string
         }
         Update: {
@@ -151,7 +149,6 @@ export type Database = {
           name?: string
           slug?: string
           staff_pin?: string | null
-          staff_pin_hash?: string | null
           status?: string
         }
         Relationships: []
@@ -282,6 +279,9 @@ export type Database = {
         Returns: string
       }
       admin_exists: { Args: never; Returns: boolean }
+      event_folder_is_live: { Args: { _folder: string }; Returns: boolean }
+      event_is_live: { Args: { _id: string }; Returns: boolean }
+      event_is_public_wall: { Args: { _id: string }; Returns: boolean }
       get_code_gallery: { Args: { _code: string }; Returns: Json }
       has_role: {
         Args: {
