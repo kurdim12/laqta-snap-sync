@@ -59,7 +59,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "LAQTA · لقطة" },
       { name: "description", content: "Premium event photo & video delivery" },
-      { name: "theme-color", content: "#0E0E10" },
+      { name: "theme-color", content: "#f5f3ee" },
       { property: "og:title", content: "LAQTA · لقطة" },
       { name: "twitter:title", content: "LAQTA · لقطة" },
       { property: "og:description", content: "Premium event photo & video delivery" },
@@ -77,7 +77,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@600;800&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700&family=Cairo:wght@400;600;800&family=JetBrains+Mono:wght@600;800&display=swap",
       },
     ],
   }),
@@ -89,7 +89,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className="dark">
+    <html lang="en" dir="ltr">
       <head>
         <HeadContent />
       </head>
