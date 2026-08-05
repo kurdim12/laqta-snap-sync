@@ -75,6 +75,22 @@ class ProviderError extends Error {
   }
 }
 
+/** quality must be one of the documented enum values, else the request 400s. */
+const QUALITIES = new Set(["auto", "low", "medium", "high"]);
+
+/**
+ * OpenRouter rejects a request that carries BOTH an explicit pixel `size` and
+ * an `aspect_ratio` — the pixel size is authoritative. Send exactly one:
+ * "1024x1536" -> { size }, "2:3" -> { aspect_ratio }.
+ */
+export function sizeOrAspect(value?: string | null): { size?: string; aspect_ratio?: string } {
+  const v = (value || "").trim();
+  if (!v) return {};
+  if (/^\d{2,5}\s*[x×]\s*\d{2,5}$/i.test(v)) return { size: v.toLowerCase().replace(/\s|×/g, (c) => (c === "×" ? "x" : "")) };
+  if (/^\d{1,2}:\d{1,2}$/.test(v)) return { aspect_ratio: v };
+  return {};
+}
+
 export async function generateStyled(input: GenerateInput): Promise<GenerateResult> {
   const key = process.env["OPENROUTER_API_KEY"];
   if (!key) throw new Error("OPENROUTER_API_KEY is not configured");
@@ -82,14 +98,17 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
   const model = modelId();
   const started = Date.now();
 
+  const quality = input.quality && QUALITIES.has(input.quality) ? input.quality : undefined;
+
   const body = JSON.stringify({
     model,
     prompt: input.prompt,
     input_references: buildInputReferences(input.imageDataUrl, input.referenceDataUrl),
-    ...(input.quality ? { quality: input.quality } : {}),
-    ...(input.aspectRatio ? { aspect_ratio: input.aspectRatio } : {}),
+    ...(quality ? { quality } : {}),
+    // never both — see sizeOrAspect
+    ...sizeOrAspect(input.aspectRatio),
     output_format: "jpeg",
-    output_compression: 85,
+    output_compression: 85, // 0-100, jpeg/webp only
     n: 1,
   });
 
