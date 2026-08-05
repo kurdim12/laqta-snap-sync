@@ -214,6 +214,17 @@ function PublicGallery() {
       ) : (
         <div className="shimmer aspect-square w-full" />
       )}
+      {frameUrl && !a.processing && (
+        <img src={frameUrl} alt="" aria-hidden className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+      )}
+      {a.processing && (
+        <span className="absolute inset-0 grid place-items-center bg-black/45 px-2 text-center text-[10px] font-bold leading-tight text-white backdrop-blur-sm">
+          <span>
+            <span className="block animate-pulse font-arabic text-xs">…جاري تطبيق ستايل الفعالية</span>
+            <span className="block animate-pulse">applying event style…</span>
+          </span>
+        </span>
+      )}
     </button>
   );
   const groups = groupAlbums(assets);
