@@ -1452,6 +1452,16 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
                   </button>
                   {a.kind === "video" && <span className="pointer-events-none absolute top-1 right-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">VIDEO</span>}
                   {a.approved === false && <span className="pointer-events-none absolute top-1 left-1 rounded bg-[color:var(--warning)]/90 px-1 text-[9px] font-bold text-black">PENDING</span>}
+                  {(a.process_status === "pending" || a.process_status === "processing") && (
+                    <span className="pointer-events-none absolute inset-x-1 top-6 rounded bg-primary/90 px-1 text-center text-[9px] font-bold text-primary-foreground">STYLING…</span>
+                  )}
+                  {a.process_status === "failed" && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); retryStyle(a); }}
+                      title={a.error_message || "Style failed — retry"}
+                      className="absolute inset-x-1 top-6 rounded bg-destructive px-1 text-center text-[9px] font-bold text-destructive-foreground"
+                    >STYLE FAILED · RETRY</button>
+                  )}
                   {(a.guestCode || albumOf(a)) && (
                     <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-start text-[10px] font-bold text-white">
                       {albumOf(a) && <span className="block truncate opacity-90">📁 {albumOf(a)}</span>}
