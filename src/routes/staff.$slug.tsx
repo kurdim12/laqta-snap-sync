@@ -204,6 +204,16 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
           await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "poster", path: posterPath, contentType: "image/jpeg", bytes: poster.size });
         }
       }
+      // Kick the event's AI template for this photo. Fire-and-forget: the
+      // upload is already complete and the gallery polls for the styled render.
+      if (kind === "photo" && event.template_mode === "ai") {
+        void fetch("/api/public/process-photo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assetId, slug: event.slug, pin }),
+        }).catch(() => {});
+      }
+
       update(item.id, { state: "done", progress: 100 });
 
     } catch (e) {

@@ -20,12 +20,19 @@ export type Database = {
           bytes: number | null
           content_type: string
           created_at: string
+          error_message: string | null
           event_id: string
+          generation_cost: number | null
           guest_id: string | null
           id: string
           kind: string
           meta: Json
+          original_url: string | null
           parent_asset_id: string | null
+          process_status: string
+          processed_url: string | null
+          processing_finished_at: string | null
+          processing_started_at: string | null
           status: string
           storage_path: string
           variant: string
@@ -35,12 +42,19 @@ export type Database = {
           bytes?: number | null
           content_type: string
           created_at?: string
+          error_message?: string | null
           event_id: string
+          generation_cost?: number | null
           guest_id?: string | null
           id: string
           kind: string
           meta?: Json
+          original_url?: string | null
           parent_asset_id?: string | null
+          process_status?: string
+          processed_url?: string | null
+          processing_finished_at?: string | null
+          processing_started_at?: string | null
           status?: string
           storage_path: string
           variant?: string
@@ -50,12 +64,19 @@ export type Database = {
           bytes?: number | null
           content_type?: string
           created_at?: string
+          error_message?: string | null
           event_id?: string
+          generation_cost?: number | null
           guest_id?: string | null
           id?: string
           kind?: string
           meta?: Json
+          original_url?: string | null
           parent_asset_id?: string | null
+          process_status?: string
+          processed_url?: string | null
+          processing_finished_at?: string | null
+          processing_started_at?: string | null
           status?: string
           storage_path?: string
           variant?: string
@@ -132,6 +153,12 @@ export type Database = {
           slug: string
           staff_pin: string | null
           status: string
+          template_aspect_ratio: string
+          template_frame_url: string | null
+          template_mode: string
+          template_prompt: string | null
+          template_quality: string
+          template_reference_url: string | null
         }
         Insert: {
           config?: Json
@@ -141,6 +168,12 @@ export type Database = {
           slug: string
           staff_pin?: string | null
           status?: string
+          template_aspect_ratio?: string
+          template_frame_url?: string | null
+          template_mode?: string
+          template_prompt?: string | null
+          template_quality?: string
+          template_reference_url?: string | null
         }
         Update: {
           config?: Json
@@ -150,6 +183,12 @@ export type Database = {
           slug?: string
           staff_pin?: string | null
           status?: string
+          template_aspect_ratio?: string
+          template_frame_url?: string | null
+          template_mode?: string
+          template_prompt?: string | null
+          template_quality?: string
+          template_reference_url?: string | null
         }
         Relationships: []
       }
@@ -253,6 +292,8 @@ export type Database = {
           name: string | null
           slug: string | null
           status: string | null
+          template_frame_url: string | null
+          template_mode: string | null
         }
         Insert: {
           config?: Json | null
@@ -261,6 +302,8 @@ export type Database = {
           name?: string | null
           slug?: string | null
           status?: string | null
+          template_frame_url?: string | null
+          template_mode?: string | null
         }
         Update: {
           config?: Json | null
@@ -269,6 +312,8 @@ export type Database = {
           name?: string | null
           slug?: string | null
           status?: string | null
+          template_frame_url?: string | null
+          template_mode?: string | null
         }
         Relationships: []
       }

@@ -45,6 +45,15 @@ export interface EventRow {
   config: EventConfig;
   staff_pin?: string | null;
   created_at: string;
+  /** none = raw photos, frame = PNG overlay, ai = AI restyle */
+  template_mode?: "none" | "frame" | "ai";
+  template_prompt?: string | null;
+  /** data URL of the style reference image */
+  template_reference_url?: string | null;
+  /** data URL of the transparent PNG frame */
+  template_frame_url?: string | null;
+  template_quality?: "low" | "medium" | "high";
+  template_aspect_ratio?: string;
 }
 
 export interface GuestRow {
@@ -72,4 +81,11 @@ export interface AssetRow {
   meta: Record<string, unknown>;
   created_at: string;
   approved?: boolean;
+  original_url?: string | null;
+  processed_url?: string | null;
+  process_status?: "pending" | "processing" | "done" | "failed";
+  error_message?: string | null;
+  generation_cost?: number | null;
+  processing_started_at?: string | null;
+  processing_finished_at?: string | null;
 }

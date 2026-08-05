@@ -17,6 +17,8 @@ interface GalleryAsset {
   kind: "photo" | "video";
   url?: string;
   thumbUrl?: string;
+  /** the event's AI style is still rendering this photo */
+  processing?: boolean;
 }
 
 function Gallery() {
@@ -27,6 +29,7 @@ function Gallery() {
   const [assets, setAssets] = useState<GalleryAsset[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [frameUrl, setFrameUrl] = useState<string | null>(null);
   const cfg = event?.config || DEFAULT_CONFIG;
   const [lang, setLang, toggleable] = useLang(cfg.locale);
 
@@ -48,6 +51,7 @@ function Gallery() {
         config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig,
       };
       setEvent(ev);
+      setFrameUrl(e.template_mode === "frame" && e.template_frame_url ? e.template_frame_url : null);
       if (themeCleanupRef.current) themeCleanupRef.current();
       themeCleanupRef.current = applyEventTheme(ev.config.theme);
       setAssets(
@@ -56,6 +60,7 @@ function Gallery() {
           kind: a.kind === "video" ? "video" : "photo",
           url: a.url,
           thumbUrl: a.thumbUrl,
+          processing: a.process_status === "pending" || a.process_status === "processing",
         })),
       );
     } catch {
@@ -76,12 +81,14 @@ function Gallery() {
     let last = Date.now();
     const onActivity = () => { last = Date.now(); };
     window.addEventListener("pointerdown", onActivity);
+    // Poll fast while a styled render is still cooking, slow otherwise.
+    const styling = assets.some((a) => a.processing);
     const i = setInterval(() => {
       if (Date.now() - last > 10 * 60_000) return;
       load();
-    }, 20_000);
+    }, styling ? 5_000 : 20_000);
     return () => { clearInterval(i); window.removeEventListener("pointerdown", onActivity); };
-  }, [notFound, code]);
+  }, [notFound, code, assets]);
 
   if (notFound) {
     return (
@@ -205,7 +212,18 @@ function Gallery() {
                   <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
                 </>
               ) : (
-                <img src={a.thumbUrl || a.url} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                <img src={a.thumbUrl || a.url} alt="" className={`h-full w-full object-cover transition group-hover:scale-105 ${a.processing ? "scale-105 blur-md" : ""}`} />
+              )}
+              {frameUrl && !a.processing && (
+                <img src={frameUrl} alt="" aria-hidden className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+              )}
+              {a.processing && (
+                <span className="absolute inset-0 grid place-items-center bg-black/45 px-2 text-center text-[10px] font-bold leading-tight text-white">
+                  <span>
+                    <span className="block animate-pulse font-arabic text-xs">…جاري تطبيق ستايل الفعالية</span>
+                    <span className="block animate-pulse">applying event style…</span>
+                  </span>
+                </span>
               )}
             </button>
           ))}

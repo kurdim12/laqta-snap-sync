@@ -15,6 +15,7 @@ import { Route as StaffSlugRouteImport } from './routes/staff.$slug'
 import { Route as GCodeRouteImport } from './routes/g.$code'
 import { Route as ESlugRouteImport } from './routes/e.$slug'
 import { Route as ESlugGalleryRouteImport } from './routes/e.$slug.gallery'
+import { Route as ApiPublicProcessPhotoRouteImport } from './routes/api/public/process-photo'
 
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
@@ -46,6 +47,11 @@ const ESlugGalleryRoute = ESlugGalleryRouteImport.update({
   path: '/gallery',
   getParentRoute: () => ESlugRoute,
 } as any)
+const ApiPublicProcessPhotoRoute = ApiPublicProcessPhotoRouteImport.update({
+  id: '/api/public/process-photo',
+  path: '/api/public/process-photo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/e/$slug': typeof ESlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/staff/$slug': typeof StaffSlugRoute
+  '/api/public/process-photo': typeof ApiPublicProcessPhotoRoute
   '/e/$slug/gallery': typeof ESlugGalleryRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/e/$slug': typeof ESlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/staff/$slug': typeof StaffSlugRoute
+  '/api/public/process-photo': typeof ApiPublicProcessPhotoRoute
   '/e/$slug/gallery': typeof ESlugGalleryRoute
 }
 export interface FileRoutesById {
@@ -70,6 +78,7 @@ export interface FileRoutesById {
   '/e/$slug': typeof ESlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/staff/$slug': typeof StaffSlugRoute
+  '/api/public/process-photo': typeof ApiPublicProcessPhotoRoute
   '/e/$slug/gallery': typeof ESlugGalleryRoute
 }
 export interface FileRouteTypes {
@@ -80,6 +89,7 @@ export interface FileRouteTypes {
     | '/e/$slug'
     | '/g/$code'
     | '/staff/$slug'
+    | '/api/public/process-photo'
     | '/e/$slug/gallery'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -88,6 +98,7 @@ export interface FileRouteTypes {
     | '/e/$slug'
     | '/g/$code'
     | '/staff/$slug'
+    | '/api/public/process-photo'
     | '/e/$slug/gallery'
   id:
     | '__root__'
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
     | '/e/$slug'
     | '/g/$code'
     | '/staff/$slug'
+    | '/api/public/process-photo'
     | '/e/$slug/gallery'
   fileRoutesById: FileRoutesById
 }
@@ -105,6 +117,7 @@ export interface RootRouteChildren {
   ESlugRoute: typeof ESlugRouteWithChildren
   GCodeRoute: typeof GCodeRoute
   StaffSlugRoute: typeof StaffSlugRoute
+  ApiPublicProcessPhotoRoute: typeof ApiPublicProcessPhotoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ESlugGalleryRouteImport
       parentRoute: typeof ESlugRoute
     }
+    '/api/public/process-photo': {
+      id: '/api/public/process-photo'
+      path: '/api/public/process-photo'
+      fullPath: '/api/public/process-photo'
+      preLoaderRoute: typeof ApiPublicProcessPhotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -170,17 +190,8 @@ const rootRouteChildren: RootRouteChildren = {
   ESlugRoute: ESlugRouteWithChildren,
   GCodeRoute: GCodeRoute,
   StaffSlugRoute: StaffSlugRoute,
+  ApiPublicProcessPhotoRoute: ApiPublicProcessPhotoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
