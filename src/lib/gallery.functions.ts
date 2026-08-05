@@ -265,3 +265,35 @@ export const getStaffSelfieUrls = createServerFn({ method: "POST" })
     const urls = await signMany(safe);
     return { urls };
   });
+
+// ---------------- public event lookups ----------------
+// The `events_public` view is security_invoker, and `events` has no anon SELECT
+// policy, so the anon client reads nothing from it. Public screens (guest form,
+// staff console, landing list, public wall) go through these service-role
+// server functions instead, which return only non-sensitive columns.
+export const getPublicEventBySlug = createServerFn({ method: "POST" })
+  .inputValidator((d: { slug: string }) => ({ slug: String(d?.slug || "").slice(0, 128) }))
+  .handler(async ({ data }): Promise<{ event: EventLite | null }> => {
+    if (!rateLimit(`pev:${ipKey()}`, 120, 60_000)) throw new Error("Too many requests");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: e } = await supabaseAdmin
+      .from("events")
+      .select("id, slug, name, status, config, created_at, template_mode, template_frame_url")
+      .eq("slug", data.slug)
+      .maybeSingle();
+    if (!e || (e.status !== "live" && e.status !== "dryrun")) return { event: null };
+    return { event: e as EventLite };
+  });
+
+export const listPublicEvents = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ events: { slug: string; name: string; status: string }[] }> => {
+    if (!rateLimit(`plist:${ipKey()}`, 120, 60_000)) throw new Error("Too many requests");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("events")
+      .select("slug, name, status")
+      .in("status", ["live", "dryrun"])
+      .order("created_at", { ascending: false });
+    return { events: (data || []) as { slug: string; name: string; status: string }[] };
+  },
+);
