@@ -38,6 +38,9 @@ interface AssetLite {
   status: string;
   meta: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   created_at: string;
+  processed_url?: string | null;
+  process_status?: string | null;
+  error_message?: string | null;
 }
 
 
@@ -49,6 +52,8 @@ interface EventLite {
   // JSONB — typed loose so TanStack's serializable check accepts it
   config: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   created_at: string;
+  template_mode?: string | null;
+  template_frame_url?: string | null;
 }
 
 
@@ -99,10 +104,13 @@ function buildEnriched(rows: AssetLite[], urls: Record<string, string>) {
     const web = webs.find((w) => w.parent_asset_id === r.id) || r;
     const thumb = thumbs.find((t) => t.parent_asset_id === r.id);
     const thumbAsset = thumb || (isVideo ? undefined : web);
+    // When the event applies an AI template, the styled render replaces the
+    // original everywhere the guest sees it.
+    const processed = r.processed_url ? urls[r.processed_url] : undefined;
     return {
       ...r,
-      url: urls[web.storage_path],
-      thumbUrl: thumbAsset ? urls[thumbAsset.storage_path] : undefined,
+      url: processed || urls[web.storage_path],
+      thumbUrl: processed || (thumbAsset ? urls[thumbAsset.storage_path] : undefined),
     };
   });
 }
@@ -128,7 +136,7 @@ export const getGalleryByCode = createServerFn({ method: "POST" })
 
     const { data: e } = await supabaseAdmin
       .from("events")
-      .select("id, slug, name, status, config, created_at")
+      .select("id, slug, name, status, config, created_at, template_mode, template_frame_url")
       .eq("id", g.event_id)
       .maybeSingle();
     if (!e || (e.status !== "live" && e.status !== "dryrun")) {
@@ -143,7 +151,9 @@ export const getGalleryByCode = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false });
 
     const rows = (aRows || []) as AssetLite[];
-    const paths = Array.from(new Set(rows.map((r) => r.storage_path)));
+    const paths = Array.from(
+      new Set(rows.flatMap((r) => [r.storage_path, ...(r.processed_url ? [r.processed_url] : [])])),
+    );
     const urls = await signMany(paths);
 
     return {
@@ -167,7 +177,7 @@ export const getPublicGalleryBySlug = createServerFn({ method: "POST" })
 
     const { data: e } = await supabaseAdmin
       .from("events")
-      .select("id, slug, name, status, config, created_at")
+      .select("id, slug, name, status, config, created_at, template_mode, template_frame_url")
       .eq("slug", data.slug)
       .maybeSingle();
     if (!e || (e.status !== "live" && e.status !== "dryrun")) {
@@ -186,7 +196,9 @@ export const getPublicGalleryBySlug = createServerFn({ method: "POST" })
       .limit(500);
 
     const rows = (aRows || []) as AssetLite[];
-    const paths = Array.from(new Set(rows.map((r) => r.storage_path)));
+    const paths = Array.from(
+      new Set(rows.flatMap((r) => [r.storage_path, ...(r.processed_url ? [r.processed_url] : [])])),
+    );
     const urls = await signMany(paths);
 
     return {
