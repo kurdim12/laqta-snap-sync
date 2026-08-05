@@ -21,6 +21,7 @@ interface GalleryAsset {
   thumbUrl?: string;
   album?: string;
   processing?: boolean;
+  framed?: boolean;
 }
 
 // Sign a batch of storage paths with the anon client (RLS allows reading
@@ -38,7 +39,7 @@ async function signMany(paths: string[]): Promise<Record<string, string>> {
 
 // Collapse original/web/thumb variants into one display tile each, mirroring
 // the server-side buildEnriched logic.
-function enrich(rows: AssetRow[], urls: Record<string, string>): GalleryAsset[] {
+function enrich(rows: AssetRow[], urls: Record<string, string>, mode?: string | null, frame?: string | null): GalleryAsset[] {
   const originals = rows.filter((r) => r.variant === "original");
   const webs = rows.filter((r) => r.variant === "web");
   const thumbs = rows.filter((r) => r.variant === "thumb" || r.variant === "poster");
@@ -59,6 +60,9 @@ function enrich(rows: AssetRow[], urls: Record<string, string>): GalleryAsset[] 
       url: processed || urls[full.storage_path],
       thumbUrl: processed || (thumbAsset ? urls[thumbAsset.storage_path] : undefined),
       processing: r.process_status === "pending" || r.process_status === "processing",
+      // Frame overlay: always in frame mode, and as the branding fallback when
+      // an AI generation failed or was skipped.
+      framed: !!frame && (mode === "frame" || (mode === "ai" && (r.process_status === "failed" || r.process_status === "skipped" || !r.process_status))),
       album: (r.meta as { album?: string })?.album || "",
     };
   });
@@ -112,7 +116,7 @@ function PublicGallery() {
         config: { ...DEFAULT_CONFIG, ...ecfg } as EventConfig,
       };
       setEvent(ev);
-      setFrameUrl(e.template_mode === "frame" && e.template_frame_url ? e.template_frame_url : null);
+      setFrameUrl(e.template_frame_url || null);
       if (themeCleanupRef.current) themeCleanupRef.current();
       themeCleanupRef.current = applyEventTheme(ev.config.theme);
 
@@ -131,7 +135,7 @@ function PublicGallery() {
         new Set(rows.flatMap((r) => [r.storage_path, ...(r.processed_url ? [r.processed_url] : [])])),
       );
       const urls = await signMany(paths);
-      setAssets(enrich(rows, urls));
+      setAssets(enrich(rows, urls, e.template_mode, e.template_frame_url));
     } catch {
       setUnavailable(true);
     }
@@ -214,7 +218,7 @@ function PublicGallery() {
       ) : (
         <div className="shimmer aspect-square w-full" />
       )}
-      {frameUrl && !a.processing && (
+      {frameUrl && a.framed && !a.processing && (
         <img src={frameUrl} alt="" aria-hidden className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
       )}
       {a.processing && (
