@@ -11,6 +11,7 @@ import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
 import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
 import { testTemplate, reprocessAsset } from "@/lib/template.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -1655,16 +1656,13 @@ export function DiagnosticsModal({ event, onClose }: { event: EventRow; onClose:
   async function retry(id: string) {
     setBusy(id);
     try {
-      const res = await fetch("/api/public/process-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assetId: id, slug: event.slug, pin: event.staff_pin || "" }),
-      });
-      const text = await res.text();
-      toast[res.ok ? "success" : "error"](`process-photo ${res.status}: ${text.slice(0, 200)}`);
+      // Admin-authenticated path into the exact same processing function the
+      // public endpoint calls, so the result is directly comparable.
+      const r = await reprocessAsset({ data: { assetId: id } });
+      toast[r.ok ? "success" : "error"](`${r.status}${r.model ? ` · ${r.model}` : ""}${r.error ? ` · ${r.error}` : ""}`);
       await load();
     } catch (err) {
-      toast.error(`fetch failed: ${(err as Error).message}`);
+      toast.error(`call failed: ${(err as Error).message}`);
     } finally {
       setBusy(null);
     }
@@ -1724,7 +1722,7 @@ export function DiagnosticsModal({ event, onClose }: { event: EventRow; onClose:
               </tbody>
             </table>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              “Run” calls /api/public/process-photo synchronously and shows the raw HTTP status and body — use it to see exactly where a row stops. It costs a generation only if the event is in AI mode and the row is claimable.
+              “Run” executes the processing function synchronously as admin and shows its exact result or provider error — use it to see where a row stops. It costs a generation only if the event is in AI mode and the row is claimable.
             </p>
           </div>
         )}
