@@ -360,6 +360,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
       {showRegs && <RegistrationsModal event={ev} onClose={() => setShowRegs(false)} />}
       {showQr && <QrModal url={ev.config.registration === "none" || ev.config.gallery?.mode === "public" ? galleryUrl : formUrl} title={ev.name} onClose={() => setShowQr(false)} />}
       {showPhotos && <PhotosModal event={ev} onClose={() => setShowPhotos(false)} />}
+      {showDiag && <DiagnosticsModal event={ev} onClose={() => setShowDiag(false)} />}
       {confirmDel && (
         <ConfirmModal
           title="Delete event?"
