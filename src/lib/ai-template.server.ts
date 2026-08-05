@@ -1,9 +1,10 @@
 // Server-only AI photo template engine.
 //
-// Calls OpenRouter with an image-output model, passing the guest photo (and an
-// optional style reference image) as data URLs. Never imported from client code.
+// Calls OpenRouter's DEDICATED Images API (POST /api/v1/images) with the guest
+// photo (and an optional style reference image) as input_references.
+// Never imported from client code.
 
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/images";
 
 /** Hard wall-clock timeout for a single provider call. */
 export const AI_TIMEOUT_MS = 120_000;
@@ -19,14 +20,11 @@ export function estimateCost(q: string | null | undefined): number {
 }
 
 export function modelId(): string {
-  // NOTE: "openai/gpt-image-2" is NOT a chat-completions model on OpenRouter —
-  // it 404s with "No endpoints found that support the requested output
-  // modalities". The image-capable ids on this endpoint are:
-  //   google/gemini-3.1-flash-image   (default — cheap, strong photo editing, no prompt rewriting)
-  //   openai/gpt-5-image-mini         (cheapest OpenAI)
-  //   openai/gpt-5-image / openai/gpt-5.4-image-2 (pricier, GPT prompt rewriting)
-  return process.env["AI_IMAGE_MODEL"] || "google/gemini-3.1-flash-image";
+  // openai/gpt-image-2 is served by the Images API endpoint above (it is not a
+  // chat-completions model). Override with AI_IMAGE_MODEL if ever needed.
+  return process.env["AI_IMAGE_MODEL"] || "openai/gpt-image-2";
 }
+
 
 export interface GenerateInput {
   prompt: string;
@@ -61,23 +59,12 @@ export function buildInputReferences(
 }
 
 function extractImage(json: unknown): string | null {
-  const msg = (json as { choices?: { message?: Record<string, unknown> }[] })?.choices?.[0]?.message;
-  if (!msg) return null;
-  // OpenRouter image-output shape
-  const images = msg["images"] as { image_url?: { url?: string } }[] | undefined;
-  if (Array.isArray(images)) {
-    for (const im of images) {
-      const u = im?.image_url?.url;
-      if (typeof u === "string" && u.startsWith("data:")) return u;
-    }
-  }
-  // Multimodal content-parts shape
-  const content = msg["content"];
-  if (Array.isArray(content)) {
-    for (const part of content as { type?: string; image_url?: { url?: string } }[]) {
-      const u = part?.image_url?.url;
-      if (typeof u === "string" && u.startsWith("data:")) return u;
-    }
+  // OpenRouter Images API: { data: [{ b64_json, media_type }] }
+  const data = (json as { data?: { b64_json?: string; media_type?: string; url?: string }[] })?.data;
+  if (Array.isArray(data) && data.length) {
+    const first = data[0];
+    if (first?.b64_json) return `data:${first.media_type || "image/jpeg"};base64,${first.b64_json}`;
+    if (typeof first?.url === "string" && first.url.startsWith("data:")) return first.url;
   }
   return null;
 }
@@ -95,31 +82,15 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
   const model = modelId();
   const started = Date.now();
 
-  const references = buildInputReferences(input.imageDataUrl, input.referenceDataUrl);
-  const parts: Record<string, unknown>[] = [
-    {
-      type: "text",
-      text:
-        `${input.prompt}\n\n` +
-        `Keep the person's face, identity and pose recognisable. ` +
-        `Target output size ${input.aspectRatio || "1024x1024"}, ${input.quality || "medium"} quality.` +
-        (input.referenceDataUrl
-          ? ` The FIRST image is the guest photo. The SECOND image is the STYLE REFERENCE (e.g. the branded shirt) — match its look, colour, logo and treatment.`
-          : ""),
-    },
-    ...references,
-  ];
-
-  // OpenAI-only knobs (jpeg output, explicit input_references) are rejected /
-  // ignored elsewhere, so only send them for openai/* models.
-  const isOpenAI = model.startsWith("openai/");
   const body = JSON.stringify({
     model,
-    modalities: ["image", "text"],
-    ...(isOpenAI
-      ? { output_format: "jpeg", output_compression: 85, input_references: references }
-      : {}),
-    messages: [{ role: "user", content: parts }],
+    prompt: input.prompt,
+    input_references: buildInputReferences(input.imageDataUrl, input.referenceDataUrl),
+    ...(input.quality ? { quality: input.quality } : {}),
+    ...(input.aspectRatio ? { aspect_ratio: input.aspectRatio } : {}),
+    output_format: "jpeg",
+    output_compression: 85,
+    n: 1,
   });
 
   // One call. Retried ONCE by the caller loop below, and only on 5xx/network.
@@ -174,6 +145,7 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
     model,
   };
 }
+
 
 export function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
   const m = /^data:([^;,]+)(;base64)?,(.*)$/s.exec(dataUrl);
