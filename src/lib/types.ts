@@ -54,6 +54,9 @@ export interface EventRow {
   template_frame_url?: string | null;
   template_quality?: "low" | "medium" | "high";
   template_aspect_ratio?: string;
+  /** hard cap on AI generations for this event */
+  max_generations?: number;
+  generations_used?: number;
 }
 
 export interface GuestRow {
