@@ -315,6 +315,12 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
           <MiniStat label="Locale" value={ev.config.locale} small />
         </div>
 
+        {ev.template_mode === "ai" && (
+          <div className="mt-3 rounded-lg border border-border bg-background p-2.5">
+            <GenerationMeter used={ev.generations_used ?? 0} max={ev.max_generations ?? 150} />
+          </div>
+        )}
+
         {/* Primary actions */}
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <button onClick={() => setShowPhotos(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
@@ -634,10 +640,16 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   const [frameUrl, setFrameUrl] = useState(event?.template_frame_url || "");
   const [quality, setQuality] = useState<"low" | "medium" | "high">(event?.template_quality || "medium");
   const [aspect, setAspect] = useState(event?.template_aspect_ratio || "1024x1024");
+  const [maxGenerations, setMaxGenerations] = useState<number>(event?.max_generations ?? 150);
 
   async function save() {
     setErr(null);
     if (!pin || pin.length !== 6) { setErr("Staff PIN must be 6 digits"); return; }
+    if (templateMode === "ai" && !frameUrl) {
+      setTab("template");
+      setErr("AI mode needs a frame PNG — it is the fallback branding when a generation fails. / وضع الذكاء الاصطناعي يحتاج إطار PNG");
+      return;
+    }
     setBusy(true);
     const payload = {
       name, slug: slug || slugify(name), status, config: config as unknown as never, staff_pin: pin,
@@ -647,6 +659,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
       template_frame_url: frameUrl || null,
       template_quality: quality,
       template_aspect_ratio: aspect,
+      max_generations: Math.max(0, Math.min(100000, Number(maxGenerations) || 0)),
     };
     const q = event
       ? supabase.from("events").update(payload as never).eq("id", event.id)
@@ -821,6 +834,9 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
 
             {tab === "template" && (
               <TemplatePanel
+                eventId={event?.id}
+                generationsUsed={event?.generations_used ?? 0}
+                maxGenerations={maxGenerations} setMaxGenerations={setMaxGenerations}
                 mode={templateMode} setMode={setTemplateMode}
                 prompt={templatePrompt} setPrompt={setTemplatePrompt}
                 referenceUrl={referenceUrl} setReferenceUrl={setReferenceUrl}
@@ -904,10 +920,33 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
 }
 
 /* ------------------------------------------------------------------ */
+/* Generation cap meter                                                */
+/* ------------------------------------------------------------------ */
+
+export function GenerationMeter({ used, max }: { used: number; max: number }) {
+  const pct = max > 0 ? Math.min(100, (used / max) * 100) : 0;
+  const color = pct >= 100 ? "var(--destructive)" : pct >= 80 ? "var(--warning)" : "var(--primary)";
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[11px] font-bold tabular-nums text-muted-foreground">
+        <span>AI generations · التوليدات</span>
+        <span style={{ color }}>{used} / {max}</span>
+      </div>
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Photo template (frame overlay / AI restyle) + test panel            */
 /* ------------------------------------------------------------------ */
 
 function TemplatePanel(props: {
+  eventId?: string;
+  generationsUsed: number;
+  maxGenerations: number; setMaxGenerations: (n: number) => void;
   mode: "none" | "frame" | "ai"; setMode: (m: "none" | "frame" | "ai") => void;
   prompt: string; setPrompt: (v: string) => void;
   referenceUrl: string; setReferenceUrl: (v: string) => void;
@@ -915,9 +954,18 @@ function TemplatePanel(props: {
   quality: "low" | "medium" | "high"; setQuality: (q: "low" | "medium" | "high") => void;
   aspect: string; setAspect: (v: string) => void;
 }) {
-  const { mode, setMode, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
+  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
   const [sample, setSample] = useState<string | null>(null);
-  const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; model?: string; error?: string } | null>(null);
+  const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; costIsActual?: boolean; model?: string; error?: string } | null>(null);
+  const [testSpend, setTestSpend] = useState<{ runs: number; total: number } | null>(null);
+
+  // Total spend on Template test runs (never counted against the event cap).
+  async function loadTestSpend() {
+    const q = supabase.from("template_test_runs").select("cost");
+    const { data } = eventId ? await q.eq("event_id", eventId) : await q;
+    if (data) setTestSpend({ runs: data.length, total: data.reduce((t, r) => t + Number((r as { cost: number | null }).cost || 0), 0) });
+  }
+  useEffect(() => { loadTestSpend(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [eventId]);
   const [testing, setTesting] = useState(false);
 
   async function pickImage(file: File, maxSide: number, setter: (v: string) => void) {
@@ -934,9 +982,10 @@ function TemplatePanel(props: {
     setTesting(true); setResult(null);
     try {
       const r = await testTemplate({
-        data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, quality, aspectRatio: aspect },
+        data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, quality, aspectRatio: aspect, eventId: eventId ?? null },
       });
-      setResult(r.ok ? { dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, model: r.model } : { error: r.error });
+      setResult(r.ok ? { dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, costIsActual: r.costIsActual, model: r.model } : { error: r.error });
+      loadTestSpend();
     } catch (e) {
       setResult({ error: (e as Error).message });
     } finally {
@@ -957,8 +1006,8 @@ function TemplatePanel(props: {
         </div>
       </Field>
 
-      {mode === "frame" && (
-        <Field label="Frame PNG (transparent, laid over every photo)">
+      {mode !== "none" && (
+        <Field label={mode === "ai" ? "Frame PNG — REQUIRED fallback branding (used when a generation fails)" : "Frame PNG (transparent, laid over every photo)"}>
           <div className="space-y-2">
             {frameUrl && (
               <div className="flex items-center gap-3 rounded-lg border border-border bg-[repeating-conic-gradient(#e5e5e5_0_25%,transparent_0_50%)] bg-[length:16px_16px] p-2">
@@ -1002,7 +1051,24 @@ function TemplatePanel(props: {
             </Field>
           </div>
 
-          <Field label="Style reference image (optional)">
+          <Field label="Max generations · الحد الأقصى للتوليد">
+            <input type="number" min={0} value={maxGenerations}
+              onChange={(e) => setMaxGenerations(Number(e.target.value))} className="input" />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Hard cap on AI generations for this event. At roughly $0.08–0.13 per photo, 150 generations is about $12–20.
+              <span className="block font-arabic" dir="rtl">حد أقصى صارم لعدد الصور المولّدة لهذه الفعالية.</span>
+            </p>
+            <div className="mt-2">
+              <GenerationMeter used={generationsUsed} max={maxGenerations} />
+            </div>
+            {testSpend && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Test runs (not counted against the cap): <b className="text-foreground tabular-nums">{testSpend.runs}</b> · total ${testSpend.total.toFixed(4)}
+              </p>
+            )}
+          </Field>
+
+          <Field label="Reference image (e.g. the branded shirt)">
             <div className="space-y-2">
               {referenceUrl && (
                 <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-2">
@@ -1017,6 +1083,10 @@ function TemplatePanel(props: {
                   if (f) await pickImage(f, 1024, setReferenceUrl);
                 }} />
               </label>
+              <p className="text-[11px] text-muted-foreground">
+                Sent to the model as a second reference. Use a flat, front-on, evenly lit photo with the logo unwrinkled.
+                <span className="block font-arabic" dir="rtl">تُرسل للنموذج كمرجع ثانٍ — صورة مسطّحة وأمامية وإضاءة متساوية والشعار غير مجعّد.</span>
+              </p>
             </div>
           </Field>
 
@@ -1057,8 +1127,8 @@ function TemplatePanel(props: {
             {result?.error && <p className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{result.error}</p>}
             {result?.dataUrl && (
               <div className="mt-3 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
-                <span><b className="text-foreground tabular-nums">{((result.ms || 0) / 1000).toFixed(1)}s</b> generation time</span>
-                <span>~<b className="text-foreground tabular-nums">${(result.cost || 0).toFixed(3)}</b> est. cost</span>
+                <span><b className="text-foreground tabular-nums">{((result.ms || 0) / 1000).toFixed(1)}s</b> generation time · زمن التوليد</span>
+                <span><b className="text-foreground tabular-nums">${(result.cost || 0).toFixed(4)}</b> {result.costIsActual ? "actual cost · التكلفة الفعلية" : "estimated cost (provider reported none)"}</span>
                 <span className="truncate">model <b className="text-foreground">{result.model}</b></span>
               </div>
             )}
@@ -1465,6 +1535,11 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
                   {a.approved === false && <span className="pointer-events-none absolute top-1 left-1 rounded bg-[color:var(--warning)]/90 px-1 text-[9px] font-bold text-black">PENDING</span>}
                   {(a.process_status === "pending" || a.process_status === "processing") && (
                     <span className="pointer-events-none absolute inset-x-1 top-6 rounded bg-primary/90 px-1 text-center text-[9px] font-bold text-primary-foreground">STYLING…</span>
+                  )}
+                  {a.process_status === "done" && a.generation_model && (
+                    <span className="pointer-events-none absolute inset-x-1 top-6 truncate rounded bg-black/70 px-1 text-center text-[8px] font-bold text-white" title={`model ${a.generation_model}`}>
+                      {a.generation_model}
+                    </span>
                   )}
                   {a.process_status === "failed" && (
                     <button

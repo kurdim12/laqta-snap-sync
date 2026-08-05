@@ -23,6 +23,7 @@ export type Database = {
           error_message: string | null
           event_id: string
           generation_cost: number | null
+          generation_model: string | null
           guest_id: string | null
           id: string
           kind: string
@@ -45,6 +46,7 @@ export type Database = {
           error_message?: string | null
           event_id: string
           generation_cost?: number | null
+          generation_model?: string | null
           guest_id?: string | null
           id: string
           kind: string
@@ -67,6 +69,7 @@ export type Database = {
           error_message?: string | null
           event_id?: string
           generation_cost?: number | null
+          generation_model?: string | null
           guest_id?: string | null
           id?: string
           kind?: string
@@ -148,7 +151,9 @@ export type Database = {
         Row: {
           config: Json
           created_at: string
+          generations_used: number
           id: string
+          max_generations: number
           name: string
           slug: string
           staff_pin: string | null
@@ -163,7 +168,9 @@ export type Database = {
         Insert: {
           config?: Json
           created_at?: string
+          generations_used?: number
           id?: string
+          max_generations?: number
           name: string
           slug: string
           staff_pin?: string | null
@@ -178,7 +185,9 @@ export type Database = {
         Update: {
           config?: Json
           created_at?: string
+          generations_used?: number
           id?: string
+          max_generations?: number
           name?: string
           slug?: string
           staff_pin?: string | null
@@ -261,6 +270,54 @@ export type Database = {
         }
         Relationships: []
       }
+      template_test_runs: {
+        Row: {
+          cost: number | null
+          created_at: string
+          event_id: string | null
+          id: string
+          model: string | null
+          ms: number | null
+          ok: boolean
+          user_id: string | null
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          model?: string | null
+          ms?: number | null
+          ok?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          model?: string | null
+          ms?: number | null
+          ok?: boolean
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_test_runs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_test_runs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -324,6 +381,7 @@ export type Database = {
         Returns: string
       }
       admin_exists: { Args: never; Returns: boolean }
+      consume_generation: { Args: { _event_id: string }; Returns: boolean }
       event_folder_is_live: { Args: { _folder: string }; Returns: boolean }
       event_is_live: { Args: { _id: string }; Returns: boolean }
       event_is_public_wall: { Args: { _id: string }; Returns: boolean }

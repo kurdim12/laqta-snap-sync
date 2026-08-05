@@ -54,6 +54,9 @@ export interface EventRow {
   template_frame_url?: string | null;
   template_quality?: "low" | "medium" | "high";
   template_aspect_ratio?: string;
+  /** hard cap on AI generations for this event */
+  max_generations?: number;
+  generations_used?: number;
 }
 
 export interface GuestRow {
@@ -86,6 +89,7 @@ export interface AssetRow {
   process_status?: "pending" | "processing" | "done" | "failed";
   error_message?: string | null;
   generation_cost?: number | null;
+  generation_model?: string | null;
   processing_started_at?: string | null;
   processing_finished_at?: string | null;
 }

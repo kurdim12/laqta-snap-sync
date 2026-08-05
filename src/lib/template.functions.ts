@@ -19,6 +19,7 @@ export const testTemplate = createServerFn({ method: "POST" })
       referenceDataUrl: z.string().max(12_000_000).nullish(),
       quality: z.enum(["low", "medium", "high"]).default("medium"),
       aspectRatio: z.string().max(32).default("1024x1024"),
+      eventId: z.string().uuid().nullish(),
     }),
   )
   .handler(async ({ data, context }): Promise<{
@@ -26,12 +27,17 @@ export const testTemplate = createServerFn({ method: "POST" })
     dataUrl?: string;
     ms?: number;
     cost?: number;
+    costIsActual?: boolean;
     model?: string;
     error?: string;
   }> => {
     await assertAdmin(context as never);
     const { generateStyled } = await import("@/lib/ai-template.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const userId = (context as unknown as { userId: string }).userId;
     try {
+      // Test runs never touch the event's generation cap, but they are logged
+      // so total testing spend stays visible in admin.
       const r = await generateStyled({
         prompt: data.prompt,
         imageDataUrl: data.imageDataUrl,
@@ -39,8 +45,25 @@ export const testTemplate = createServerFn({ method: "POST" })
         quality: data.quality,
         aspectRatio: data.aspectRatio,
       });
-      return { ok: true, dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, model: r.model };
+      await supabaseAdmin.from("template_test_runs").insert({
+        event_id: data.eventId ?? null,
+        user_id: userId,
+        model: r.model,
+        cost: r.cost,
+        ms: r.ms,
+        ok: true,
+      } as never);
+      return { ok: true, dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, costIsActual: r.costIsActual, model: r.model };
     } catch (e) {
+      const { modelId } = await import("@/lib/ai-template.server");
+      await supabaseAdmin.from("template_test_runs").insert({
+        event_id: data.eventId ?? null,
+        user_id: userId,
+        model: modelId(),
+        cost: 0,
+        ms: 0,
+        ok: false,
+      } as never);
       return { ok: false, error: (e as Error).message };
     }
   });

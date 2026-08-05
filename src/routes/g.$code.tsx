@@ -5,6 +5,7 @@ import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
 import { applyEventTheme } from "@/lib/theme";
 import { getGalleryByCode, getDownloadUrlsByCode } from "@/lib/gallery.functions";
+import { compositeFrame } from "@/lib/media";
 
 export const Route = createFileRoute("/g/$code")({
   head: () => ({ meta: [{ title: "LAQTA · Your photos" }] }),
@@ -19,6 +20,8 @@ interface GalleryAsset {
   thumbUrl?: string;
   /** the event's AI style is still rendering this photo */
   processing?: boolean;
+  /** show the branded PNG frame over this tile */
+  framed?: boolean;
 }
 
 function Gallery() {
@@ -51,7 +54,9 @@ function Gallery() {
         config: { ...DEFAULT_CONFIG, ...(e.config as Partial<EventConfig>) } as EventConfig,
       };
       setEvent(ev);
-      setFrameUrl(e.template_mode === "frame" && e.template_frame_url ? e.template_frame_url : null);
+      const mode = e.template_mode;
+      const frame = e.template_frame_url || null;
+      setFrameUrl(frame);
       if (themeCleanupRef.current) themeCleanupRef.current();
       themeCleanupRef.current = applyEventTheme(ev.config.theme);
       setAssets(
@@ -61,6 +66,9 @@ function Gallery() {
           url: a.url,
           thumbUrl: a.thumbUrl,
           processing: a.process_status === "pending" || a.process_status === "processing",
+          // Frame overlay: always in frame mode, and as the branding fallback
+          // when an AI generation failed or was skipped.
+          framed: !!frame && (mode === "frame" || (mode === "ai" && (a.process_status === "failed" || a.process_status === "skipped" || !a.process_status))),
         })),
       );
     } catch {
@@ -130,8 +138,16 @@ function Gallery() {
         // Cross-origin signed URLs ignore the <a download> attribute, so fetch
         // the bytes and download a same-origin blob instead.
         const resp = await fetch(u);
-        const blob = await resp.blob();
-        const ext = new URL(u).pathname.split(".").pop() || "jpg";
+        let blob = await resp.blob();
+        let ext = new URL(u).pathname.split(".").pop() || "jpg";
+        // Branded fallback: a failed AI photo still downloads with the frame.
+        const framedAsset = frameUrl && assets[i - 1]?.framed && assets[i - 1]?.kind === "photo";
+        if (framedAsset && frameUrl) {
+          try {
+            blob = await compositeFrame(URL.createObjectURL(blob), frameUrl);
+            ext = "jpg";
+          } catch { /* fall back to the un-framed original */ }
+        }
         const objUrl = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = objUrl;
@@ -214,7 +230,7 @@ function Gallery() {
               ) : (
                 <img src={a.thumbUrl || a.url} alt="" className={`h-full w-full object-cover transition group-hover:scale-105 ${a.processing ? "scale-105 blur-md" : ""}`} />
               )}
-              {frameUrl && !a.processing && (
+              {frameUrl && a.framed && !a.processing && (
                 <img src={frameUrl} alt="" aria-hidden className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
               )}
               {a.processing && (
