@@ -20,6 +20,7 @@ interface GalleryAsset {
   url?: string;
   thumbUrl?: string;
   album?: string;
+  processing?: boolean;
 }
 
 // Sign a batch of storage paths with the anon client (RLS allows reading
@@ -50,11 +51,14 @@ function enrich(rows: AssetRow[], urls: Record<string, string>): GalleryAsset[] 
     // Photos fall back to the full image as a thumbnail; a video only has an
     // image thumbnail if it has a poster — otherwise the tile shows its frame.
     const thumbAsset = thumb || (isVideo ? undefined : full);
+    // The AI-styled render replaces the original once it is ready.
+    const processed = r.processed_url ? urls[r.processed_url] : undefined;
     return {
       id: r.id,
       kind: isVideo ? "video" : "photo",
-      url: urls[full.storage_path],
-      thumbUrl: thumbAsset ? urls[thumbAsset.storage_path] : undefined,
+      url: processed || urls[full.storage_path],
+      thumbUrl: processed || (thumbAsset ? urls[thumbAsset.storage_path] : undefined),
+      processing: r.process_status === "pending" || r.process_status === "processing",
       album: (r.meta as { album?: string })?.album || "",
     };
   });
@@ -82,6 +86,7 @@ function PublicGallery() {
   const [unavailable, setUnavailable] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [openFolder, setOpenFolder] = useState<string | null>(null);
+  const [frameUrl, setFrameUrl] = useState<string | null>(null);
   const cfg = event?.config || DEFAULT_CONFIG;
   const [lang, setLang, toggleable] = useLang(cfg.locale);
 
@@ -92,7 +97,7 @@ function PublicGallery() {
       // Read the event via the safe public view (anon-readable, no staff_pin).
       const { data: e } = await supabase
         .from("events_public")
-        .select("id,slug,name,status,config,created_at")
+        .select("id,slug,name,status,config,created_at,template_mode,template_frame_url")
         .eq("slug", slug)
         .maybeSingle();
       const ecfg = (e?.config || {}) as Partial<EventConfig>;
@@ -107,6 +112,7 @@ function PublicGallery() {
         config: { ...DEFAULT_CONFIG, ...ecfg } as EventConfig,
       };
       setEvent(ev);
+      setFrameUrl(e.template_mode === "frame" && e.template_frame_url ? e.template_frame_url : null);
       if (themeCleanupRef.current) themeCleanupRef.current();
       themeCleanupRef.current = applyEventTheme(ev.config.theme);
 
@@ -121,7 +127,9 @@ function PublicGallery() {
         .order("created_at", { ascending: false })
         .limit(500);
       const rows = (aRows || []) as AssetRow[];
-      const paths = Array.from(new Set(rows.map((r) => r.storage_path)));
+      const paths = Array.from(
+        new Set(rows.flatMap((r) => [r.storage_path, ...(r.processed_url ? [r.processed_url] : [])])),
+      );
       const urls = await signMany(paths);
       setAssets(enrich(rows, urls));
     } catch {
