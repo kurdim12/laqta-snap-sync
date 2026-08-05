@@ -43,6 +43,22 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
 
   const started = Date.now();
 
+  // Atomically claim the asset before consuming a paid generation. The guest
+  // gallery may retry a pending trigger, so only one request may proceed.
+  const { data: claimed } = await supabaseAdmin
+    .from("assets")
+    .update({
+      process_status: "processing",
+      original_url: asset.storage_path,
+      error_message: null,
+      processing_started_at: new Date().toISOString(),
+    })
+    .eq("id", assetId)
+    .neq("process_status", "processing")
+    .select("id")
+    .maybeSingle();
+  if (!claimed) return { ok: true, status: "skipped" };
+
   // Spend cap: consume a slot atomically BEFORE the paid call, so concurrent
   // uploads can never overshoot. One photo consumes at most one slot — the
   // provider-level retry happens inside generateStyled and does not re-consume.
@@ -59,16 +75,6 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
       .eq("id", assetId);
     return { ok: false, status: "failed", error: "Generation cap reached" };
   }
-
-  await supabaseAdmin
-    .from("assets")
-    .update({
-      process_status: "processing",
-      original_url: asset.storage_path,
-      error_message: null,
-      processing_started_at: new Date().toISOString(),
-    })
-    .eq("id", assetId);
 
   try {
     const { data: file, error: dlErr } = await supabaseAdmin.storage

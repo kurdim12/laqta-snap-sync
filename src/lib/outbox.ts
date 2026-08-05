@@ -147,6 +147,7 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assetId, guestId: entry.id, code: entry.code }),
+      keepalive: true,
     }).catch(() => { /* gallery polling reflects any persisted failure */ });
     return true;
   } catch {
