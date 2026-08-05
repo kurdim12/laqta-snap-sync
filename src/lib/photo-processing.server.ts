@@ -1,9 +1,11 @@
 // Server-only: runs an event's AI photo template over one asset.
 //
-// Flow: mark processing -> download the original from storage -> call the AI
-// provider -> upload the result to `${eventId}/processed/${assetId}.png` ->
-// record processed_url + cost + timings. Failures are recorded on the row and
-// the original stays intact, so the guest always gets a photo.
+// Flow: check the spend cap -> mark processing -> download the original ->
+// call the AI provider (120s timeout, one retry on 5xx/network only) ->
+// upload the JPEG result to `${eventId}/processed/${assetId}.jpg` -> record
+// processed_url, model, actual cost and timings. Failures are recorded on the
+// row and the original stays intact, so the guest always gets a photo (the
+// gallery then falls back to the branded frame overlay).
 
 import { generateStyled, dataUrlToBytes, bytesToDataUrl } from "./ai-template.server";
 
@@ -12,6 +14,8 @@ export interface ProcessResult {
   status: "done" | "failed" | "skipped";
   error?: string;
   ms?: number;
+  model?: string;
+  cost?: number;
 }
 
 export async function processAssetById(assetId: string): Promise<ProcessResult> {
@@ -26,9 +30,7 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
   if (asset.kind !== "photo" || asset.variant !== "original") {
     return { ok: true, status: "skipped" };
   }
-  if (asset.process_status === "processing" || asset.process_status === "done") {
-    if (asset.process_status === "processing") return { ok: true, status: "skipped" };
-  }
+  if (asset.process_status === "processing") return { ok: true, status: "skipped" };
 
   const { data: ev } = await supabaseAdmin
     .from("events")
@@ -40,6 +42,24 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
   }
 
   const started = Date.now();
+
+  // Spend cap: consume a slot atomically BEFORE the paid call, so concurrent
+  // uploads can never overshoot. One photo consumes at most one slot — the
+  // provider-level retry happens inside generateStyled and does not re-consume.
+  const { data: allowed } = await supabaseAdmin.rpc("consume_generation", { _event_id: asset.event_id });
+  if (allowed !== true) {
+    await supabaseAdmin
+      .from("assets")
+      .update({
+        process_status: "failed",
+        original_url: asset.storage_path,
+        error_message: "Generation cap reached",
+        processing_finished_at: new Date().toISOString(),
+      })
+      .eq("id", assetId);
+    return { ok: false, status: "failed", error: "Generation cap reached" };
+  }
+
   await supabaseAdmin
     .from("assets")
     .update({
@@ -67,7 +87,8 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
     });
 
     const { bytes, contentType } = dataUrlToBytes(result.dataUrl);
-    const outPath = `${asset.event_id}/processed/${assetId}.png`;
+    const ext = contentType.includes("png") ? "png" : "jpg";
+    const outPath = `${asset.event_id}/processed/${assetId}.${ext}`;
     const { error: upErr } = await supabaseAdmin.storage
       .from("media")
       .upload(outPath, bytes, { contentType, upsert: true });
@@ -79,13 +100,15 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
         process_status: "done",
         processed_url: outPath,
         generation_cost: result.cost,
+        generation_model: result.model,
         error_message: null,
         processing_finished_at: new Date().toISOString(),
       })
       .eq("id", assetId);
 
-    return { ok: true, status: "done", ms: Date.now() - started };
+    return { ok: true, status: "done", ms: Date.now() - started, model: result.model, cost: result.cost };
   } catch (e) {
+    // Store the provider message verbatim so policy refusals are distinguishable.
     const message = (e as Error).message || "processing failed";
     await supabaseAdmin
       .from("assets")
