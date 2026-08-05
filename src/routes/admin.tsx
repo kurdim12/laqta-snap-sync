@@ -914,6 +914,26 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
 }
 
 /* ------------------------------------------------------------------ */
+/* Generation cap meter                                                */
+/* ------------------------------------------------------------------ */
+
+export function GenerationMeter({ used, max }: { used: number; max: number }) {
+  const pct = max > 0 ? Math.min(100, (used / max) * 100) : 0;
+  const color = pct >= 100 ? "var(--destructive)" : pct >= 80 ? "var(--warning)" : "var(--primary)";
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[11px] font-bold tabular-nums text-muted-foreground">
+        <span>AI generations · التوليدات</span>
+        <span style={{ color }}>{used} / {max}</span>
+      </div>
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Photo template (frame overlay / AI restyle) + test panel            */
 /* ------------------------------------------------------------------ */
 
@@ -980,8 +1000,8 @@ function TemplatePanel(props: {
         </div>
       </Field>
 
-      {mode === "frame" && (
-        <Field label="Frame PNG (transparent, laid over every photo)">
+      {mode !== "none" && (
+        <Field label={mode === "ai" ? "Frame PNG — REQUIRED fallback branding (used when a generation fails)" : "Frame PNG (transparent, laid over every photo)"}>
           <div className="space-y-2">
             {frameUrl && (
               <div className="flex items-center gap-3 rounded-lg border border-border bg-[repeating-conic-gradient(#e5e5e5_0_25%,transparent_0_50%)] bg-[length:16px_16px] p-2">
@@ -1057,6 +1077,10 @@ function TemplatePanel(props: {
                   if (f) await pickImage(f, 1024, setReferenceUrl);
                 }} />
               </label>
+              <p className="text-[11px] text-muted-foreground">
+                Sent to the model as a second reference. Use a flat, front-on, evenly lit photo with the logo unwrinkled.
+                <span className="block font-arabic" dir="rtl">تُرسل للنموذج كمرجع ثانٍ — صورة مسطّحة وأمامية وإضاءة متساوية والشعار غير مجعّد.</span>
+              </p>
             </div>
           </Field>
 
@@ -1505,6 +1529,11 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
                   {a.approved === false && <span className="pointer-events-none absolute top-1 left-1 rounded bg-[color:var(--warning)]/90 px-1 text-[9px] font-bold text-black">PENDING</span>}
                   {(a.process_status === "pending" || a.process_status === "processing") && (
                     <span className="pointer-events-none absolute inset-x-1 top-6 rounded bg-primary/90 px-1 text-center text-[9px] font-bold text-primary-foreground">STYLING…</span>
+                  )}
+                  {a.process_status === "done" && a.generation_model && (
+                    <span className="pointer-events-none absolute inset-x-1 top-6 truncate rounded bg-black/70 px-1 text-center text-[8px] font-bold text-white" title={`model ${a.generation_model}`}>
+                      {a.generation_model}
+                    </span>
                   )}
                   {a.process_status === "failed" && (
                     <button
