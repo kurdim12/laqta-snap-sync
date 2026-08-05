@@ -62,7 +62,7 @@ function enrich(rows: AssetRow[], urls: Record<string, string>, mode?: string | 
       processing: r.process_status === "pending" || r.process_status === "processing",
       // Frame overlay: always in frame mode, and as the branding fallback when
       // an AI generation failed or was skipped.
-      framed: !!frame && (mode === "frame" || (mode === "ai" && (r.process_status === "failed" || r.process_status === "skipped" || !r.process_status))),
+      framed: !!frame && (mode === "frame" || (mode === "ai" && (r.process_status !== "done" && r.process_status !== "pending" && r.process_status !== "processing"))),
       album: (r.meta as { album?: string })?.album || "",
     };
   });
