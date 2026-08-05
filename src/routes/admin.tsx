@@ -315,6 +315,12 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
           <MiniStat label="Locale" value={ev.config.locale} small />
         </div>
 
+        {ev.template_mode === "ai" && (
+          <div className="mt-3 rounded-lg border border-border bg-background p-2.5">
+            <GenerationMeter used={ev.generations_used ?? 0} max={ev.max_generations ?? 150} />
+          </div>
+        )}
+
         {/* Primary actions */}
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <button onClick={() => setShowPhotos(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
