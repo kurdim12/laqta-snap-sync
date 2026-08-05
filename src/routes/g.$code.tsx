@@ -75,7 +75,9 @@ function Gallery() {
       // atomically claims pending assets, so repeated gallery polls cannot
       // create duplicate paid generations.
       for (const asset of r.assets || []) {
-        if (asset.process_status !== "pending") continue;
+        const staleProcessing = asset.process_status === "processing" &&
+          (!asset.processing_started_at || Date.now() - new Date(asset.processing_started_at).getTime() > 3 * 60_000);
+        if (asset.process_status !== "pending" && !staleProcessing) continue;
         void fetch("/api/public/process-photo", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

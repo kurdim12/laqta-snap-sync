@@ -41,6 +41,7 @@ interface AssetLite {
   processed_url?: string | null;
   process_status?: string | null;
   error_message?: string | null;
+  processing_started_at?: string | null;
 }
 
 

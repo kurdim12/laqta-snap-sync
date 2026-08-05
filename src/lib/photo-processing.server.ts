@@ -23,14 +23,18 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
 
   const { data: asset } = await supabaseAdmin
     .from("assets")
-    .select("id, event_id, kind, variant, storage_path, content_type, process_status")
+    .select("id, event_id, kind, variant, storage_path, content_type, process_status, processing_started_at")
     .eq("id", assetId)
     .maybeSingle();
   if (!asset) return { ok: false, status: "failed", error: "asset not found" };
   if (asset.kind !== "photo" || asset.variant !== "original") {
     return { ok: true, status: "skipped" };
   }
-  if (asset.process_status === "processing") return { ok: true, status: "skipped" };
+  const staleCutoff = Date.now() - 3 * 60_000;
+  const processingStarted = asset.processing_started_at ? new Date(asset.processing_started_at).getTime() : 0;
+  if (asset.process_status === "processing" && processingStarted > staleCutoff) {
+    return { ok: true, status: "skipped" };
+  }
 
   const { data: ev } = await supabaseAdmin
     .from("events")
@@ -45,7 +49,7 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
 
   // Atomically claim the asset before consuming a paid generation. The guest
   // gallery may retry a pending trigger, so only one request may proceed.
-  const { data: claimed } = await supabaseAdmin
+  let claimQuery = supabaseAdmin
     .from("assets")
     .update({
       process_status: "processing",
@@ -53,10 +57,11 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
       error_message: null,
       processing_started_at: new Date().toISOString(),
     })
-    .eq("id", assetId)
-    .neq("process_status", "processing")
-    .select("id")
-    .maybeSingle();
+    .eq("id", assetId);
+  claimQuery = asset.process_status === "processing"
+    ? claimQuery.eq("process_status", "processing").lt("processing_started_at", new Date(staleCutoff).toISOString())
+    : claimQuery.neq("process_status", "processing");
+  const { data: claimed } = await claimQuery.select("id").maybeSingle();
   if (!claimed) return { ok: true, status: "skipped" };
 
   // Spend cap: consume a slot atomically BEFORE the paid call, so concurrent
