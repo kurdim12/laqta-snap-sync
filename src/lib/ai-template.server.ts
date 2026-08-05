@@ -110,12 +110,15 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
     ...references,
   ];
 
+  // OpenAI-only knobs (jpeg output, explicit input_references) are rejected /
+  // ignored elsewhere, so only send them for openai/* models.
+  const isOpenAI = model.startsWith("openai/");
   const body = JSON.stringify({
     model,
     modalities: ["image", "text"],
-    output_format: "jpeg",
-    output_compression: 85,
-    input_references: references,
+    ...(isOpenAI
+      ? { output_format: "jpeg", output_compression: 85, input_references: references }
+      : {}),
     messages: [{ role: "user", content: parts }],
   });
 
