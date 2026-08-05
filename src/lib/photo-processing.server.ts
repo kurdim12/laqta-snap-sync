@@ -120,13 +120,15 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
 
     return { ok: true, status: "done", ms: Date.now() - started, model: result.model, cost: result.cost };
   } catch (e) {
-    // Store the provider message verbatim so policy refusals are distinguishable.
+    // Store the provider message verbatim (untruncated) so ZodError paths and
+    // policy refusals are fully readable in the Diagnostics panel.
     const message = (e as Error).message || "processing failed";
+    console.error("[processAsset] failed", { assetId, message });
     await supabaseAdmin
       .from("assets")
       .update({
         process_status: "failed",
-        error_message: message.slice(0, 500),
+        error_message: message,
         processing_finished_at: new Date().toISOString(),
       })
       .eq("id", assetId);
