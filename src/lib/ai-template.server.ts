@@ -19,8 +19,13 @@ export function estimateCost(q: string | null | undefined): number {
 }
 
 export function modelId(): string {
-  // gpt-image-2 direct — no GPT-5.4 prompt rewriting, ~half the output price.
-  return process.env["AI_IMAGE_MODEL"] || "openai/gpt-image-2";
+  // NOTE: "openai/gpt-image-2" is NOT a chat-completions model on OpenRouter —
+  // it 404s with "No endpoints found that support the requested output
+  // modalities". The image-capable ids on this endpoint are:
+  //   google/gemini-3.1-flash-image   (default — cheap, strong photo editing, no prompt rewriting)
+  //   openai/gpt-5-image-mini         (cheapest OpenAI)
+  //   openai/gpt-5-image / openai/gpt-5.4-image-2 (pricier, GPT prompt rewriting)
+  return process.env["AI_IMAGE_MODEL"] || "google/gemini-3.1-flash-image";
 }
 
 export interface GenerateInput {
