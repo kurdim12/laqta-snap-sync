@@ -78,3 +78,29 @@ export async function videoPoster(file: File): Promise<Blob | null> {
     v.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
   });
 }
+
+/**
+ * Composite a transparent PNG frame over an image and return a JPEG blob.
+ * Used so a photo that failed AI styling still ships with the event branding.
+ */
+export async function compositeFrame(imageUrl: string, frameUrl: string): Promise<Blob> {
+  const load = (src: string) =>
+    new Promise<HTMLImageElement>((res, rej) => {
+      const im = new Image();
+      im.crossOrigin = "anonymous";
+      im.onload = () => res(im);
+      im.onerror = () => rej(new Error("image load failed"));
+      im.src = src;
+    });
+  const [base, frame] = await Promise.all([load(imageUrl), load(frameUrl)]);
+  const canvas = document.createElement("canvas");
+  canvas.width = base.naturalWidth;
+  canvas.height = base.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("no canvas context");
+  ctx.drawImage(base, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+  return new Promise<Blob>((res, rej) =>
+    canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode failed"))), "image/jpeg", 0.9),
+  );
+}
