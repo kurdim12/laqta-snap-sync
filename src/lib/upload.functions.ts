@@ -197,3 +197,69 @@ export const mintGuestSelfieUrl = createServerFn({ method: "POST" })
     if (error || !signed) throw new Error("could not mint upload");
     return { url: { path: signed.path, token: signed.token, signedUrl: signed.signedUrl } };
   });
+
+// Register the guest's submitted selfie as a real gallery photo after its
+// signed upload completes. The guest code proves ownership; a deterministic
+// asset id makes retries idempotent. AI processing is started separately so
+// registration never waits for a potentially long image generation.
+export const registerGuestPhoto = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      eventId: z.string().uuid(),
+      guestId: z.string().uuid(),
+      code: z
+        .string()
+        .min(1)
+        .max(32)
+        .transform((c) => c.toUpperCase().replace(/[^A-Z0-9]/g, "")),
+      storagePath: z.string().min(1).max(512),
+      bytes: z.number().int().positive().max(15 * 1024 * 1024),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ assetId: string }> => {
+    if (!rateLimit(`register-guest-photo:${ipKey()}`, 30, 60_000)) {
+      throw new Error("Too many requests");
+    }
+    const expectedPath = `${data.eventId}/selfies/${data.guestId}.jpg`;
+    if (data.storagePath !== expectedPath) throw new Error("path outside guest scope");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: guest } = await supabaseAdmin
+      .from("guests")
+      .select("id, event_id")
+      .eq("id", data.guestId)
+      .ilike("code", data.code)
+      .maybeSingle();
+    if (!guest || guest.event_id !== data.eventId) throw new Error("Unauthorized");
+
+    const { data: event } = await supabaseAdmin
+      .from("events")
+      .select("status, config, template_mode")
+      .eq("id", data.eventId)
+      .maybeSingle();
+    if (!event || (event.status !== "live" && event.status !== "dryrun")) {
+      throw new Error("Event not available");
+    }
+    const cfg = (event.config || {}) as { gallery?: { requireApproval?: boolean } };
+    const approved = cfg.gallery?.requireApproval !== true;
+    const processStatus = event.template_mode === "ai" ? "pending" : "done";
+
+    const { error } = await supabaseAdmin.from("assets").upsert({
+      id: data.guestId,
+      event_id: data.eventId,
+      guest_id: data.guestId,
+      parent_asset_id: null,
+      kind: "photo",
+      variant: "original",
+      storage_path: data.storagePath,
+      content_type: "image/jpeg",
+      bytes: data.bytes,
+      status: "ready",
+      approved,
+      original_url: data.storagePath,
+      process_status: processStatus,
+      error_message: null,
+    }, { onConflict: "id" });
+    if (error) throw new Error(`could not register guest photo: ${error.message}`);
+    return { assetId: data.guestId };
+  });
