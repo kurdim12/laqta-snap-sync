@@ -1711,7 +1711,7 @@ export function DiagnosticsModal({ event, onClose }: { event: EventRow; onClose:
                     <td className="px-2 py-1">{r.generation_cost != null ? `$${Number(r.generation_cost).toFixed(3)}` : "—"}</td>
                     <td className="px-2 py-1 font-mono">{r.original_url ? "set" : <span className="text-destructive">null</span>}</td>
                     <td className="px-2 py-1 font-mono">{r.processed_url ? "set" : "—"}</td>
-                    <td className="max-w-[260px] px-2 py-1 text-destructive">{r.error_message || "—"}</td>
+                    <td className="min-w-[320px] max-w-[560px] whitespace-pre-wrap break-all px-2 py-1 font-mono text-destructive">{r.error_message || "—"}</td>
                     <td className="px-2 py-1">
                       <button disabled={busy === r.id} onClick={() => retry(r.id)} className="rounded-md border border-border px-2 py-1 font-semibold disabled:opacity-50">
                         {busy === r.id ? "…" : "Run"}
