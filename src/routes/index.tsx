@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { listPublicEvents } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -25,15 +26,8 @@ function Landing() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("events_public")
-        .select("slug,name,status")
-        .in("status", ["live", "dryrun"])
-        .order("created_at", { ascending: false });
-      const rows = (data ?? []).filter(
-        (e): e is { slug: string; name: string; status: string | null } => !!e.slug && !!e.name,
-      );
-      setEvents(rows);
+      const { events: data } = await listPublicEvents().catch(() => ({ events: [] as LiveEvent[] }));
+      setEvents((data ?? []).filter((e: LiveEvent) => !!e.slug && !!e.name));
       setLoading(false);
     })();
   }, []);

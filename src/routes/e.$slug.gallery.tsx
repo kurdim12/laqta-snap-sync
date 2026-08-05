@@ -6,6 +6,7 @@ import { DEFAULT_CONFIG, type AssetRow, type EventConfig, type EventRow } from "
 import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
 import { applyEventTheme } from "@/lib/theme";
+import { getPublicEventBySlug } from "@/lib/gallery.functions";
 
 
 export const Route = createFileRoute("/e/$slug/gallery")({
@@ -98,12 +99,8 @@ function PublicGallery() {
 
   async function load() {
     try {
-      // Read the event via the safe public view (anon-readable, no staff_pin).
-      const { data: e } = await supabase
-        .from("events_public")
-        .select("id,slug,name,status,config,created_at,template_mode,template_frame_url")
-        .eq("slug", slug)
-        .maybeSingle();
+      // Read the event through the service-role server function (no staff_pin).
+      const { event: e } = await getPublicEventBySlug({ data: { slug } });
       const ecfg = (e?.config || {}) as Partial<EventConfig>;
       if (!e || !e.id || !e.slug || !e.name || (e.status !== "live" && e.status !== "dryrun") || ecfg.gallery?.mode !== "public") {
         setUnavailable(true);

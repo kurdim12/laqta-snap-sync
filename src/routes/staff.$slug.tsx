@@ -7,6 +7,7 @@ import { newId } from "@/lib/code";
 import { resizeImage, videoPoster } from "@/lib/media";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { mintStaffUploadUrls } from "@/lib/upload.functions";
+import { getPublicEventBySlug } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/staff/$slug")({
   head: () => ({ meta: [{ title: "LAQTA · Staff" }] }),
@@ -24,7 +25,7 @@ function StaffConsole() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("events_public").select("id,slug,name,status,config,created_at,template_mode,template_frame_url").eq("slug", slug).maybeSingle();
+      const { event: data } = await getPublicEventBySlug({ data: { slug } }).catch(() => ({ event: null }));
       if (data && data.id && data.slug && data.name) {
         setEvent({ id: data.id, slug: data.slug, name: data.name, created_at: data.created_at ?? "", status: data.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) }, template_mode: (data.template_mode as EventRow["template_mode"]) ?? "none", template_frame_url: data.template_frame_url ?? null });
       }

@@ -71,8 +71,10 @@ export const Route = createFileRoute("/api/public/process-photo")({
           return new Response("Not found", { status: 404 });
         }
 
+        console.log("[process-photo] entry", { assetId, eventId: evId, auth: staffAuth ? "staff" : "guest" });
         const { processAssetById } = await import("@/lib/photo-processing.server");
         const result = await processAssetById(assetId);
+        console.log("[process-photo] result", { assetId, ...result });
         return Response.json(result);
       },
     },

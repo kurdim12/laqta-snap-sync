@@ -7,6 +7,7 @@ import { generateCode, newId } from "@/lib/code";
 import { addOutbox, queueState, startSyncEngine, trySync } from "@/lib/outbox";
 import { QrCode } from "@/components/QrCode";
 import { resizeImage } from "@/lib/media";
+import { getPublicEventBySlug } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/e/$slug")({
   head: () => ({ meta: [{ title: "LAQTA · Register" }] }),
@@ -34,13 +35,9 @@ function GuestForm() {
     let alive = true;
     let cleanupTheme: (() => void) | null = null;
     (async () => {
-      const { data, error } = await supabase
-        .from("events_public")
-        .select("id,slug,name,status,config,created_at")
-        .eq("slug", slug)
-        .maybeSingle();
+      const { event: data } = await getPublicEventBySlug({ data: { slug } }).catch(() => ({ event: null }));
       if (!alive) return;
-      if (error || !data || !data.id || !data.slug || !data.name || (data.status !== "live" && data.status !== "dryrun")) {
+      if (!data || !data.id || !data.slug || !data.name || (data.status !== "live" && data.status !== "dryrun")) {
         setState({ kind: "unavailable" });
         return;
       }

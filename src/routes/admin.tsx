@@ -11,6 +11,7 @@ import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
 import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
 import { testTemplate, reprocessAsset } from "@/lib/template.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -270,6 +271,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
   const [showRegs, setShowRegs] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [showPhotos, setShowPhotos] = useState(false);
+  const [showDiag, setShowDiag] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const formUrl = `${origin}/e/${ev.slug}`;
@@ -325,6 +327,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <button onClick={() => setShowPhotos(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
           <button onClick={() => setShowRegs(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Registrations</button>
+          <button onClick={() => setShowDiag(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted" title="AI pipeline diagnostics">🩺 Diagnostics</button>
           <button onClick={() => setShowQr(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">QR code</button>
           <button onClick={() => setEditing(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Edit</button>
         </div>
@@ -358,6 +361,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
       {showRegs && <RegistrationsModal event={ev} onClose={() => setShowRegs(false)} />}
       {showQr && <QrModal url={ev.config.registration === "none" || ev.config.gallery?.mode === "public" ? galleryUrl : formUrl} title={ev.name} onClose={() => setShowQr(false)} />}
       {showPhotos && <PhotosModal event={ev} onClose={() => setShowPhotos(false)} />}
+      {showDiag && <DiagnosticsModal event={ev} onClose={() => setShowDiag(false)} />}
       {confirmDel && (
         <ConfirmModal
           title="Delete event?"
@@ -1593,6 +1597,136 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
           />
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------- AI pipeline diagnostics ----------------
+// Raw, unfiltered view of what the processing pipeline recorded per photo row.
+// Nothing is inferred here: every column is read straight from the database so
+// a stuck row can be diagnosed without guessing.
+type DiagRow = {
+  id: string;
+  kind: string;
+  variant: string;
+  guest_id: string | null;
+  storage_path: string;
+  original_url: string | null;
+  processed_url: string | null;
+  process_status: string | null;
+  generation_model: string | null;
+  generation_cost: number | null;
+  error_message: string | null;
+  processing_started_at: string | null;
+  processing_finished_at: string | null;
+  created_at: string;
+};
+
+export function DiagnosticsModal({ event, onClose }: { event: EventRow; onClose: () => void }) {
+  const [rows, setRows] = useState<DiagRow[]>([]);
+  const [ev, setEv] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    const [{ data: a }, { data: e }] = await Promise.all([
+      supabase
+        .from("assets")
+        .select("id,kind,variant,guest_id,storage_path,original_url,processed_url,process_status,generation_model,generation_cost,error_message,processing_started_at,processing_finished_at,created_at")
+        .eq("event_id", event.id)
+        .eq("kind", "photo")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabase
+        .from("events")
+        .select("template_mode,template_prompt,template_quality,template_aspect_ratio,template_frame_url,template_reference_url,max_generations,generations_used")
+        .eq("id", event.id)
+        .maybeSingle(),
+    ]);
+    setRows((a || []) as DiagRow[]);
+    setEv((e || null) as Record<string, unknown> | null);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, [event.id]);
+
+  const mode = String(ev?.["template_mode"] ?? "none");
+  const prompt = String(ev?.["template_prompt"] ?? "");
+
+  async function retry(id: string) {
+    setBusy(id);
+    try {
+      // Admin-authenticated path into the exact same processing function the
+      // public endpoint calls, so the result is directly comparable.
+      const r = await reprocessAsset({ data: { assetId: id } });
+      toast[r.ok ? "success" : "error"](`${r.status}${r.model ? ` · ${r.model}` : ""}${r.error ? ` · ${r.error}` : ""}`);
+      await load();
+    } catch (err) {
+      toast.error(`call failed: ${(err as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const fmt = (v: string | null) => (v ? new Date(v).toLocaleTimeString() : "—");
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-3" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-2xl border border-border bg-card p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold">Pipeline diagnostics · {event.name}</h3>
+          <button onClick={onClose} className="rounded-lg border border-border px-3 py-1 text-xs font-semibold">Close</button>
+        </div>
+
+        <div className="mt-3 grid gap-1 rounded-xl border border-border bg-muted/40 p-3 text-xs">
+          <div><b>template_mode</b>: {mode} {mode !== "ai" && <span className="text-muted-foreground">— photos will be recorded as “done” and never sent to the AI provider</span>}</div>
+          <div><b>prompt</b>: {prompt ? `${prompt.slice(0, 120)}${prompt.length > 120 ? "…" : ""}` : <span className="text-destructive">missing — AI is skipped without one</span>}</div>
+          <div><b>reference image</b>: {ev?.["template_reference_url"] ? "set" : "none"} · <b>frame</b>: {ev?.["template_frame_url"] ? "set" : "none"}</div>
+          <div><b>quality</b>: {String(ev?.["template_quality"] ?? "")} · <b>size</b>: {String(ev?.["template_aspect_ratio"] ?? "")}</div>
+          <div><b>generations</b>: {String(ev?.["generations_used"] ?? 0)} / {String(ev?.["max_generations"] ?? 0)}</div>
+        </div>
+
+        {loading ? (
+          <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">No photo rows for this event yet — nothing has been uploaded, so the pipeline has never run.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="text-muted-foreground">
+                <tr>
+                  {["id", "status", "model", "started", "finished", "cost", "original_url", "processed_url", "error_message", ""].map((h) => (
+                    <th key={h} className="whitespace-nowrap px-2 py-1 font-semibold uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-t border-border align-top">
+                    <td className="px-2 py-1 font-mono">{r.id.slice(0, 8)}</td>
+                    <td className="px-2 py-1 font-bold">{r.process_status || "—"}</td>
+                    <td className="px-2 py-1">{r.generation_model || "—"}</td>
+                    <td className="px-2 py-1">{fmt(r.processing_started_at)}</td>
+                    <td className="px-2 py-1">{fmt(r.processing_finished_at)}</td>
+                    <td className="px-2 py-1">{r.generation_cost != null ? `$${Number(r.generation_cost).toFixed(3)}` : "—"}</td>
+                    <td className="px-2 py-1 font-mono">{r.original_url ? "set" : <span className="text-destructive">null</span>}</td>
+                    <td className="px-2 py-1 font-mono">{r.processed_url ? "set" : "—"}</td>
+                    <td className="max-w-[260px] px-2 py-1 text-destructive">{r.error_message || "—"}</td>
+                    <td className="px-2 py-1">
+                      <button disabled={busy === r.id} onClick={() => retry(r.id)} className="rounded-md border border-border px-2 py-1 font-semibold disabled:opacity-50">
+                        {busy === r.id ? "…" : "Run"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              “Run” executes the processing function synchronously as admin and shows its exact result or provider error — use it to see where a row stops. It costs a generation only if the event is in AI mode and the row is claimable.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
