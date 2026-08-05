@@ -135,7 +135,8 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
       throw new ProviderError(`Network error: ${err.message}`, 0, true);
     }
     if (!res.ok) {
-      const text = (await res.text()).slice(0, 500);
+      // Full body, verbatim — the ZodError `path` names the failing parameter.
+      const text = await res.text();
       // 4xx (including content-policy refusals) are terminal — never retried.
       throw new ProviderError(`AI provider ${res.status}: ${text}`, res.status, res.status >= 500);
     }
