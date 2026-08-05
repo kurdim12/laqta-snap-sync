@@ -26,8 +26,8 @@ function Landing() {
 
   useEffect(() => {
     (async () => {
-      const { events: data } = await listPublicEvents().catch(() => ({ events: [] }));
-      setEvents((data ?? []).filter((e) => !!e.slug && !!e.name));
+      const { events: data } = await listPublicEvents().catch(() => ({ events: [] as LiveEvent[] }));
+      setEvents((data ?? []).filter((e: LiveEvent) => !!e.slug && !!e.name));
       setLoading(false);
     })();
   }, []);
