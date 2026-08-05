@@ -10,6 +10,7 @@ import { QrSheet } from "@/components/QrSheet";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
 import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
+import { testTemplate, reprocessAsset } from "@/lib/template.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -607,7 +608,16 @@ function GuestDetail({ guest, onDelete }: { guest: GuestRow; onDelete: () => voi
 function genPin() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 function slugify(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 40); }
 
-type Tab = "basics" | "branding" | "form" | "messages" | "advanced";
+type Tab = "basics" | "branding" | "template" | "form" | "messages" | "advanced";
+
+async function fileToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result));
+    r.onerror = () => rej(new Error("read failed"));
+    r.readAsDataURL(blob);
+  });
+}
 
 export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () => void }) {
   const [name, setName] = useState(event?.name || "");
@@ -618,12 +628,26 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("basics");
+  const [templateMode, setTemplateMode] = useState<"none" | "frame" | "ai">(event?.template_mode || "none");
+  const [templatePrompt, setTemplatePrompt] = useState(event?.template_prompt || "");
+  const [referenceUrl, setReferenceUrl] = useState(event?.template_reference_url || "");
+  const [frameUrl, setFrameUrl] = useState(event?.template_frame_url || "");
+  const [quality, setQuality] = useState<"low" | "medium" | "high">(event?.template_quality || "medium");
+  const [aspect, setAspect] = useState(event?.template_aspect_ratio || "1024x1024");
 
   async function save() {
     setErr(null);
     if (!pin || pin.length !== 6) { setErr("Staff PIN must be 6 digits"); return; }
     setBusy(true);
-    const payload = { name, slug: slug || slugify(name), status, config: config as unknown as never, staff_pin: pin };
+    const payload = {
+      name, slug: slug || slugify(name), status, config: config as unknown as never, staff_pin: pin,
+      template_mode: templateMode,
+      template_prompt: templatePrompt || null,
+      template_reference_url: referenceUrl || null,
+      template_frame_url: frameUrl || null,
+      template_quality: quality,
+      template_aspect_ratio: aspect,
+    };
     const q = event
       ? supabase.from("events").update(payload as never).eq("id", event.id)
       : supabase.from("events").insert(payload as never);
@@ -665,6 +689,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   const tabs: { id: Tab; label: string }[] = [
     { id: "basics", label: "Basics" },
     { id: "branding", label: "Branding" },
+    { id: "template", label: "Template" },
     { id: "form", label: "Form" },
     { id: "messages", label: "Messages" },
     { id: "advanced", label: "Advanced" },
@@ -794,6 +819,17 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
               </div>
             )}
 
+            {tab === "template" && (
+              <TemplatePanel
+                mode={templateMode} setMode={setTemplateMode}
+                prompt={templatePrompt} setPrompt={setTemplatePrompt}
+                referenceUrl={referenceUrl} setReferenceUrl={setReferenceUrl}
+                frameUrl={frameUrl} setFrameUrl={setFrameUrl}
+                quality={quality} setQuality={setQuality}
+                aspect={aspect} setAspect={setAspect}
+              />
+            )}
+
             {tab === "form" && (
               <div>
                 <div className="mb-2 flex items-center justify-between">
@@ -863,6 +899,177 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
         <PhonePreview config={config} name={name || "Event"} />
       </div>
       <style>{`.input{width:100%;border-radius:8px;border:1px solid var(--border);background:var(--input);padding:0.5rem 0.75rem;color:var(--foreground);outline:none}.input:focus{border-color:var(--primary)}`}</style>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Photo template (frame overlay / AI restyle) + test panel            */
+/* ------------------------------------------------------------------ */
+
+function TemplatePanel(props: {
+  mode: "none" | "frame" | "ai"; setMode: (m: "none" | "frame" | "ai") => void;
+  prompt: string; setPrompt: (v: string) => void;
+  referenceUrl: string; setReferenceUrl: (v: string) => void;
+  frameUrl: string; setFrameUrl: (v: string) => void;
+  quality: "low" | "medium" | "high"; setQuality: (q: "low" | "medium" | "high") => void;
+  aspect: string; setAspect: (v: string) => void;
+}) {
+  const { mode, setMode, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
+  const [sample, setSample] = useState<string | null>(null);
+  const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; model?: string; error?: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  async function pickImage(file: File, maxSide: number, setter: (v: string) => void) {
+    try {
+      const blob = await resizeImage(file, maxSide, 0.9);
+      setter(await fileToDataUrl(blob));
+    } catch {
+      alert("Couldn't read that image — try a PNG or JPG.");
+    }
+  }
+
+  async function runTest() {
+    if (!sample || !prompt.trim()) return;
+    setTesting(true); setResult(null);
+    try {
+      const r = await testTemplate({
+        data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, quality, aspectRatio: aspect },
+      });
+      setResult(r.ok ? { dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, model: r.model } : { error: r.error });
+    } catch (e) {
+      setResult({ error: (e as Error).message });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <Field label="Photo template mode">
+        <div className="flex gap-1 rounded-xl border border-border bg-background p-1">
+          {([["none", "None"], ["frame", "Frame overlay"], ["ai", "AI style"]] as const).map(([v, label]) => (
+            <button key={v} type="button" onClick={() => setMode(v)}
+              className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition ${mode === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </Field>
+
+      {mode === "frame" && (
+        <Field label="Frame PNG (transparent, laid over every photo)">
+          <div className="space-y-2">
+            {frameUrl && (
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-[repeating-conic-gradient(#e5e5e5_0_25%,transparent_0_50%)] bg-[length:16px_16px] p-2">
+                <img src={frameUrl} alt="frame preview" className="h-24 object-contain" />
+                <button type="button" onClick={() => setFrameUrl("")} className="text-xs font-semibold text-destructive underline">Remove</button>
+              </div>
+            )}
+            <label className="inline-block cursor-pointer rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">
+              {frameUrl ? "Replace frame" : "Upload frame"}
+              <input type="file" accept="image/png" className="hidden" onChange={async (e) => {
+                const f = e.target.files?.[0]; e.currentTarget.value = "";
+                if (f) await pickImage(f, 1600, setFrameUrl);
+              }} />
+            </label>
+          </div>
+        </Field>
+      )}
+
+      {mode === "ai" && (
+        <div className="space-y-4">
+          <Field label="Style prompt">
+            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4}
+              placeholder="e.g. Turn this into a cinematic golden-hour editorial portrait with warm film grain, keep the face unchanged."
+              className="input resize-y" />
+          </Field>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Quality">
+              <select value={quality} onChange={(e) => setQuality(e.target.value as "low" | "medium" | "high")} className="input">
+                <option value="low">Low (fastest, cheapest)</option>
+                <option value="medium">Medium</option>
+                <option value="high">High (slowest, priciest)</option>
+              </select>
+            </Field>
+            <Field label="Output size">
+              <select value={aspect} onChange={(e) => setAspect(e.target.value)} className="input">
+                <option value="1024x1024">Square · 1024×1024</option>
+                <option value="1024x1536">Portrait · 1024×1536</option>
+                <option value="1536x1024">Landscape · 1536×1024</option>
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Style reference image (optional)">
+            <div className="space-y-2">
+              {referenceUrl && (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-2">
+                  <img src={referenceUrl} alt="reference" className="h-20 rounded object-cover" />
+                  <button type="button" onClick={() => setReferenceUrl("")} className="text-xs font-semibold text-destructive underline">Remove</button>
+                </div>
+              )}
+              <label className="inline-block cursor-pointer rounded-lg border border-border px-3 py-2 text-xs font-bold">
+                {referenceUrl ? "Replace reference" : "Upload reference"}
+                <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                  const f = e.target.files?.[0]; e.currentTarget.value = "";
+                  if (f) await pickImage(f, 1024, setReferenceUrl);
+                }} />
+              </label>
+            </div>
+          </Field>
+
+          {/* Test panel */}
+          <div className="rounded-xl border border-border bg-background p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="mr-auto text-sm font-bold uppercase tracking-wider text-muted-foreground">Test the style</h3>
+              <label className="cursor-pointer rounded-lg border border-border px-3 py-1.5 text-xs font-semibold">
+                {sample ? "Change sample" : "Pick sample photo"}
+                <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                  const f = e.target.files?.[0]; e.currentTarget.value = "";
+                  if (f) { setResult(null); await pickImage(f, 1024, (v) => setSample(v)); }
+                }} />
+              </label>
+              <button type="button" onClick={runTest} disabled={!sample || !prompt.trim() || testing}
+                className="rounded-lg bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-50">
+                {testing ? "Generating…" : "Run test"}
+              </button>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Before</div>
+                <div className="grid aspect-square place-items-center overflow-hidden rounded-lg border border-border bg-muted">
+                  {sample ? <img src={sample} alt="sample" className="h-full w-full object-cover" /> : <span className="text-xs text-muted-foreground">No sample yet</span>}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">After</div>
+                <div className="grid aspect-square place-items-center overflow-hidden rounded-lg border border-border bg-muted">
+                  {testing ? <span className="animate-pulse text-xs text-muted-foreground">Applying style…</span>
+                    : result?.dataUrl ? <img src={result.dataUrl} alt="styled result" className="h-full w-full object-cover" />
+                    : <span className="text-xs text-muted-foreground">Run a test to preview</span>}
+                </div>
+              </div>
+            </div>
+
+            {result?.error && <p className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{result.error}</p>}
+            {result?.dataUrl && (
+              <div className="mt-3 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
+                <span><b className="text-foreground tabular-nums">{((result.ms || 0) / 1000).toFixed(1)}s</b> generation time</span>
+                <span>~<b className="text-foreground tabular-nums">${(result.cost || 0).toFixed(3)}</b> est. cost</span>
+                <span className="truncate">model <b className="text-foreground">{result.model}</b></span>
+              </div>
+            )}
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              Every staff upload for this event is restyled automatically. Guests see “applying event style…” until the render is ready; if it fails, they still get the original photo.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {mode === "none" && <p className="text-sm text-muted-foreground">Photos are delivered exactly as shot.</p>}
     </div>
   );
 }
