@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { generateCode } from "./code";
-import { mintGuestSelfieUrl } from "./upload.functions";
+import { mintGuestSelfieUrl, registerGuestPhoto } from "./upload.functions";
 
 const DB_NAME = "laqta-outbox";
 const STORE = "submissions";
@@ -119,7 +119,7 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
         bytes: entry.selfie.size,
       },
     });
-    const { url } = await withTimeout(mintP, 8000);
+    const { url } = await withTimeout(mintP, 20_000);
     const upP = supabase.storage
       .from("media")
       .uploadToSignedUrl(url.path, url.token, entry.selfie, { contentType: "image/jpeg" });
@@ -128,8 +128,28 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
     const updP: Promise<{ error: unknown }> = Promise.resolve(
       supabase.rpc("set_guest_selfie", { _id: entry.id, _code: entry.code, _path: url.path }),
     );
-    const { error: updErr } = await withTimeout(updP, 8000);
-    return !updErr;
+    const { error: updErr } = await withTimeout(updP, 12_000);
+    if (updErr) return false;
+
+    const { assetId } = await withTimeout(registerGuestPhoto({
+      data: {
+        eventId: entry.eventId,
+        guestId: entry.id,
+        code: entry.code,
+        storagePath: url.path,
+        bytes: entry.selfie.size,
+      },
+    }), 20_000);
+
+    // Do not await AI generation: the asset is already visible in the guest
+    // gallery as `pending`, which immediately shows "applying event style…".
+    void fetch("/api/public/process-photo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assetId, guestId: entry.id, code: entry.code }),
+      keepalive: true,
+    }).catch(() => { /* gallery polling reflects any persisted failure */ });
+    return true;
   } catch {
     return false;
   }

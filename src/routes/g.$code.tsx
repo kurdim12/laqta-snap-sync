@@ -71,6 +71,20 @@ function Gallery() {
           framed: !!frame && (mode === "frame" || (mode === "ai" && (a.process_status === "failed" || a.process_status === "skipped" || !a.process_status))),
         })),
       );
+      // Self-heal a trigger that was interrupted after upload. The endpoint
+      // atomically claims pending assets, so repeated gallery polls cannot
+      // create duplicate paid generations.
+      for (const asset of r.assets || []) {
+        const staleProcessing = asset.process_status === "processing" &&
+          (!asset.processing_started_at || Date.now() - new Date(asset.processing_started_at).getTime() > 3 * 60_000);
+        if (asset.process_status !== "pending" && !staleProcessing) continue;
+        void fetch("/api/public/process-photo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assetId: asset.id, guestId: r.guest.id, code: r.guest.code }),
+          keepalive: true,
+        }).catch(() => { /* the next poll retries pending work */ });
+      }
     } catch {
       setNotFound(true);
     }
