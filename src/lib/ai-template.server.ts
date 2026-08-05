@@ -19,7 +19,7 @@ export function estimateCost(q: string | null | undefined): number {
 }
 
 export function modelId(): string {
-  return process.env["AI_IMAGE_MODEL"] || "openai/gpt-image-2";
+  return process.env["AI_IMAGE_MODEL"] || "openai/gpt-5.4-image-2";
 }
 
 export interface GenerateInput {
