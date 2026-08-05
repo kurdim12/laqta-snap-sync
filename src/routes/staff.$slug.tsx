@@ -24,9 +24,9 @@ function StaffConsole() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("events_public").select("id,slug,name,status,config,created_at").eq("slug", slug).maybeSingle();
+      const { data } = await supabase.from("events_public").select("id,slug,name,status,config,created_at,template_mode,template_frame_url").eq("slug", slug).maybeSingle();
       if (data && data.id && data.slug && data.name) {
-        setEvent({ id: data.id, slug: data.slug, name: data.name, created_at: data.created_at ?? "", status: data.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } });
+        setEvent({ id: data.id, slug: data.slug, name: data.name, created_at: data.created_at ?? "", status: data.status as EventRow["status"], config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) }, template_mode: (data.template_mode as EventRow["template_mode"]) ?? "none", template_frame_url: data.template_frame_url ?? null });
       }
       const stored = typeof window !== "undefined" ? sessionStorage.getItem(PIN_KEY(slug)) : null;
       if (stored && data) {
@@ -204,14 +204,20 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
           await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "poster", path: posterPath, contentType: "image/jpeg", bytes: poster.size });
         }
       }
-      // Kick the event's AI template for this photo. Fire-and-forget: the
-      // upload is already complete and the gallery polls for the styled render.
-      if (kind === "photo" && event.template_mode === "ai") {
+      // Kick the event's photo template for this photo. Always called for
+      // photos — the server decides (and returns "skipped" when the event is
+      // not in AI mode), so a stale client copy of the event can never silently
+      // disable generation. Fire-and-forget: the gallery polls for the render.
+      if (kind === "photo") {
         void fetch("/api/public/process-photo", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ assetId, slug: event.slug, pin }),
-        }).catch(() => {});
+        })
+          .then(async (r) => {
+            if (!r.ok) console.error("process-photo failed", r.status, await r.text());
+          })
+          .catch((err) => console.error("process-photo error", err));
       }
 
       update(item.id, { state: "done", progress: 100 });
