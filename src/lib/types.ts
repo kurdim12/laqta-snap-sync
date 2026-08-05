@@ -89,6 +89,7 @@ export interface AssetRow {
   process_status?: "pending" | "processing" | "done" | "failed";
   error_message?: string | null;
   generation_cost?: number | null;
+  generation_model?: string | null;
   processing_started_at?: string | null;
   processing_finished_at?: string | null;
 }
