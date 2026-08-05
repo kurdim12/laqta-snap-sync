@@ -42,6 +42,7 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
     .eq("id", asset.event_id)
     .maybeSingle();
   if (!ev || ev.template_mode !== "ai" || !ev.template_prompt) {
+    console.log("[processAsset] skipped", { assetId, mode: ev?.template_mode, hasPrompt: !!ev?.template_prompt });
     return { ok: true, status: "skipped" };
   }
 
