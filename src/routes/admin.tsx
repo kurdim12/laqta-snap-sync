@@ -1254,6 +1254,17 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
     load();
   }
 
+  // Re-run the event's AI style on a photo whose first attempt failed.
+  async function retryStyle(a: EnrichedAsset) {
+    try {
+      await reprocessAsset({ data: { assetId: a.id } });
+    } finally {
+      load();
+    }
+  }
+
+
+
   // Permanently delete a photo: its original + all variants (rows AND files).
   async function deletePhoto(a: EnrichedAsset) {
     const { data: related } = await supabase
