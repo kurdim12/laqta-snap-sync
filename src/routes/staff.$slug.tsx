@@ -7,6 +7,7 @@ import { newId } from "@/lib/code";
 import { resizeImage, videoPoster } from "@/lib/media";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { mintStaffUploadUrls } from "@/lib/upload.functions";
+import { getPublicEventBySlug } from "@/lib/gallery.functions";
 
 export const Route = createFileRoute("/staff/$slug")({
   head: () => ({ meta: [{ title: "LAQTA · Staff" }] }),

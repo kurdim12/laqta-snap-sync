@@ -6,6 +6,7 @@ import { DEFAULT_CONFIG, type AssetRow, type EventConfig, type EventRow } from "
 import { T, pick, useLang } from "@/lib/i18n";
 import { Lightbox } from "@/components/Lightbox";
 import { applyEventTheme } from "@/lib/theme";
+import { getPublicEventBySlug } from "@/lib/gallery.functions";
 
 
 export const Route = createFileRoute("/e/$slug/gallery")({
