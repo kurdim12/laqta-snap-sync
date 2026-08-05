@@ -292,6 +292,8 @@ export type Database = {
           name: string | null
           slug: string | null
           status: string | null
+          template_frame_url: string | null
+          template_mode: string | null
         }
         Insert: {
           config?: Json | null
@@ -300,6 +302,8 @@ export type Database = {
           name?: string | null
           slug?: string | null
           status?: string | null
+          template_frame_url?: string | null
+          template_mode?: string | null
         }
         Update: {
           config?: Json | null
@@ -308,6 +312,8 @@ export type Database = {
           name?: string | null
           slug?: string | null
           status?: string | null
+          template_frame_url?: string | null
+          template_mode?: string | null
         }
         Relationships: []
       }
