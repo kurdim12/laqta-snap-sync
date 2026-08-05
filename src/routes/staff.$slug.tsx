@@ -204,14 +204,20 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
           await createAsset({ id: newId(), guestId: item.guestId, parentId: assetId, kind, variant: "poster", path: posterPath, contentType: "image/jpeg", bytes: poster.size });
         }
       }
-      // Kick the event's AI template for this photo. Fire-and-forget: the
-      // upload is already complete and the gallery polls for the styled render.
-      if (kind === "photo" && event.template_mode === "ai") {
+      // Kick the event's photo template for this photo. Always called for
+      // photos — the server decides (and returns "skipped" when the event is
+      // not in AI mode), so a stale client copy of the event can never silently
+      // disable generation. Fire-and-forget: the gallery polls for the render.
+      if (kind === "photo") {
         void fetch("/api/public/process-photo", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ assetId, slug: event.slug, pin }),
-        }).catch(() => {});
+        })
+          .then(async (r) => {
+            if (!r.ok) console.error("process-photo failed", r.status, await r.text());
+          })
+          .catch((err) => console.error("process-photo error", err));
       }
 
       update(item.id, { state: "done", progress: 100 });
