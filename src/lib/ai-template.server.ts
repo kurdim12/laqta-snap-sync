@@ -19,7 +19,8 @@ export function estimateCost(q: string | null | undefined): number {
 }
 
 export function modelId(): string {
-  return process.env["AI_IMAGE_MODEL"] || "openai/gpt-5.4-image-2";
+  // gpt-image-2 direct — no GPT-5.4 prompt rewriting, ~half the output price.
+  return process.env["AI_IMAGE_MODEL"] || "openai/gpt-image-2";
 }
 
 export interface GenerateInput {

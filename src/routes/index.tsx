@@ -25,15 +25,8 @@ function Landing() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("events_public")
-        .select("slug,name,status")
-        .in("status", ["live", "dryrun"])
-        .order("created_at", { ascending: false });
-      const rows = (data ?? []).filter(
-        (e): e is { slug: string; name: string; status: string | null } => !!e.slug && !!e.name,
-      );
-      setEvents(rows);
+      const { events: data } = await listPublicEvents().catch(() => ({ events: [] }));
+      setEvents((data ?? []).filter((e) => !!e.slug && !!e.name));
       setLoading(false);
     })();
   }, []);
