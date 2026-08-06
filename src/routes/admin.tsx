@@ -960,8 +960,14 @@ function TemplatePanel(props: {
 }) {
   const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
   const [sample, setSample] = useState<string | null>(null);
-  const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; costIsActual?: boolean; model?: string; error?: string } | null>(null);
+  const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; costIsActual?: boolean; model?: string; error?: string; attempts?: unknown[] } | null>(null);
   const [testSpend, setTestSpend] = useState<{ runs: number; total: number } | null>(null);
+  // The evidence blob embeds full base64 request/response bodies (MBs) —
+  // stringify it once per result, not on every keystroke re-render.
+  const evidenceJson = useMemo(
+    () => (Array.isArray(result?.attempts) && result.attempts.length > 0 ? JSON.stringify(result.attempts, null, 2) : null),
+    [result],
+  );
 
   // Total spend on Template test runs (never counted against the event cap).
   async function loadTestSpend() {
@@ -988,7 +994,9 @@ function TemplatePanel(props: {
       const r = await testTemplate({
         data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, quality, aspectRatio: aspect, eventId: eventId ?? null },
       });
-      setResult(r.ok ? { dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, costIsActual: r.costIsActual, model: r.model } : { error: r.error });
+      setResult(r.ok
+        ? { dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, costIsActual: r.costIsActual, model: r.model, attempts: r.attempts }
+        : { error: r.error, attempts: r.attempts });
       loadTestSpend();
     } catch (e) {
       setResult({ error: (e as Error).message });
@@ -1128,7 +1136,13 @@ function TemplatePanel(props: {
               </div>
             </div>
 
-            {result?.error && <p className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{result.error}</p>}
+            {result?.error && <p className="mt-3 whitespace-pre-wrap break-all rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{result.error}</p>}
+            {evidenceJson && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-semibold text-primary">Provider evidence ({result?.attempts?.length}) — exact request body + raw response</summary>
+                <pre className="mt-1 max-h-96 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-background p-2 text-[10px]">{evidenceJson}</pre>
+              </details>
+            )}
             {result?.dataUrl && (
               <div className="mt-3 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
                 <span><b className="text-foreground tabular-nums">{((result.ms || 0) / 1000).toFixed(1)}s</b> generation time · زمن التوليد</span>

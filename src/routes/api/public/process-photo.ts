@@ -72,13 +72,15 @@ export const Route = createFileRoute("/api/public/process-photo")({
         }
 
         console.log("[process-photo] entry", { assetId, eventId: evId, auth: staffAuth ? "staff" : "guest" });
+        const { executionContextFor } = await import("@/lib/execution-context.server");
+        const context = executionContextFor(request);
         const { processAssetById } = await import("@/lib/photo-processing.server");
-        const work = processAssetById(assetId).then((result) => {
+        // Detached runs get a shorter provider timeout: Workers cancel
+        // waitUntil work ~30s after the response, so the abort must fire first.
+        const work = processAssetById(assetId, { detached: !!context }).then((result) => {
           console.log("[process-photo] result", { assetId, ...result });
           return result;
         });
-        const { executionContextFor } = await import("@/lib/execution-context.server");
-        const context = executionContextFor(request);
         if (context) {
           context.waitUntil(work);
           return Response.json({ ok: true, status: "accepted" }, { status: 202 });
