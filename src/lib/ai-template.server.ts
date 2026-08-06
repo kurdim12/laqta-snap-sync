@@ -34,6 +34,14 @@ export interface GenerateInput {
   referenceDataUrl?: string | null;
   quality?: string | null;
   aspectRatio?: string | null;
+  onAttempt?: (attempt: {
+    attempt: number;
+    requestBody: string;
+    responseStatus: number | null;
+    responseBody: string | null;
+    transportError: string | null;
+    recordedAt: string;
+  }) => Promise<void>;
 }
 
 export interface GenerateResult {
@@ -113,7 +121,9 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
   });
 
   // One call. Retried ONCE by the caller loop below, and only on 5xx/network.
+  let attemptNumber = 0;
   async function callOnce(): Promise<{ json: unknown }> {
+    attemptNumber += 1;
     let res: Response;
     try {
       res = await fetch(OPENROUTER_URL, {
@@ -128,19 +138,36 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
       });
     } catch (e) {
       const err = e as Error;
+      await input.onAttempt?.({
+        attempt: attemptNumber,
+        requestBody: body,
+        responseStatus: null,
+        responseBody: null,
+        transportError: `${err.name}: ${err.message}`,
+        recordedAt: new Date().toISOString(),
+      });
       if (err.name === "TimeoutError" || err.name === "AbortError") {
         // Timeouts are NOT retried — a second 120s wait doubles the stall.
         throw new ProviderError("Timeout after 120s", 408, false);
       }
       throw new ProviderError(`Network error: ${err.message}`, 0, true);
     }
+    // Read once as text so Diagnostics receives the provider response verbatim
+    // for successes and failures alike. JSON parsing happens from this copy.
+    const text = await res.text();
+    await input.onAttempt?.({
+      attempt: attemptNumber,
+      requestBody: body,
+      responseStatus: res.status,
+      responseBody: text,
+      transportError: null,
+      recordedAt: new Date().toISOString(),
+    });
     if (!res.ok) {
-      // Full body, verbatim — the ZodError `path` names the failing parameter.
-      const text = await res.text();
       // 4xx (including content-policy refusals) are terminal — never retried.
       throw new ProviderError(`AI provider ${res.status}: ${text}`, res.status, res.status >= 500);
     }
-    return { json: await res.json() };
+    return { json: JSON.parse(text) as unknown };
   }
 
   let json: unknown;

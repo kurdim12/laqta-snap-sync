@@ -10,7 +10,7 @@ import { QrSheet } from "@/components/QrSheet";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import type { AssetRow } from "@/lib/types";
 import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
-import { testTemplate, reprocessAsset } from "@/lib/template.functions";
+import { testTemplate, reprocessAsset, sweepEventProcessing } from "@/lib/template.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
@@ -1620,6 +1620,7 @@ type DiagRow = {
   processing_started_at: string | null;
   processing_finished_at: string | null;
   created_at: string;
+  meta: Record<string, unknown>;
 };
 
 export function DiagnosticsModal({ event, onClose }: { event: EventRow; onClose: () => void }) {
@@ -1630,10 +1631,11 @@ export function DiagnosticsModal({ event, onClose }: { event: EventRow; onClose:
 
   async function load() {
     setLoading(true);
+    await sweepEventProcessing({ data: { eventId: event.id } });
     const [{ data: a }, { data: e }] = await Promise.all([
       supabase
         .from("assets")
-        .select("id,kind,variant,guest_id,storage_path,original_url,processed_url,process_status,generation_model,generation_cost,error_message,processing_started_at,processing_finished_at,created_at")
+        .select("id,kind,variant,guest_id,storage_path,original_url,processed_url,process_status,generation_model,generation_cost,error_message,processing_started_at,processing_finished_at,created_at,meta")
         .eq("event_id", event.id)
         .eq("kind", "photo")
         .order("created_at", { ascending: false })
@@ -1716,6 +1718,12 @@ export function DiagnosticsModal({ event, onClose }: { event: EventRow; onClose:
                       <button disabled={busy === r.id} onClick={() => retry(r.id)} className="rounded-md border border-border px-2 py-1 font-semibold disabled:opacity-50">
                         {busy === r.id ? "…" : "Run"}
                       </button>
+                      {Array.isArray(r.meta?.ai_provider_attempts) && r.meta.ai_provider_attempts.length > 0 && (
+                        <details className="mt-2 min-w-[640px] max-w-[900px]">
+                          <summary className="cursor-pointer font-semibold text-primary">Provider evidence ({r.meta.ai_provider_attempts.length})</summary>
+                          <pre className="mt-1 max-h-96 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-background p-2 text-[10px] text-foreground">{JSON.stringify(r.meta.ai_provider_attempts, null, 2)}</pre>
+                        </details>
+                      )}
                     </td>
                   </tr>
                 ))}

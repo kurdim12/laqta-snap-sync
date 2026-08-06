@@ -18,6 +18,24 @@ export interface ProcessResult {
   cost?: number;
 }
 
+export async function sweepStaleProcessing(eventId?: string): Promise<number> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const cutoff = new Date(Date.now() - 3 * 60_000).toISOString();
+  let query = supabaseAdmin
+    .from("assets")
+    .update({
+      process_status: "failed",
+      error_message: "Timed out",
+      processing_finished_at: new Date().toISOString(),
+    })
+    .eq("process_status", "processing")
+    .lt("processing_started_at", cutoff);
+  if (eventId) query = query.eq("event_id", eventId);
+  const { data, error } = await query.select("id");
+  if (error) throw new Error(`stale processing sweep failed: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function processAssetById(assetId: string): Promise<ProcessResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -96,6 +114,21 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
       referenceDataUrl: ref && ref.startsWith("data:") ? ref : null,
       quality: ev.template_quality,
       aspectRatio: ev.template_aspect_ratio,
+      onAttempt: async (attempt) => {
+        const { data: current } = await supabaseAdmin
+          .from("assets")
+          .select("meta")
+          .eq("id", assetId)
+          .maybeSingle();
+        const meta = (current?.meta && typeof current.meta === "object" && !Array.isArray(current.meta)
+          ? current.meta
+          : {}) as Record<string, unknown>;
+        const previous = Array.isArray(meta.ai_provider_attempts) ? meta.ai_provider_attempts : [];
+        await supabaseAdmin
+          .from("assets")
+          .update({ meta: { ...meta, ai_provider_attempts: [...previous, attempt] } as never })
+          .eq("id", assetId);
+      },
     });
 
     const { bytes, contentType } = dataUrlToBytes(result.dataUrl);
