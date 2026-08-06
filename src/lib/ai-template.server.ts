@@ -6,8 +6,22 @@
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/images";
 
-/** Hard wall-clock timeout for a single provider call. */
+/** Hard wall-clock timeout for a single provider call while a connection is
+ * held open (admin "Run", template tests, local dev). */
 export const AI_TIMEOUT_MS = 120_000;
+
+/**
+ * Timeout for DETACHED processing (ctx.waitUntil after the 202 response).
+ * Cloudflare Workers cancel waitUntil work ~30 seconds after the response is
+ * sent — a longer AbortSignal never fires because the isolate is killed first,
+ * which leaves the row stuck in 'processing' with no recorded error. Aborting
+ * at 20s keeps the failure handler inside the window — with margin for the
+ * claim/download preamble and the failure-path DB writes — so the row is
+ * marked 'failed' by the Worker itself and the guest gets the frame fallback
+ * on the next poll instead of waiting for the stale sweeper. The budget is a
+ * shared deadline across the retry, never per-attempt.
+ */
+export const AI_DETACHED_TIMEOUT_MS = 20_000;
 
 export type Quality = "low" | "medium" | "high";
 
@@ -20,9 +34,11 @@ export function estimateCost(q: string | null | undefined): number {
 }
 
 export function modelId(): string {
-  // openai/gpt-image-2 is served by the Images API endpoint above (it is not a
-  // chat-completions model). Override with AI_IMAGE_MODEL if ever needed.
-  return process.env["AI_IMAGE_MODEL"] || "openai/gpt-image-2";
+  // google/gemini-3.1-flash-image is deliberate: ~8s and ~$0.068 per photo vs
+  // ~94s and ~$0.12 for openai/gpt-image-2. A live-booth guest is waiting, and
+  // detached Worker processing only has ~30s of waitUntil budget — the fast
+  // model is the only one that fits it. Override with AI_IMAGE_MODEL if needed.
+  return process.env["AI_IMAGE_MODEL"] || "google/gemini-3.1-flash-image";
 }
 
 
@@ -34,6 +50,9 @@ export interface GenerateInput {
   referenceDataUrl?: string | null;
   quality?: string | null;
   aspectRatio?: string | null;
+  /** provider-call abort, defaults to AI_TIMEOUT_MS — detached callers must
+   * pass AI_DETACHED_TIMEOUT_MS so the abort fires before Workers kills them */
+  timeoutMs?: number | null;
   onAttempt?: (attempt: {
     attempt: number;
     requestBody: string;
@@ -105,6 +124,12 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
 
   const model = modelId();
   const started = Date.now();
+  const timeoutMs = input.timeoutMs || AI_TIMEOUT_MS;
+  // ONE deadline for the whole call, shared by the retry. A per-attempt signal
+  // would let a retryable failure at t=N arm a fresh full window ending at
+  // N+timeoutMs — on the detached path that outlives the Worker itself, and no
+  // code runs after cancellation to mark the row failed.
+  const deadline = started + timeoutMs;
 
   const quality = input.quality && QUALITIES.has(input.quality) ? input.quality : undefined;
 
@@ -134,7 +159,7 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
           "X-Title": "LAQTA",
         },
         body,
-        signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+        signal: AbortSignal.timeout(Math.max(1_000, deadline - Date.now())),
       });
     } catch (e) {
       const err = e as Error;
@@ -147,8 +172,8 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
         recordedAt: new Date().toISOString(),
       });
       if (err.name === "TimeoutError" || err.name === "AbortError") {
-        // Timeouts are NOT retried — a second 120s wait doubles the stall.
-        throw new ProviderError("Timeout after 120s", 408, false);
+        // Timeouts are NOT retried — a second full wait doubles the stall.
+        throw new ProviderError(`Timeout after ${Math.round(timeoutMs / 1000)}s`, 408, false);
       }
       throw new ProviderError(`Network error: ${err.message}`, 0, true);
     }
@@ -176,6 +201,9 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
   } catch (e) {
     const err = e as ProviderError;
     if (!(err instanceof ProviderError) || !err.retryable) throw err;
+    // No retry without meaningful budget left — a doomed re-send of a multi-MB
+    // body would only burn the remaining window without a recordable outcome.
+    if (deadline - Date.now() < 3_000) throw err;
     json = (await callOnce()).json;
   }
 

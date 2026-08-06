@@ -10,6 +10,17 @@ async function assertAdmin(context: { supabase: { rpc: (fn: string, args: Record
   if (data !== true) throw new Error("Forbidden");
 }
 
+/** One provider call's evidence: exact request body (no API key — that only
+ * ever travels in a header) and the raw, untruncated provider response. */
+export interface ProviderAttempt {
+  attempt: number;
+  requestBody: string;
+  responseStatus: number | null;
+  responseBody: string | null;
+  transportError: string | null;
+  recordedAt: string;
+}
+
 export const testTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -30,11 +41,15 @@ export const testTemplate = createServerFn({ method: "POST" })
     costIsActual?: boolean;
     model?: string;
     error?: string;
+    attempts?: ProviderAttempt[];
   }> => {
     await assertAdmin(context as never);
     const { generateStyled } = await import("@/lib/ai-template.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const userId = (context as unknown as { userId: string }).userId;
+    // Same evidence trail as guest processing: every attempt's outgoing request
+    // body and raw provider response, returned to the Template panel verbatim.
+    const attempts: ProviderAttempt[] = [];
     try {
       // Test runs never touch the event's generation cap, but they are logged
       // so total testing spend stays visible in admin.
@@ -44,6 +59,7 @@ export const testTemplate = createServerFn({ method: "POST" })
         referenceDataUrl: data.referenceDataUrl ?? null,
         quality: data.quality,
         aspectRatio: data.aspectRatio,
+        onAttempt: async (a) => { attempts.push(a); },
       });
       await supabaseAdmin.from("template_test_runs").insert({
         event_id: data.eventId ?? null,
@@ -53,7 +69,7 @@ export const testTemplate = createServerFn({ method: "POST" })
         ms: r.ms,
         ok: true,
       } as never);
-      return { ok: true, dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, costIsActual: r.costIsActual, model: r.model };
+      return { ok: true, dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, costIsActual: r.costIsActual, model: r.model, attempts };
     } catch (e) {
       const { modelId } = await import("@/lib/ai-template.server");
       await supabaseAdmin.from("template_test_runs").insert({
@@ -64,7 +80,7 @@ export const testTemplate = createServerFn({ method: "POST" })
         ms: 0,
         ok: false,
       } as never);
-      return { ok: false, error: (e as Error).message };
+      return { ok: false, error: (e as Error).message, attempts };
     }
   });
 

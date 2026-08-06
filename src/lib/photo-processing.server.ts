@@ -7,7 +7,7 @@
 // row and the original stays intact, so the guest always gets a photo (the
 // gallery then falls back to the branded frame overlay).
 
-import { generateStyled, dataUrlToBytes, bytesToDataUrl } from "./ai-template.server";
+import { generateStyled, dataUrlToBytes, bytesToDataUrl, AI_DETACHED_TIMEOUT_MS } from "./ai-template.server";
 
 export interface ProcessResult {
   ok: boolean;
@@ -29,14 +29,19 @@ export async function sweepStaleProcessing(eventId?: string): Promise<number> {
       processing_finished_at: new Date().toISOString(),
     })
     .eq("process_status", "processing")
-    .lt("processing_started_at", cutoff);
+    // A NULL processing_started_at (row claimed by pre-timestamp code) must
+    // sweep too — `.lt` alone never matches NULL, leaving the row stuck forever.
+    .or(`processing_started_at.is.null,processing_started_at.lt.${cutoff}`);
   if (eventId) query = query.eq("event_id", eventId);
   const { data, error } = await query.select("id");
   if (error) throw new Error(`stale processing sweep failed: ${error.message}`);
   return data?.length ?? 0;
 }
 
-export async function processAssetById(assetId: string): Promise<ProcessResult> {
+export async function processAssetById(
+  assetId: string,
+  opts?: { detached?: boolean },
+): Promise<ProcessResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   const { data: asset } = await supabaseAdmin
@@ -114,6 +119,9 @@ export async function processAssetById(assetId: string): Promise<ProcessResult> 
       referenceDataUrl: ref && ref.startsWith("data:") ? ref : null,
       quality: ev.template_quality,
       aspectRatio: ev.template_aspect_ratio,
+      // Detached (waitUntil) runs are killed by Workers ~30s after the 202
+      // response; abort well before that so THIS code marks the row failed.
+      timeoutMs: opts?.detached ? AI_DETACHED_TIMEOUT_MS : null,
       onAttempt: async (attempt) => {
         const { data: current } = await supabaseAdmin
           .from("assets")
