@@ -102,6 +102,17 @@ class ProviderError extends Error {
   }
 }
 
+/**
+ * Appended to EVERY prompt, guest processing and admin tests alike: the
+ * restyle must never touch the guest's face. Event prompts describe the
+ * styling (e.g. the branded shirt swap); this invariant rides along
+ * regardless of how the event prompt is worded.
+ */
+export const FACE_PRESERVATION_PROMPT =
+  "Critical: keep the person's face and facial expression EXACTLY as in the original photo — " +
+  "same identity, same expression, same gaze, same skin tone, same facial features, same hair. " +
+  "Do not beautify, restyle, retouch, or alter the face or expression in any way.";
+
 /** quality must be one of the documented enum values, else the request 400s. */
 const QUALITIES = new Set(["auto", "low", "medium", "high"]);
 
@@ -135,7 +146,7 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
 
   const body = JSON.stringify({
     model,
-    prompt: input.prompt,
+    prompt: `${input.prompt.trim()}\n\n${FACE_PRESERVATION_PROMPT}`,
     input_references: buildInputReferences(input.imageDataUrl, input.referenceDataUrl),
     ...(quality ? { quality } : {}),
     // never both — see sizeOrAspect
