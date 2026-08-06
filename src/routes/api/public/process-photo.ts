@@ -73,9 +73,19 @@ export const Route = createFileRoute("/api/public/process-photo")({
 
         console.log("[process-photo] entry", { assetId, eventId: evId, auth: staffAuth ? "staff" : "guest" });
         const { processAssetById } = await import("@/lib/photo-processing.server");
-        const result = await processAssetById(assetId);
-        console.log("[process-photo] result", { assetId, ...result });
-        return Response.json(result);
+        const work = processAssetById(assetId).then((result) => {
+          console.log("[process-photo] result", { assetId, ...result });
+          return result;
+        });
+        const { executionContextFor } = await import("@/lib/execution-context.server");
+        const context = executionContextFor(request);
+        if (context) {
+          context.waitUntil(work);
+          return Response.json({ ok: true, status: "accepted" }, { status: 202 });
+        }
+        // Local development has no Worker execution context, so await the same
+        // work instead of silently abandoning it.
+        return Response.json(await work);
       },
     },
   },

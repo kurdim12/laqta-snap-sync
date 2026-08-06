@@ -135,6 +135,9 @@ export const getGalleryByCode = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!g) return { notFound: true as const };
 
+    const { sweepStaleProcessing } = await import("@/lib/photo-processing.server");
+    await sweepStaleProcessing(g.event_id);
+
     const { data: e } = await supabaseAdmin
       .from("events")
       .select("id, slug, name, status, config, created_at, template_mode, template_frame_url")
@@ -186,6 +189,9 @@ export const getPublicGalleryBySlug = createServerFn({ method: "POST" })
     }
     const cfg = (e.config || {}) as { gallery?: { mode?: string } };
     if (cfg.gallery?.mode !== "public") return { notFound: true as const };
+
+    const { sweepStaleProcessing } = await import("@/lib/photo-processing.server");
+    await sweepStaleProcessing(e.id);
 
     const { data: aRows } = await supabaseAdmin
       .from("assets")

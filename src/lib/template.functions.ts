@@ -76,3 +76,12 @@ export const reprocessAsset = createServerFn({ method: "POST" })
     const { processAssetById } = await import("@/lib/photo-processing.server");
     return processAssetById(data.assetId);
   });
+
+export const sweepEventProcessing = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ eventId: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as never);
+    const { sweepStaleProcessing } = await import("@/lib/photo-processing.server");
+    return { swept: await sweepStaleProcessing(data.eventId) };
+  });
