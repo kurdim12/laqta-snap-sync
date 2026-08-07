@@ -71,8 +71,8 @@ export interface EventRow {
   config: EventConfig;
   staff_pin?: string | null;
   created_at: string;
-  /** none = raw photos, frame = PNG overlay, ai = AI restyle */
-  template_mode?: "none" | "frame" | "ai";
+  /** none = raw photos, frame = PNG overlay, ai = AI restyle, backdrop = canvas cutout */
+  template_mode?: "none" | "frame" | "ai" | "backdrop";
   template_prompt?: string | null;
   /** data URL of the style reference image */
   template_reference_url?: string | null;
