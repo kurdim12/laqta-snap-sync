@@ -638,7 +638,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("basics");
-  const [templateMode, setTemplateMode] = useState<"none" | "frame" | "ai">(event?.template_mode || "none");
+  const [templateMode, setTemplateMode] = useState<"none" | "frame" | "ai" | "backdrop">(event?.template_mode || "none");
   const [templatePrompt, setTemplatePrompt] = useState(event?.template_prompt || "");
   const [referenceUrl, setReferenceUrl] = useState(event?.template_reference_url || "");
   const [frameUrl, setFrameUrl] = useState(event?.template_frame_url || "");
@@ -842,6 +842,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
                 generationsUsed={event?.generations_used ?? 0}
                 maxGenerations={maxGenerations} setMaxGenerations={setMaxGenerations}
                 mode={templateMode} setMode={setTemplateMode}
+                config={config} setConfig={setConfig}
                 prompt={templatePrompt} setPrompt={setTemplatePrompt}
                 referenceUrl={referenceUrl} setReferenceUrl={setReferenceUrl}
                 frameUrl={frameUrl} setFrameUrl={setFrameUrl}
@@ -951,14 +952,15 @@ function TemplatePanel(props: {
   eventId?: string;
   generationsUsed: number;
   maxGenerations: number; setMaxGenerations: (n: number) => void;
-  mode: "none" | "frame" | "ai"; setMode: (m: "none" | "frame" | "ai") => void;
+  mode: "none" | "frame" | "ai" | "backdrop"; setMode: (m: "none" | "frame" | "ai" | "backdrop") => void;
+  config: EventConfig; setConfig: (c: EventConfig) => void;
   prompt: string; setPrompt: (v: string) => void;
   referenceUrl: string; setReferenceUrl: (v: string) => void;
   frameUrl: string; setFrameUrl: (v: string) => void;
   quality: "low" | "medium" | "high"; setQuality: (q: "low" | "medium" | "high") => void;
   aspect: string; setAspect: (v: string) => void;
 }) {
-  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
+  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
   const [sample, setSample] = useState<string | null>(null);
   const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; costIsActual?: boolean; model?: string; error?: string; attempts?: unknown[] } | null>(null);
   const [testSpend, setTestSpend] = useState<{ runs: number; total: number } | null>(null);
@@ -1009,7 +1011,7 @@ function TemplatePanel(props: {
     <div className="space-y-5">
       <Field label="Photo template mode">
         <div className="flex gap-1 rounded-xl border border-border bg-background p-1">
-          {([["none", "None"], ["frame", "Frame overlay"], ["ai", "AI style"]] as const).map(([v, label]) => (
+          {([["none", "None"], ["frame", "Frame overlay"], ["backdrop", "Backdrop ($0)"], ["ai", "AI style"]] as const).map(([v, label]) => (
             <button key={v} type="button" onClick={() => setMode(v)}
               className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition ${mode === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               {label}
@@ -1018,7 +1020,7 @@ function TemplatePanel(props: {
         </div>
       </Field>
 
-      {mode !== "none" && (
+      {(mode === "frame" || mode === "ai") && (
         <Field label={mode === "ai" ? "Frame PNG — REQUIRED fallback branding (used when a generation fails)" : "Frame PNG (transparent, laid over every photo)"}>
           <div className="space-y-2">
             {frameUrl && (
@@ -1037,6 +1039,8 @@ function TemplatePanel(props: {
           </div>
         </Field>
       )}
+
+      {mode === "backdrop" && <BackdropPanel config={config} setConfig={setConfig} />}
 
       {mode === "ai" && (
         <div className="space-y-4">
