@@ -131,7 +131,7 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
     const { error: updErr } = await withTimeout(updP, 12_000);
     if (updErr) return false;
 
-    const { assetId } = await withTimeout(registerGuestPhoto({
+    const { assetId, templateMode } = await withTimeout(registerGuestPhoto({
       data: {
         eventId: entry.eventId,
         guestId: entry.id,
@@ -140,6 +140,28 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
         bytes: entry.selfie.size,
       },
     }), 20_000);
+
+    if (templateMode === "backdrop") {
+      // Backdrop is rendered right here in the browser (cutout + brand
+      // gradient) — no provider call, no cost. Fire-and-forget: the gallery
+      // shows "applying event style…" until the processed JPEG lands.
+      const selfie = entry.selfie;
+      void (async () => {
+        const [{ applyBackdrop }, { backdropOf }, { getPublicEventBySlug }] = await Promise.all([
+          import("./backdrop-client"),
+          import("./backdrop"),
+          import("./gallery.functions"),
+        ]);
+        const { event } = await getPublicEventBySlug({ data: { slug: entry.eventSlug } }).catch(() => ({ event: null }));
+        await applyBackdrop({
+          source: selfie,
+          assetId,
+          settings: backdropOf(event?.config),
+          auth: { code: entry.code, guestId: entry.id },
+        });
+      })();
+      return true;
+    }
 
     // Do not await AI generation: the asset is already visible in the guest
     // gallery as `pending`, which immediately shows "applying event style…".
@@ -150,6 +172,7 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
       keepalive: true,
     }).catch(() => { /* gallery polling reflects any persisted failure */ });
     return true;
+
   } catch {
     return false;
   }

@@ -8,6 +8,7 @@ import { addOutbox, queueState, startSyncEngine, trySync } from "@/lib/outbox";
 import { QrCode } from "@/components/QrCode";
 import { resizeImage } from "@/lib/media";
 import { getPublicEventBySlug } from "@/lib/gallery.functions";
+import { FaceGuideCamera } from "@/components/FaceGuideCamera";
 
 export const Route = createFileRoute("/e/$slug")({
   head: () => ({ meta: [{ title: "LAQTA · Register" }] }),
@@ -48,6 +49,7 @@ function GuestForm() {
         created_at: data.created_at ?? "",
         status: data.status as EventRow["status"],
         config: { ...DEFAULT_CONFIG, ...(data.config as Partial<EventConfig>) } as EventConfig,
+        template_mode: (data.template_mode as EventRow["template_mode"]) ?? "none",
       };
       // If this event doesn't collect registrations, send guests straight to the public gallery
       if (event.config.registration === "none") {
@@ -204,6 +206,7 @@ function ReadyForm({ event }: { event: EventRow }) {
         <form onSubmit={onSubmit} className="mt-10 space-y-5">
           {selfieMode !== "off" && (
             <SelfieCapture
+              guided={event.template_mode === "backdrop"}
               preview={selfiePreview}
               required={selfieMode === "required"}
               lang={lang}
@@ -253,10 +256,12 @@ function ReadyForm({ event }: { event: EventRow }) {
 }
 
 function SelfieCapture({
-  preview, required, lang, error, onPick, onClear,
+  preview, required, lang, error, onPick, onClear, guided = false,
 }: {
   preview: string | null;
   required: boolean;
+  /** backdrop events: open the in-app camera with an oval face guide */
+  guided?: boolean;
   lang: "ar" | "en";
   error?: string;
   onPick: (f: File) => void;
@@ -264,8 +269,11 @@ function SelfieCapture({
 }) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const [camOpen, setCamOpen] = useState(false);
   const label = lang === "ar" ? "صورة شخصية" : "Selfie";
-  const tap = lang === "ar" ? "اضغط لالتقاط صورة" : "Tap to take a selfie";
+  const tap = guided
+    ? (lang === "ar" ? "لوّح للكاميرا!" : "Wave at the camera!")
+    : (lang === "ar" ? "اضغط لالتقاط صورة" : "Tap to take a selfie");
   const choose = lang === "ar" ? "اختر من المعرض" : "Choose from gallery";
   return (
     <div className="flex flex-col items-center">
@@ -274,7 +282,7 @@ function SelfieCapture({
       </label>
       <button
         type="button"
-        onClick={() => cameraRef.current?.click()}
+        onClick={() => (guided ? setCamOpen(true) : cameraRef.current?.click())}
         className={`relative grid h-32 w-32 place-items-center overflow-hidden rounded-full border-2 ${error ? "border-destructive" : "border-primary/40"} bg-card transition hover:border-primary`}
       >
         {preview ? (
@@ -311,7 +319,19 @@ function SelfieCapture({
           </button>
         )}
       </div>
+      {guided && (
+        <p className="mt-2 max-w-xs text-center text-[11px] leading-snug text-muted-foreground">
+          👋 لوّح للكاميرا وضع رأسك وكتفيك داخل البيضاوي
+          <span className="block">Wave at the camera — fit your head and shoulders in the oval</span>
+        </p>
+      )}
       {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
+      {camOpen && (
+        <FaceGuideCamera
+          onClose={() => setCamOpen(false)}
+          onCapture={(f) => { setCamOpen(false); onPick(f); }}
+        />
+      )}
     </div>
   );
 }

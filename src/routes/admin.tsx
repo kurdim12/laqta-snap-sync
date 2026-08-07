@@ -12,6 +12,8 @@ import type { AssetRow } from "@/lib/types";
 import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
 import { testTemplate, reprocessAsset, sweepEventProcessing } from "@/lib/template.functions";
 import { toast } from "sonner";
+import { backdropOf, renderBackdrop } from "@/lib/backdrop";
+import { wallOf } from "@/lib/wall";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -638,7 +640,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("basics");
-  const [templateMode, setTemplateMode] = useState<"none" | "frame" | "ai">(event?.template_mode || "none");
+  const [templateMode, setTemplateMode] = useState<"none" | "frame" | "ai" | "backdrop">(event?.template_mode || "none");
   const [templatePrompt, setTemplatePrompt] = useState(event?.template_prompt || "");
   const [referenceUrl, setReferenceUrl] = useState(event?.template_reference_url || "");
   const [frameUrl, setFrameUrl] = useState(event?.template_frame_url || "");
@@ -842,6 +844,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
                 generationsUsed={event?.generations_used ?? 0}
                 maxGenerations={maxGenerations} setMaxGenerations={setMaxGenerations}
                 mode={templateMode} setMode={setTemplateMode}
+                config={config} setConfig={setConfig}
                 prompt={templatePrompt} setPrompt={setTemplatePrompt}
                 referenceUrl={referenceUrl} setReferenceUrl={setReferenceUrl}
                 frameUrl={frameUrl} setFrameUrl={setFrameUrl}
@@ -951,14 +954,15 @@ function TemplatePanel(props: {
   eventId?: string;
   generationsUsed: number;
   maxGenerations: number; setMaxGenerations: (n: number) => void;
-  mode: "none" | "frame" | "ai"; setMode: (m: "none" | "frame" | "ai") => void;
+  mode: "none" | "frame" | "ai" | "backdrop"; setMode: (m: "none" | "frame" | "ai" | "backdrop") => void;
+  config: EventConfig; setConfig: (c: EventConfig) => void;
   prompt: string; setPrompt: (v: string) => void;
   referenceUrl: string; setReferenceUrl: (v: string) => void;
   frameUrl: string; setFrameUrl: (v: string) => void;
   quality: "low" | "medium" | "high"; setQuality: (q: "low" | "medium" | "high") => void;
   aspect: string; setAspect: (v: string) => void;
 }) {
-  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
+  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
   const [sample, setSample] = useState<string | null>(null);
   const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; costIsActual?: boolean; model?: string; error?: string; attempts?: unknown[] } | null>(null);
   const [testSpend, setTestSpend] = useState<{ runs: number; total: number } | null>(null);
@@ -1009,7 +1013,7 @@ function TemplatePanel(props: {
     <div className="space-y-5">
       <Field label="Photo template mode">
         <div className="flex gap-1 rounded-xl border border-border bg-background p-1">
-          {([["none", "None"], ["frame", "Frame overlay"], ["ai", "AI style"]] as const).map(([v, label]) => (
+          {([["none", "None"], ["frame", "Frame overlay"], ["backdrop", "Backdrop ($0)"], ["ai", "AI style"]] as const).map(([v, label]) => (
             <button key={v} type="button" onClick={() => setMode(v)}
               className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition ${mode === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               {label}
@@ -1018,7 +1022,7 @@ function TemplatePanel(props: {
         </div>
       </Field>
 
-      {mode !== "none" && (
+      {(mode === "frame" || mode === "ai") && (
         <Field label={mode === "ai" ? "Frame PNG — REQUIRED fallback branding (used when a generation fails)" : "Frame PNG (transparent, laid over every photo)"}>
           <div className="space-y-2">
             {frameUrl && (
@@ -1037,6 +1041,8 @@ function TemplatePanel(props: {
           </div>
         </Field>
       )}
+
+      {mode === "backdrop" && <BackdropPanel config={config} setConfig={setConfig} />}
 
       {mode === "ai" && (
         <div className="space-y-4">
@@ -1158,6 +1164,146 @@ function TemplatePanel(props: {
       )}
 
       {mode === "none" && <p className="text-sm text-muted-foreground">Photos are delivered exactly as shot.</p>}
+    </div>
+  );
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Backdrop treatment ($0 — browser cutout + brand gradient)           */
+/* ------------------------------------------------------------------ */
+
+function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: (c: EventConfig) => void }) {
+  const settings = backdropOf(config);
+  const wall = wallOf(config);
+  const [sample, setSample] = useState<string | null>(null);
+  const [out, setOut] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  function patch(p: Partial<typeof settings>) {
+    setConfig({ ...config, backdrop: { ...settings, ...p } });
+  }
+  function patchWall(p: Partial<typeof wall>) {
+    setConfig({ ...config, wall: { ...wall, ...p } });
+  }
+
+  async function run(file: File) {
+    setErr(null); setBusy(true); setOut(null);
+    const url = URL.createObjectURL(file);
+    setSample(url);
+    try {
+      const blob = await renderBackdrop(file, settings, "preview-seed");
+      setOut(URL.createObjectURL(blob));
+    } catch (e) {
+      setErr((e as Error).message || "render failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+        The subject is cut out in the guest's browser and placed on a brand gradient — no AI, no provider calls,
+        <b className="text-foreground"> $0 per photo</b>. Photos land on the wall at <code>/wall/{"{slug}"}</code>.
+      </p>
+
+      <Field label="Gradient palette (one tile colour per pair)">
+        <div className="space-y-2">
+          {settings.palette.map((p, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div className="h-8 w-16 rounded" style={{ background: `linear-gradient(135deg, ${p.from}, ${p.to})` }} />
+              <input type="color" value={p.from} onChange={(e) => {
+                const palette = settings.palette.slice(); palette[i] = { ...p, from: e.target.value }; patch({ palette });
+              }} className="h-8 w-10 rounded border border-border bg-transparent" />
+              <input type="color" value={p.to} onChange={(e) => {
+                const palette = settings.palette.slice(); palette[i] = { ...p, to: e.target.value }; patch({ palette });
+              }} className="h-8 w-10 rounded border border-border bg-transparent" />
+              <button type="button" onClick={() => patch({ palette: settings.palette.filter((_, j) => j !== i) })}
+                disabled={settings.palette.length <= 1}
+                className="text-xs font-semibold text-destructive underline disabled:opacity-30">Remove</button>
+            </div>
+          ))}
+          <button type="button" onClick={() => patch({ palette: [...settings.palette, { from: "#111827", to: "#4B5563" }] })}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold">+ Add colour</button>
+        </div>
+      </Field>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Tile shape">
+          <select value={settings.aspect} onChange={(e) => patch({ aspect: e.target.value as "1:1" | "4:5" })} className="input">
+            <option value="4:5">Portrait · 4:5</option>
+            <option value="1:1">Square · 1:1</option>
+          </select>
+        </Field>
+        <Field label={`Halftone texture · ${settings.halftoneOpacity}%`}>
+          <div className="flex items-center gap-3">
+            <input type="checkbox" checked={settings.halftone} onChange={(e) => patch({ halftone: e.target.checked })} className="h-5 w-5" />
+            <input type="range" min={0} max={40} value={settings.halftoneOpacity} disabled={!settings.halftone}
+              onChange={(e) => patch({ halftoneOpacity: Number(e.target.value) })} className="w-full" />
+          </div>
+        </Field>
+      </div>
+
+      <div className="rounded-xl border border-border bg-muted/30 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="cursor-pointer rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">
+            {sample ? "Try another photo" : "Test on a photo"}
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+              const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) run(f);
+            }} />
+          </label>
+          <span className="text-[11px] text-muted-foreground">Renders locally · cost $0.00</span>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Before</div>
+            <div className="grid aspect-[4/5] place-items-center overflow-hidden rounded-lg border border-border bg-muted">
+              {sample ? <img src={sample} alt="sample" className="h-full w-full object-cover" /> : <span className="text-xs text-muted-foreground">No sample yet</span>}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Wall tile</div>
+            <div className="grid aspect-[4/5] place-items-center overflow-hidden rounded-lg border border-border bg-muted">
+              {busy ? <span className="animate-pulse text-xs text-muted-foreground">Cutting out…</span>
+                : out ? <img src={out} alt="backdrop result" className="h-full w-full object-cover" />
+                : <span className="text-xs text-muted-foreground">Run a test to preview</span>}
+            </div>
+          </div>
+        </div>
+        {err && <p className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{err}</p>}
+      </div>
+
+      <Field label="Wall display">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-xs text-muted-foreground">Columns
+            <input type="number" min={1} max={6} value={wall.columns} onChange={(e) => patchWall({ columns: Math.max(1, Math.min(6, Number(e.target.value) || 3)) })} className="input" />
+          </label>
+          <label className="text-xs text-muted-foreground">Refresh every (sec)
+            <input type="number" min={3} max={120} value={wall.intervalSec} onChange={(e) => patchWall({ intervalSec: Math.max(3, Math.min(120, Number(e.target.value) || 8)) })} className="input" />
+          </label>
+        </div>
+        <div className="mt-3 space-y-2">
+          {wall.tiles.map((t, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input value={t.text} onChange={(e) => {
+                const tiles = wall.tiles.slice(); tiles[i] = { ...t, text: e.target.value }; patchWall({ tiles });
+              }} className="input flex-1" placeholder="CHANGING MOBILITY FOREVER" />
+              <input type="color" value={t.background} onChange={(e) => {
+                const tiles = wall.tiles.slice(); tiles[i] = { ...t, background: e.target.value }; patchWall({ tiles });
+              }} className="h-8 w-10 rounded border border-border bg-transparent" />
+              <input type="color" value={t.color} onChange={(e) => {
+                const tiles = wall.tiles.slice(); tiles[i] = { ...t, color: e.target.value }; patchWall({ tiles });
+              }} className="h-8 w-10 rounded border border-border bg-transparent" />
+              <button type="button" onClick={() => patchWall({ tiles: wall.tiles.filter((_, j) => j !== i) })}
+                className="text-xs font-semibold text-destructive underline">Remove</button>
+            </div>
+          ))}
+          <button type="button" onClick={() => patchWall({ tiles: [...wall.tiles, { text: "WHY NOT", background: "#0A0A0A", color: "#FFFFFF" }] })}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold">+ Add brand tile</button>
+        </div>
+      </Field>
     </div>
   );
 }

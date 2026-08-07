@@ -216,7 +216,7 @@ export const registerGuestPhoto = createServerFn({ method: "POST" })
       bytes: z.number().int().positive().max(15 * 1024 * 1024),
     }),
   )
-  .handler(async ({ data }): Promise<{ assetId: string }> => {
+  .handler(async ({ data }): Promise<{ assetId: string; templateMode: string }> => {
     if (!rateLimit(`register-guest-photo:${ipKey()}`, 30, 60_000)) {
       throw new Error("Too many requests");
     }
@@ -242,7 +242,9 @@ export const registerGuestPhoto = createServerFn({ method: "POST" })
     }
     const cfg = (event.config || {}) as { gallery?: { requireApproval?: boolean } };
     const approved = cfg.gallery?.requireApproval !== true;
-    const processStatus = event.template_mode === "ai" ? "pending" : "done";
+    // AI runs server-side; backdrop is rendered by the browser that uploaded it.
+    const templateMode = String(event.template_mode ?? "none");
+    const processStatus = templateMode === "ai" || templateMode === "backdrop" ? "pending" : "done";
 
     const { error } = await supabaseAdmin.from("assets").upsert({
       id: data.guestId,
@@ -261,5 +263,5 @@ export const registerGuestPhoto = createServerFn({ method: "POST" })
       error_message: null,
     }, { onConflict: "id" });
     if (error) throw new Error(`could not register guest photo: ${error.message}`);
-    return { assetId: data.guestId };
+    return { assetId: data.guestId, templateMode };
   });

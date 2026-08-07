@@ -8,6 +8,27 @@ export interface EventField {
   label: Bilingual;
 }
 
+export interface BackdropSettingsConfig {
+  palette: { from: string; to: string }[];
+  halftone: boolean;
+  halftoneOpacity: number;
+  aspect: "1:1" | "4:5";
+}
+
+export interface WallTile {
+  text: string;
+  /** hex background; omit for a gradient-free black tile */
+  background: string;
+  color: string;
+}
+
+export interface WallConfig {
+  columns: number;
+  /** seconds between grid refreshes/advances */
+  intervalSec: number;
+  tiles: WallTile[];
+}
+
 export interface EventConfig {
   locale: Locale;
   /** "open" = guests register on /e/:slug; "none" = no registration form, QR opens public gallery */
@@ -19,7 +40,12 @@ export interface EventConfig {
   gallery: { allowDownloadAll: boolean; showVideos: boolean; mode: "private" | "public"; requireApproval?: boolean };
   selfie: "required" | "optional" | "off";
   limits: { maxVideoMB: number; maxPhotoMB: number };
+  /** settings for template_mode = "backdrop" (client-side, $0 per photo) */
+  backdrop?: BackdropSettingsConfig;
+  /** settings for the /wall/:slug venue display */
+  wall?: WallConfig;
 }
+
 
 export const DEFAULT_CONFIG: EventConfig = {
   locale: "both",
@@ -45,8 +71,8 @@ export interface EventRow {
   config: EventConfig;
   staff_pin?: string | null;
   created_at: string;
-  /** none = raw photos, frame = PNG overlay, ai = AI restyle */
-  template_mode?: "none" | "frame" | "ai";
+  /** none = raw photos, frame = PNG overlay, ai = AI restyle, backdrop = canvas cutout */
+  template_mode?: "none" | "frame" | "ai" | "backdrop";
   template_prompt?: string | null;
   /** data URL of the style reference image */
   template_reference_url?: string | null;
