@@ -303,3 +303,43 @@ export const listPublicEvents = createServerFn({ method: "GET" }).handler(
     return { events: (data || []) as { slug: string; name: string; status: string }[] };
   },
 );
+
+// ---------------- venue wall display ----------------
+export const getWallBySlug = createServerFn({ method: "POST" })
+  .inputValidator((d: { slug: string }) => ({ slug: String(d?.slug || "").slice(0, 128) }))
+  .handler(async ({ data }): Promise<{
+    event: { name: string; config: Record<string, any>; template_mode: string | null } | null; // eslint-disable-line @typescript-eslint/no-explicit-any
+    photos: { id: string; url: string; created_at: string }[];
+  }> => {
+    if (!rateLimit(`wall:${ipKey()}`, 240, 60_000)) throw new Error("Too many requests");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: ev } = await supabaseAdmin
+      .from("events")
+      .select("id, name, status, config, template_mode")
+      .eq("slug", data.slug)
+      .maybeSingle();
+    if (!ev || (ev.status !== "live" && ev.status !== "dryrun")) return { event: null, photos: [] };
+
+    const { data: rows } = await supabaseAdmin
+      .from("assets")
+      .select("id, storage_path, processed_url, process_status, created_at, kind, variant, approved, status")
+      .eq("event_id", ev.id)
+      .eq("kind", "photo")
+      .eq("status", "ready")
+      .is("parent_asset_id", null)
+      .order("created_at", { ascending: false })
+      .limit(90);
+
+    const usable = (rows || []).filter(
+      (r) => r.approved !== false && (r.processed_url || r.process_status === "done" || r.process_status === "failed"),
+    );
+    const paths = usable.map((r) => r.processed_url || r.storage_path);
+    const urls = await signMany(paths);
+    const photos = usable
+      .map((r) => ({ id: r.id, url: urls[r.processed_url || r.storage_path], created_at: r.created_at }))
+      .filter((p) => !!p.url);
+    return {
+      event: { name: ev.name, config: (ev.config || {}) as Record<string, unknown>, template_mode: ev.template_mode ?? null },
+      photos,
+    };
+  });
