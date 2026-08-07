@@ -8,6 +8,8 @@ import { resizeImage, videoPoster } from "@/lib/media";
 import { SelfieAvatar } from "@/components/SelfieAvatar";
 import { mintStaffUploadUrls } from "@/lib/upload.functions";
 import { getPublicEventBySlug } from "@/lib/gallery.functions";
+import { FaceGuideCamera } from "@/components/FaceGuideCamera";
+import { backdropOf } from "@/lib/backdrop";
 
 export const Route = createFileRoute("/staff/$slug")({
   head: () => ({ meta: [{ title: "LAQTA · Staff" }] }),
@@ -92,6 +94,7 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   const [liveOn, setLiveOn] = useState(false);
+  const [camOpen, setCamOpen] = useState(false);
   const queueRef = useRef(queue);
   queueRef.current = queue;
   // Stop the queue from running in the background after the page unmounts
@@ -209,7 +212,20 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
       // photos — the server decides (and returns "skipped" when the event is
       // not in AI mode), so a stale client copy of the event can never silently
       // disable generation. Fire-and-forget: the gallery polls for the render.
-      if (kind === "photo") {
+      if (kind === "photo" && event.template_mode === "backdrop") {
+        // Backdrop is rendered right here in the browser (cutout + brand
+        // gradient) — no provider, no cost.
+        const file = item.file;
+        void (async () => {
+          const { applyBackdrop } = await import("@/lib/backdrop-client");
+          await applyBackdrop({
+            source: file,
+            assetId,
+            settings: backdropOf(event.config),
+            auth: { slug: event.slug, pin },
+          });
+        })();
+      } else if (kind === "photo") {
         void fetch("/api/public/process-photo", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -344,6 +360,25 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
         </section>
 
         <section className="space-y-4">
+          {event.template_mode === "backdrop" && (
+            <button
+              type="button"
+              onClick={() => setCamOpen(true)}
+              className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground"
+            >
+              📸 Guided capture · التقاط موجّه
+              <span className="mt-0.5 block text-xs font-medium opacity-80">
+                Oval face guide + “Wave at the camera!” prompt
+              </span>
+            </button>
+          )}
+          {camOpen && (
+            <FaceGuideCamera
+              facing="environment"
+              onClose={() => setCamOpen(false)}
+              onCapture={(f) => { setCamOpen(false); onFiles([f]); }}
+            />
+          )}
           <Dropzone onFiles={onFiles} />
           <div className="rounded-xl border border-border bg-card p-3">
             <h2 className="mb-3 text-sm font-bold text-muted-foreground">{pick(T.queue, "en")}</h2>
