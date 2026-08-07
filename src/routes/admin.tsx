@@ -358,6 +358,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
         <CopyLink label="Guest form" url={formUrl} />
         <CopyLink label="Staff console" url={staffUrl} />
         <CopyLink label={ev.config.gallery?.mode === "public" ? "Public wall" : "Gallery (private)"} url={galleryUrl} disabled={ev.config.gallery?.mode !== "public"} />
+        <CopyLink label="Live wall display" url={wallUrl} />
       </div>
 
       {editing && <EventEditor event={ev} onClose={() => { setEditing(false); onChange(); }} />}
