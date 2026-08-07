@@ -327,12 +327,13 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
         )}
 
         {/* Primary actions */}
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <button onClick={() => setShowPhotos(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
           <button onClick={() => setShowRegs(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Registrations</button>
           <button onClick={() => setShowDiag(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted" title="AI pipeline diagnostics">🩺 Diagnostics</button>
           <button onClick={() => setShowQr(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">QR code</button>
           <button onClick={() => setEditing(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Edit</button>
+          <a href={wallUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:opacity-90" title="Open venue wall in a new tab">▦ Live wall ↗</a>
         </div>
 
         {/* Status + delete */}
@@ -1014,8 +1015,8 @@ function TemplatePanel(props: {
   return (
     <div className="space-y-5">
       <Field label="Photo template mode">
-        <div className="flex gap-1 rounded-xl border border-border bg-background p-1">
-          {([["none", "None"], ["frame", "Frame overlay"], ["backdrop", "Backdrop ($0)"], ["ai", "AI style"]] as const).map(([v, label]) => (
+        <div className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-background p-1 sm:grid-cols-4">
+          {([["none", "None"], ["frame", "Frame overlay"], ["backdrop", "Backdrop ($0, no AI)"], ["ai", "AI style"]] as const).map(([v, label]) => (
             <button key={v} type="button" onClick={() => setMode(v)}
               className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition ${mode === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               {label}
