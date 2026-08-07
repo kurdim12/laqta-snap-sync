@@ -12,7 +12,8 @@ import type { AssetRow } from "@/lib/types";
 import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
 import { testTemplate, reprocessAsset, sweepEventProcessing } from "@/lib/template.functions";
 import { toast } from "sonner";
-import { backdropOf, renderBackdrop, DEFAULT_BACKDROP } from "@/lib/backdrop";
+import { backdropOf, renderBackdrop } from "@/lib/backdrop";
+import { wallOf } from "@/lib/wall";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -1174,7 +1175,7 @@ function TemplatePanel(props: {
 
 function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: (c: EventConfig) => void }) {
   const settings = backdropOf(config);
-  const wall = config.wall ?? { columns: 3, intervalSec: 8, tiles: DEFAULT_WALL_TILES };
+  const wall = wallOf(config);
   const [sample, setSample] = useState<string | null>(null);
   const [out, setOut] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
