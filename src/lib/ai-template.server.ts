@@ -4,6 +4,8 @@
 // photo (and an optional style reference image) as input_references.
 // Never imported from client code.
 
+import { isAiImageModel, DEFAULT_AI_IMAGE_MODEL } from "./ai-models";
+
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/images";
 
 /** Hard wall-clock timeout for a single provider call while a connection is
@@ -33,12 +35,13 @@ export function estimateCost(q: string | null | undefined): number {
   return COST[(q as Quality) || "medium"] ?? COST.medium;
 }
 
-export function modelId(): string {
-  // google/gemini-3.1-flash-image is deliberate: ~8s and ~$0.068 per photo vs
-  // ~94s and ~$0.12 for openai/gpt-image-2. A live-booth guest is waiting, and
-  // detached Worker processing only has ~30s of waitUntil budget — the fast
-  // model is the only one that fits it. Override with AI_IMAGE_MODEL if needed.
-  return process.env["AI_IMAGE_MODEL"] || "google/gemini-3.1-flash-image";
+export function modelId(override?: string | null): string {
+  // Per-event override wins (admin picks it in the Template tab), then the env
+  // override, then the fast default: google/gemini-3.1-flash-image is ~8s and
+  // ~$0.068 per photo vs ~94s and ~$0.12 for openai/gpt-image-2. A live-booth
+  // guest is waiting, and detached Worker processing only has ~30s of budget.
+  if (override && isAiImageModel(override)) return override;
+  return process.env["AI_IMAGE_MODEL"] || DEFAULT_AI_IMAGE_MODEL;
 }
 
 
@@ -49,6 +52,8 @@ export interface GenerateInput {
   /** optional second reference, e.g. a flat photo of the branded shirt */
   referenceDataUrl?: string | null;
   quality?: string | null;
+  /** per-event image model override (must be in AI_IMAGE_MODELS) */
+  model?: string | null;
   aspectRatio?: string | null;
   /** provider-call abort, defaults to AI_TIMEOUT_MS — detached callers must
    * pass AI_DETACHED_TIMEOUT_MS so the abort fires before Workers kills them */
@@ -136,7 +141,7 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
   const key = process.env["OPENROUTER_API_KEY"];
   if (!key) throw new Error("OPENROUTER_API_KEY is not configured");
 
-  const model = modelId();
+  const model = modelId(input.model);
   const started = Date.now();
   const timeoutMs = input.timeoutMs || AI_TIMEOUT_MS;
   // ONE deadline for the whole call, shared by the retry. A per-attempt signal

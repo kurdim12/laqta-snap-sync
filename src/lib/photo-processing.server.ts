@@ -61,7 +61,7 @@ export async function processAssetById(
 
   const { data: ev } = await supabaseAdmin
     .from("events")
-    .select("id, template_mode, template_prompt, template_reference_url, template_quality, template_aspect_ratio")
+    .select("id, template_mode, template_prompt, template_reference_url, template_quality, template_aspect_ratio, template_model")
     .eq("id", asset.event_id)
     .maybeSingle();
   if (!ev || ev.template_mode !== "ai" || !ev.template_prompt) {
@@ -119,6 +119,7 @@ export async function processAssetById(
       referenceDataUrl: ref && ref.startsWith("data:") ? ref : null,
       quality: ev.template_quality,
       aspectRatio: ev.template_aspect_ratio,
+      model: (ev as { template_model?: string | null }).template_model ?? null,
       // Detached (waitUntil) runs are killed by Workers ~30s after the 202
       // response; abort well before that so THIS code marks the row failed.
       timeoutMs: opts?.detached ? AI_DETACHED_TIMEOUT_MS : null,

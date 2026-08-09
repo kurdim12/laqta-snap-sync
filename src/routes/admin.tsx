@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { backdropOf, renderBackdrop } from "@/lib/backdrop";
 import { wallOf } from "@/lib/wall";
 import { SHIRT_VARIANTS } from "@/lib/shirts";
+import { AI_IMAGE_MODELS, DEFAULT_AI_IMAGE_MODEL } from "@/lib/ai-models";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -653,6 +654,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   const [frameUrl, setFrameUrl] = useState(event?.template_frame_url || "");
   const [quality, setQuality] = useState<"low" | "medium" | "high">(event?.template_quality || "medium");
   const [aspect, setAspect] = useState(event?.template_aspect_ratio || "1024x1024");
+  const [model, setModel] = useState<string>((event as { template_model?: string | null } | undefined)?.template_model || DEFAULT_AI_IMAGE_MODEL);
   const [maxGenerations, setMaxGenerations] = useState<number>(event?.max_generations ?? 150);
 
   async function save() {
@@ -672,6 +674,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
       template_frame_url: frameUrl || null,
       template_quality: quality,
       template_aspect_ratio: aspect,
+      template_model: model || null,
       max_generations: Math.max(0, Math.min(100000, Number(maxGenerations) || 0)),
     };
     const q = event
@@ -859,6 +862,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
                 frameUrl={frameUrl} setFrameUrl={setFrameUrl}
                 quality={quality} setQuality={setQuality}
                 aspect={aspect} setAspect={setAspect}
+                model={model} setModel={setModel}
               />
             )}
 
@@ -971,8 +975,9 @@ function TemplatePanel(props: {
   frameUrl: string; setFrameUrl: (v: string) => void;
   quality: "low" | "medium" | "high"; setQuality: (q: "low" | "medium" | "high") => void;
   aspect: string; setAspect: (v: string) => void;
+  model: string; setModel: (v: string) => void;
 }) {
-  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
+  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect, model, setModel } = props;
   const [sample, setSample] = useState<string | null>(null);
   const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; costIsActual?: boolean; model?: string; error?: string; attempts?: unknown[] } | null>(null);
   const [testSpend, setTestSpend] = useState<{ runs: number; total: number } | null>(null);
@@ -1006,7 +1011,7 @@ function TemplatePanel(props: {
     setTesting(true); setResult(null);
     try {
       const r = await testTemplate({
-        data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, quality, aspectRatio: aspect, eventId: eventId ?? null },
+        data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, quality, aspectRatio: aspect, model: model || null, eventId: eventId ?? null },
       });
       setResult(r.ok
         ? { dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, costIsActual: r.costIsActual, model: r.model, attempts: r.attempts }
@@ -1060,6 +1065,17 @@ function TemplatePanel(props: {
             <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4}
               placeholder="e.g. Turn this into a cinematic golden-hour editorial portrait with warm film grain, keep the face unchanged."
               className="input resize-y" />
+          </Field>
+
+          <Field label="AI model · نموذج الذكاء الاصطناعي">
+            <select value={model} onChange={(e) => setModel(e.target.value)} className="input">
+              {AI_IMAGE_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {AI_IMAGE_MODELS.find((m) => m.id === model)?.note ?? "Choose which image model generates this event's photos."}
+            </p>
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">

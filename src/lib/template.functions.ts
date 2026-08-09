@@ -30,6 +30,7 @@ export const testTemplate = createServerFn({ method: "POST" })
       referenceDataUrl: z.string().max(12_000_000).nullish(),
       quality: z.enum(["low", "medium", "high"]).default("medium"),
       aspectRatio: z.string().max(32).default("1024x1024"),
+      model: z.string().max(120).nullish(),
       eventId: z.string().uuid().nullish(),
     }),
   )
@@ -59,6 +60,7 @@ export const testTemplate = createServerFn({ method: "POST" })
         referenceDataUrl: data.referenceDataUrl ?? null,
         quality: data.quality,
         aspectRatio: data.aspectRatio,
+        model: data.model ?? null,
         onAttempt: async (a) => { attempts.push(a); },
       });
       await supabaseAdmin.from("template_test_runs").insert({
@@ -75,7 +77,7 @@ export const testTemplate = createServerFn({ method: "POST" })
       await supabaseAdmin.from("template_test_runs").insert({
         event_id: data.eventId ?? null,
         user_id: userId,
-        model: modelId(),
+        model: modelId(data.model ?? null),
         cost: 0,
         ms: 0,
         ok: false,
