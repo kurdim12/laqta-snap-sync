@@ -7,10 +7,10 @@ import type { WallTile } from "@/lib/types";
 export const Route = createFileRoute("/wall/$slug")({
   head: () => ({
     meta: [
-      { title: "LAQTA · Live Wall" },
-      { name: "description", content: "Live photo wall for the event — guest portraits on brand backdrops, refreshed as they arrive." },
-      { property: "og:title", content: "LAQTA · Live Wall" },
-      { property: "og:description", content: "Live photo wall for the event — guest portraits on brand backdrops." },
+      { title: "LAQTA · Live Portrait Wall" },
+      { name: "description", content: "A live installation wall of guest portraits on vivid LAQTA backdrops, updating as new shots land." },
+      { property: "og:title", content: "LAQTA · Live Portrait Wall" },
+      { property: "og:description", content: "A live installation wall of guest portraits on vivid LAQTA backdrops." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -19,7 +19,20 @@ export const Route = createFileRoute("/wall/$slug")({
 });
 
 type Photo = { id: string; url: string; created_at: string };
-type Cell = { kind: "photo"; photo: Photo } | { kind: "tile"; tile: WallTile; key: string };
+type Cell =
+  | { kind: "photo"; photo: Photo; key: string }
+  | { kind: "tile"; tile: WallTile; key: string }
+  | { kind: "placeholder"; key: string; hue: number };
+
+/** Vivid backlit panel colours, echoing the reference installation. */
+const PLACEHOLDER_GRADIENTS = [
+  "linear-gradient(160deg,#7C3AED,#2563EB)",
+  "linear-gradient(160deg,#06B6D4,#34D399)",
+  "linear-gradient(160deg,#F43F5E,#F59E0B)",
+  "linear-gradient(160deg,#EC4899,#8B5CF6)",
+  "linear-gradient(160deg,#0EA5E9,#1E1B4B)",
+  "linear-gradient(160deg,#22D3EE,#3B82F6)",
+];
 
 function Wall() {
   const { slug } = useParams({ from: "/wall/$slug" });
@@ -42,7 +55,6 @@ function Wall() {
       setMissing(false);
       setName(r.event.name);
       setConfig(r.event.config as Record<string, unknown>);
-      // Celebrate the first new photo of each poll with a full-bleed hero.
       const fresh = r.photos.find((p) => !seen.current.has(p.id));
       const first = seen.current.size === 0;
       r.photos.forEach((p) => seen.current.add(p.id));
@@ -57,27 +69,30 @@ function Wall() {
     return () => { alive = false; clearInterval(i); };
   }, [slug]);
 
-  // Advance the visible window so an event with many photos keeps cycling.
   useEffect(() => {
     const i = setInterval(() => setOffset((o) => o + 1), wall.intervalSec * 1000);
     return () => clearInterval(i);
   }, [wall.intervalSec]);
 
-  const rows = 4;
+  const rows = 6;
   const capacity = wall.columns * rows;
 
   const cells: Cell[] = useMemo(() => {
-    if (photos.length === 0) return [];
     const out: Cell[] = [];
     const start = photos.length ? (offset * wall.columns) % photos.length : 0;
     let t = 0;
+    let p = 0;
     for (let i = 0; i < capacity; i++) {
-      // one brand tile every 5th cell, exactly like the reference wall
+      // one brand / statement tile every 5th slot — the rhythm of the reference wall
       if (i > 0 && i % 5 === 4 && wall.tiles.length) {
         out.push({ kind: "tile", tile: wall.tiles[t % wall.tiles.length], key: `t${i}-${t}` });
         t++;
+      } else if (photos.length) {
+        const photo = photos[(start + p) % photos.length];
+        out.push({ kind: "photo", photo, key: `p${i}-${photo.id}` });
+        p++;
       } else {
-        out.push({ kind: "photo", photo: photos[(start + i) % photos.length] });
+        out.push({ kind: "placeholder", key: `ph${i}`, hue: i });
       }
     }
     return out;
@@ -87,49 +102,108 @@ function Wall() {
     return (
       <main className="grid min-h-screen place-items-center bg-black text-center text-white">
         <div>
-          <div className="code-display text-5xl">LAQTA</div>
-          <p className="mt-4 text-white/60">This wall is not available</p>
+          <div className="text-6xl font-black tracking-[0.35em]">LAQTA</div>
+          <p className="mt-4 text-white/50">This wall is not available</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-black">
+    <main className="relative min-h-screen overflow-hidden bg-black">
+      {/* room glow behind the tower */}
       <div
-        className="grid h-screen w-screen gap-1 p-1"
-        style={{ gridTemplateColumns: `repeat(${wall.columns}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}
-      >
-        {cells.length === 0 && (
-          <div className="col-span-full row-span-full grid place-items-center text-center text-white">
-            <div>
-              <div className="code-display text-6xl">{name || "LAQTA"}</div>
-              <p className="mt-4 animate-pulse text-white/50">Waiting for the first photo…</p>
-            </div>
-          </div>
-        )}
-        {cells.map((c, i) =>
-          c.kind === "photo" ? (
-            <div key={`${c.photo.id}-${i}`} className="relative overflow-hidden">
-              <img src={c.photo.url} alt="" loading="lazy" className="h-full w-full object-cover animate-in fade-in duration-700" />
-            </div>
-          ) : (
-            <div
-              key={c.key}
-              className="grid place-items-center p-4 text-center"
-              style={{ background: c.tile.background, color: c.tile.color }}
-            >
-              <span className="text-[clamp(0.9rem,2vw,2.2rem)] font-black uppercase leading-tight tracking-tight">
-                {c.tile.text}
-              </span>
-            </div>
-          ),
-        )}
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(65% 45% at 50% 30%, rgba(56,189,248,0.10), transparent 70%)" }}
+      />
+
+      {/* the tower */}
+      <div className="relative mx-auto flex h-screen max-w-[min(100vw,calc(100vh*0.56))] flex-col px-[1.2vh] py-[1.2vh]">
+        <div className="mb-[1vh] flex items-center justify-between px-[0.4vh]">
+          <span className="text-[1.5vh] font-black uppercase tracking-[0.5em] text-white/80">LAQTA</span>
+          <span className="truncate text-[1.2vh] font-semibold uppercase tracking-[0.3em] text-white/35">{name}</span>
+        </div>
+
+        <div
+          className="grid min-h-0 flex-1 gap-[0.7vh] rounded-[0.6vh] bg-black p-[0.7vh] ring-1 ring-white/10"
+          style={{
+            gridTemplateColumns: `repeat(${wall.columns}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+            boxShadow: "0 0 12vh rgba(59,130,246,0.15)",
+          }}
+        >
+          {cells.map((c) =>
+            c.kind === "photo" ? (
+              <figure
+                key={c.key}
+                className="relative overflow-hidden bg-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+              >
+                <img
+                  src={c.photo.url}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full animate-in object-cover fade-in duration-1000"
+                />
+                {/* backlit panel: inner bevel + soft top sheen */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    boxShadow: "inset 0 0 3vh rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.10)",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.10), transparent 35%)",
+                  }}
+                />
+              </figure>
+            ) : c.kind === "tile" ? (
+              <div
+                key={c.key}
+                className="relative grid place-items-center overflow-hidden p-[1vh] text-center"
+                style={{ background: c.tile.background, color: c.tile.color }}
+              >
+                {c.tile.kind === "empty" ? null : c.tile.kind === "logo" ? (
+                  <span className="text-[clamp(0.7rem,2.1vh,2rem)] font-black uppercase tracking-[0.35em]">
+                    {c.tile.text || "LAQTA"}
+                  </span>
+                ) : (
+                  <span className="text-[clamp(0.9rem,3.1vh,3rem)] font-black uppercase leading-[0.95] tracking-tight">
+                    {c.tile.text}
+                  </span>
+                )}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0"
+                  style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.07)" }}
+                />
+              </div>
+            ) : (
+              <div
+                key={c.key}
+                className="relative grid animate-pulse place-items-center overflow-hidden"
+                style={{ background: PLACEHOLDER_GRADIENTS[c.hue % PLACEHOLDER_GRADIENTS.length], opacity: 0.5 }}
+              >
+                <span className="text-[1.3vh] font-black uppercase tracking-[0.3em] text-white/80">Your shot here</span>
+              </div>
+            ),
+          )}
+        </div>
+
+        <div className="mt-[1vh] flex items-center justify-center gap-[1.5vh] px-[0.4vh] text-[1.2vh] font-semibold uppercase tracking-[0.35em] text-white/40">
+          <span>Take your shot</span>
+          <span className="text-white/20">·</span>
+          <span>Pick your fit</span>
+          <span className="text-white/20">·</span>
+          <span>Live on the wall</span>
+        </div>
       </div>
 
       {flash && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/90 animate-in fade-in duration-300">
-          <img src={flash.url} alt="" className="max-h-[86vh] max-w-[86vw] object-contain shadow-2xl" />
+        <div className="fixed inset-0 z-50 grid animate-in place-items-center bg-black/92 fade-in duration-300">
+          <img
+            src={flash.url}
+            alt=""
+            className="max-h-[84vh] max-w-[84vw] object-contain shadow-[0_0_18vh_rgba(56,189,248,0.35)]"
+          />
         </div>
       )}
     </main>
