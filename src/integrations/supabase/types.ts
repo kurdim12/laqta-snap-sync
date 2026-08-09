@@ -167,6 +167,7 @@ export type Database = {
           template_aspect_ratio: string
           template_frame_url: string | null
           template_mode: string
+          template_model: string | null
           template_prompt: string | null
           template_quality: string
           template_reference_url: string | null
@@ -184,6 +185,7 @@ export type Database = {
           template_aspect_ratio?: string
           template_frame_url?: string | null
           template_mode?: string
+          template_model?: string | null
           template_prompt?: string | null
           template_quality?: string
           template_reference_url?: string | null
@@ -201,6 +203,7 @@ export type Database = {
           template_aspect_ratio?: string
           template_frame_url?: string | null
           template_mode?: string
+          template_model?: string | null
           template_prompt?: string | null
           template_quality?: string
           template_reference_url?: string | null
