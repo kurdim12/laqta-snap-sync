@@ -1067,6 +1067,17 @@ function TemplatePanel(props: {
               className="input resize-y" />
           </Field>
 
+          <Field label="AI model · نموذج الذكاء الاصطناعي">
+            <select value={model} onChange={(e) => setModel(e.target.value)} className="input">
+              {AI_IMAGE_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {AI_IMAGE_MODELS.find((m) => m.id === model)?.note ?? "Choose which image model generates this event's photos."}
+            </p>
+          </Field>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Quality">
               <select value={quality} onChange={(e) => setQuality(e.target.value as "low" | "medium" | "high")} className="input">
