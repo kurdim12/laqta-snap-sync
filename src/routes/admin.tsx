@@ -511,8 +511,8 @@ export function RegistrationsModal({ event, onClose }: { event: EventRow; onClos
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
-      <div className="grid w-full max-w-5xl gap-3 rounded-2xl border border-border bg-card p-5 max-h-[92vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
+      <div className="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col gap-3 overflow-y-auto overscroll-contain border border-border bg-card p-4 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl sm:p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-xl font-bold">Registrations — {event.name}</h2>
@@ -1606,8 +1606,8 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
-      <div className="grid w-full max-w-6xl gap-3 rounded-2xl border border-border bg-card p-5 max-h-[92vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
+      <div className="flex h-[100dvh] max-h-[100dvh] w-full max-w-6xl flex-col gap-3 overflow-y-auto overscroll-contain border border-border bg-card p-4 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl sm:p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-xl font-bold">📷 Photos — {event.name}</h2>
