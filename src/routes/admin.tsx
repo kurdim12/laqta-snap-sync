@@ -1292,21 +1292,28 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
         </div>
         <div className="mt-3 space-y-2">
           {wall.tiles.map((t, i) => (
-            <div key={i} className="flex items-center gap-2">
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <select value={t.kind ?? "text"} onChange={(e) => {
+                const tiles = wall.tiles.slice(); tiles[i] = { ...t, kind: e.target.value as "text" | "logo" | "empty" }; patchWall({ tiles });
+              }} className="input w-28 shrink-0">
+                <option value="text">Text</option>
+                <option value="logo">Logo</option>
+                <option value="empty">Empty</option>
+              </select>
               <input value={t.text} onChange={(e) => {
                 const tiles = wall.tiles.slice(); tiles[i] = { ...t, text: e.target.value }; patchWall({ tiles });
-              }} className="input flex-1" placeholder="CHANGING MOBILITY FOREVER" />
+              }} className="input min-w-0 flex-1" placeholder="TAKE YOUR SHOT" />
               <input type="color" value={t.background} onChange={(e) => {
                 const tiles = wall.tiles.slice(); tiles[i] = { ...t, background: e.target.value }; patchWall({ tiles });
-              }} className="h-8 w-10 rounded border border-border bg-transparent" />
+              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" />
               <input type="color" value={t.color} onChange={(e) => {
                 const tiles = wall.tiles.slice(); tiles[i] = { ...t, color: e.target.value }; patchWall({ tiles });
-              }} className="h-8 w-10 rounded border border-border bg-transparent" />
+              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" />
               <button type="button" onClick={() => patchWall({ tiles: wall.tiles.filter((_, j) => j !== i) })}
-                className="text-xs font-semibold text-destructive underline">Remove</button>
+                className="shrink-0 text-xs font-semibold text-destructive underline">Remove</button>
             </div>
           ))}
-          <button type="button" onClick={() => patchWall({ tiles: [...wall.tiles, { text: "WHY NOT", background: "#0A0A0A", color: "#FFFFFF" }] })}
+          <button type="button" onClick={() => patchWall({ tiles: [...wall.tiles, { kind: "text", text: "WHY NOT", background: "#0A0A0A", color: "#FFFFFF" }] })}
             className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold">+ Add brand tile</button>
         </div>
       </Field>
