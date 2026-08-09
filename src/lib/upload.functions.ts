@@ -214,6 +214,9 @@ export const registerGuestPhoto = createServerFn({ method: "POST" })
         .transform((c) => c.toUpperCase().replace(/[^A-Z0-9]/g, "")),
       storagePath: z.string().min(1).max(512),
       bytes: z.number().int().positive().max(15 * 1024 * 1024),
+      // LAQTA shirt variant picked at the kiosk; recorded so the portrait can
+      // be re-processed externally later with the right garment.
+      shirtVariant: z.enum(["black", "graphite", "white"]).nullish(),
     }),
   )
   .handler(async ({ data }): Promise<{ assetId: string; templateMode: string }> => {
@@ -259,6 +262,7 @@ export const registerGuestPhoto = createServerFn({ method: "POST" })
       status: "ready",
       approved,
       original_url: data.storagePath,
+      shirt_variant: data.shirtVariant ?? null,
       process_status: processStatus,
       error_message: null,
     }, { onConflict: "id" });

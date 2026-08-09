@@ -14,6 +14,7 @@ import { testTemplate, reprocessAsset, sweepEventProcessing } from "@/lib/templa
 import { toast } from "sonner";
 import { backdropOf, renderBackdrop } from "@/lib/backdrop";
 import { wallOf } from "@/lib/wall";
+import { SHIRT_VARIANTS } from "@/lib/shirts";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -280,6 +281,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
   const staffUrl = `${origin}/staff/${ev.slug}`;
   const galleryUrl = `${origin}/e/${ev.slug}/gallery`;
   const wallUrl = `${origin}/wall/${ev.slug}`;
+  const kioskUrl = `${origin}/k/${ev.slug}`;
 
   async function quickStatus(next: EventRow["status"]) {
     await supabase.from("events").update({ status: next }).eq("id", ev.id);
@@ -327,13 +329,14 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
         )}
 
         {/* Primary actions */}
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
           <button onClick={() => setShowPhotos(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
           <button onClick={() => setShowRegs(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Registrations</button>
           <button onClick={() => setShowDiag(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted" title="AI pipeline diagnostics">🩺 Diagnostics</button>
           <button onClick={() => setShowQr(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">QR code</button>
           <button onClick={() => setEditing(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Edit</button>
           <a href={wallUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:opacity-90" title="Open venue wall in a new tab">▦ Live wall ↗</a>
+          <a href={kioskUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted" title="Open the tablet capture kiosk">◉ Kiosk ↗</a>
         </div>
 
         {/* Status + delete */}
@@ -360,6 +363,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
         <CopyLink label="Staff console" url={staffUrl} />
         <CopyLink label={ev.config.gallery?.mode === "public" ? "Public wall" : "Gallery (private)"} url={galleryUrl} disabled={ev.config.gallery?.mode !== "public"} />
         <CopyLink label="Live wall display" url={wallUrl} />
+        <CopyLink label="Kiosk capture" url={kioskUrl} />
       </div>
 
       {editing && <EventEditor event={ev} onClose={() => { setEditing(false); onChange(); }} />}
@@ -1292,21 +1296,28 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
         </div>
         <div className="mt-3 space-y-2">
           {wall.tiles.map((t, i) => (
-            <div key={i} className="flex items-center gap-2">
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <select value={t.kind ?? "text"} onChange={(e) => {
+                const tiles = wall.tiles.slice(); tiles[i] = { ...t, kind: e.target.value as "text" | "logo" | "empty" }; patchWall({ tiles });
+              }} className="input w-28 shrink-0">
+                <option value="text">Text</option>
+                <option value="logo">Logo</option>
+                <option value="empty">Empty</option>
+              </select>
               <input value={t.text} onChange={(e) => {
                 const tiles = wall.tiles.slice(); tiles[i] = { ...t, text: e.target.value }; patchWall({ tiles });
-              }} className="input flex-1" placeholder="CHANGING MOBILITY FOREVER" />
+              }} className="input min-w-0 flex-1" placeholder="TAKE YOUR SHOT" />
               <input type="color" value={t.background} onChange={(e) => {
                 const tiles = wall.tiles.slice(); tiles[i] = { ...t, background: e.target.value }; patchWall({ tiles });
-              }} className="h-8 w-10 rounded border border-border bg-transparent" />
+              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" />
               <input type="color" value={t.color} onChange={(e) => {
                 const tiles = wall.tiles.slice(); tiles[i] = { ...t, color: e.target.value }; patchWall({ tiles });
-              }} className="h-8 w-10 rounded border border-border bg-transparent" />
+              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" />
               <button type="button" onClick={() => patchWall({ tiles: wall.tiles.filter((_, j) => j !== i) })}
-                className="text-xs font-semibold text-destructive underline">Remove</button>
+                className="shrink-0 text-xs font-semibold text-destructive underline">Remove</button>
             </div>
           ))}
-          <button type="button" onClick={() => patchWall({ tiles: [...wall.tiles, { text: "WHY NOT", background: "#0A0A0A", color: "#FFFFFF" }] })}
+          <button type="button" onClick={() => patchWall({ tiles: [...wall.tiles, { kind: "text", text: "WHY NOT", background: "#0A0A0A", color: "#FFFFFF" }] })}
             className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold">+ Add brand tile</button>
         </div>
       </Field>
@@ -1488,6 +1499,13 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
       } catch { /* skip files that fail to fetch */ }
       await new Promise((r) => setTimeout(r, 250));
     }
+  }
+
+  // Which LAQTA shirt this portrait is dressed in. Stored on the asset so a
+  // processed image can be generated externally later and pushed back.
+  async function setShirt(a: EnrichedAsset, shirt: string) {
+    await supabase.from("assets").update({ shirt_variant: shirt || null }).eq("id", a.id);
+    load();
   }
 
   async function setApproved(a: EnrichedAsset, approved: boolean) {
@@ -1726,6 +1744,16 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
                       {a.guestName && <span className="block truncate font-normal opacity-80">{a.guestName}</span>}
                     </span>
                   )}
+                  <select
+                    value={(a as { shirt_variant?: string | null }).shirt_variant ?? ""}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => { e.stopPropagation(); setShirt(a, e.target.value); }}
+                    title="Shirt variant"
+                    className="absolute left-1 bottom-1 z-10 rounded bg-black/70 px-1 py-0.5 text-[10px] font-bold text-white"
+                  >
+                    <option value="">Fit —</option>
+                    {SHIRT_VARIANTS.map((sv) => <option key={sv.id} value={sv.id}>{sv.name}</option>)}
+                  </select>
                   <div className="absolute right-1 bottom-1 z-10 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
                     {a.approved === false ? (
                       <button onClick={(e) => { e.stopPropagation(); setApproved(a, true); }} title="Approve" className="rounded bg-[color:var(--success)] px-1.5 py-0.5 text-[10px] font-bold text-black">✓</button>

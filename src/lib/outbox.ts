@@ -16,6 +16,8 @@ export interface OutboxEntry {
     source: string;
   };
   selfie?: Blob | null;          // raw blob; IndexedDB stores Blobs natively
+  /** LAQTA shirt variant chosen at the kiosk ("black" | "graphite" | "white") */
+  shirtVariant?: string | null;
   selfieUploaded?: boolean;
   rowSynced?: boolean;
   state: "queued" | "synced";
@@ -138,6 +140,7 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
         code: entry.code,
         storagePath: url.path,
         bytes: entry.selfie.size,
+        shirtVariant: (entry.shirtVariant ?? null) as "black" | "graphite" | "white" | null,
       },
     }), 20_000);
 

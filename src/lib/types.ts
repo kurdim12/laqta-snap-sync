@@ -15,7 +15,11 @@ export interface BackdropSettingsConfig {
   aspect: "1:1" | "4:5";
 }
 
+export type WallTileKind = "text" | "logo" | "empty";
+
 export interface WallTile {
+  /** how the non-portrait tile renders on the wall */
+  kind?: WallTileKind;
   text: string;
   /** hex background; omit for a gradient-free black tile */
   background: string;
