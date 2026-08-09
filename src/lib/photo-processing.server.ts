@@ -61,7 +61,7 @@ export async function processAssetById(
 
   const { data: ev } = await supabaseAdmin
     .from("events")
-    .select("id, template_mode, template_prompt, template_reference_url, template_quality, template_aspect_ratio")
+    .select("id, template_mode, template_prompt, template_reference_url, template_quality, template_aspect_ratio, template_model")
     .eq("id", asset.event_id)
     .maybeSingle();
   if (!ev || ev.template_mode !== "ai" || !ev.template_prompt) {
