@@ -53,7 +53,7 @@ function Kiosk() {
   }, [photo]);
 
   async function onCapture(file: File) {
-    const blob = await resizeImage(file, 1200, 0.85).catch(() => file as Blob);
+    const blob = await resizeImage(file, 2160, 0.94).catch(() => file as Blob);
     setPhoto(blob);
     setStep("shirt");
   }
@@ -187,25 +187,35 @@ function Kiosk() {
         {step === "preview" && (
           <section key={step} className="rise-in flex flex-1 flex-col justify-center">
             <h2 className="text-3xl font-black uppercase tracking-tight">Looking good?</h2>
-            <div className="mt-6 overflow-hidden rounded-3xl ring-1 ring-white/15">
-              <div className="relative aspect-[4/5] w-full bg-[linear-gradient(160deg,#7C3AED,#2563EB)]">
-                {preview && <img src={preview} alt="Your portrait" className="h-full w-full object-cover" />}
-                {/* mock fit preview: garment swatch + chest wordmark */}
-                <div
-                  className="pointer-events-none absolute inset-x-0 bottom-0 h-[34%]"
-                  style={{ background: `linear-gradient(180deg, transparent, ${shirt.color} 45%)` }}
-                />
-                <span
-                  className="pointer-events-none absolute bottom-[12%] left-1/2 -translate-x-1/2 text-xs font-black tracking-[0.35em]"
-                  style={{ color: shirt.logoColor }}
-                >
-                  LYNK&CO
-                </span>
+            <div className="mt-6 overflow-hidden rounded-3xl bg-white/5 ring-1 ring-white/15">
+              <div className="relative aspect-[4/5] w-full bg-black">
+                {preview && (
+                  <img
+                    src={preview}
+                    alt="Your portrait"
+                    className="h-full w-full object-contain"
+                  />
+                )}
               </div>
             </div>
-            <p className="mt-3 text-xs uppercase tracking-widest text-white/40">
-              Fit: {shirt.name} · Simulated preview
-            </p>
+
+            <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/12 bg-white/5 p-3">
+              <img
+                src={shirt.imageUrl}
+                alt={`${shirt.name} LYNK & CO shirt`}
+                className="h-14 w-14 rounded-xl object-cover"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-black uppercase tracking-widest">{shirt.name} fit</p>
+                <p className="truncate text-xs text-white/45">Applied when your portrait is processed</p>
+              </div>
+              <button
+                onClick={() => setStep("shirt")}
+                className="ms-auto shrink-0 rounded-full border border-white/25 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-white/70 transition hover:border-white/50"
+              >
+                Change
+              </button>
+            </div>
             <button
               disabled={busy}
               onClick={submit}

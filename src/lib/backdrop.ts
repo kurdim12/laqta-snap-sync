@@ -115,12 +115,15 @@ export async function renderBackdrop(
   const img = await blobToImage(cutout);
   const box = alphaBounds(img);
 
-  const W = 1080;
-  const H = settings.aspect === "1:1" ? 1080 : 1350;
+  // 4K-class tile so the venue LED wall never shows JPEG mush
+  const W = 2160;
+  const H = settings.aspect === "1:1" ? 2160 : 2700;
   const canvas = document.createElement("canvas");
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("no canvas context");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
   const pair = settings.palette[hash(seed) % settings.palette.length];
   const grad = ctx.createLinearGradient(0, 0, W, H);
@@ -148,6 +151,6 @@ export async function renderBackdrop(
   ctx.restore();
 
   return new Promise<Blob>((res, rej) =>
-    canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode failed"))), "image/jpeg", 0.9),
+    canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode failed"))), "image/jpeg", 0.95),
   );
 }

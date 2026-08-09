@@ -119,7 +119,7 @@ function ReadyForm({ event }: { event: EventRow }) {
   async function onPickSelfie(file: File) {
     try {
       // create a temp File so resizeImage can read it
-      const blob = await resizeImage(file, 800, 0.8);
+      const blob = await resizeImage(file, 2160, 0.92);
       setSelfie(blob);
     } catch {
       setSelfie(file);

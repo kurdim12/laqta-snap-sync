@@ -24,7 +24,13 @@ export function FaceGuideCamera({
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facing, width: { ideal: 1440 }, height: { ideal: 1920 } },
+          // 4K-class capture: ask for the highest the device can give, fall
+          // back gracefully on phones that top out lower.
+          video: {
+            facingMode: facing,
+            width: { ideal: 2160, max: 4096 },
+            height: { ideal: 3840, max: 4096 },
+          },
           audio: false,
         });
         if (!alive) { stream.getTracks().forEach((t) => t.stop()); return; }
@@ -51,12 +57,14 @@ export function FaceGuideCamera({
     canvas.height = v.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     if (facing === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
     ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((b) => {
       if (!b) return;
       onCapture(new File([b], `capture-${Date.now()}.jpg`, { type: "image/jpeg" }));
-    }, "image/jpeg", 0.92);
+    }, "image/jpeg", 0.96);
   }
 
   function startCountdown() {
