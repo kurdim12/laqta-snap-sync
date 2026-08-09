@@ -113,19 +113,8 @@ export const FACE_PRESERVATION_PROMPT =
   "same identity, same expression, same gaze, same skin tone, same facial features, same hair. " +
   "Do not beautify, restyle, retouch, or alter the face or expression in any way.";
 
-/**
- * Appended whenever a style reference image is attached (input_references[1],
- * e.g. the event's branded shirt): whatever the event prompt says, the
- * garment swap itself must happen for every kind of guest photo — selfie,
- * group shot, any angle. Without a reference image there is nothing to swap
- * to, so nothing is appended and the event prompt alone governs.
- */
-export const GARMENT_SWAP_PROMPT =
-  "Dress every person in the photo in the exact t-shirt shown in the second reference image: " +
-  "replace their current upper-body clothing with that shirt, reproducing its color, logo, and " +
-  "design faithfully and fitting it naturally to their body and pose. Change nothing else about " +
-  "the people themselves — same pose, same hands, same body, same hair. Scene styling such as " +
-  "the background and lighting is governed by the instruction above.";
+
+
 
 /** quality must be one of the documented enum values, else the request 400s. */
 const QUALITIES = new Set(["auto", "low", "medium", "high"]);
@@ -162,7 +151,6 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
     model,
     prompt: [
       input.prompt.trim(),
-      ...(input.referenceDataUrl ? [GARMENT_SWAP_PROMPT] : []),
       FACE_PRESERVATION_PROMPT,
     ].join("\n\n"),
     input_references: buildInputReferences(input.imageDataUrl, input.referenceDataUrl),
