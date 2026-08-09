@@ -20,6 +20,7 @@ export type Database = {
           bytes: number | null
           content_type: string
           created_at: string
+          display_order: number | null
           error_message: string | null
           event_id: string
           generation_cost: number | null
@@ -34,6 +35,7 @@ export type Database = {
           processed_url: string | null
           processing_finished_at: string | null
           processing_started_at: string | null
+          shirt_variant: string | null
           status: string
           storage_path: string
           variant: string
@@ -43,6 +45,7 @@ export type Database = {
           bytes?: number | null
           content_type: string
           created_at?: string
+          display_order?: number | null
           error_message?: string | null
           event_id: string
           generation_cost?: number | null
@@ -57,6 +60,7 @@ export type Database = {
           processed_url?: string | null
           processing_finished_at?: string | null
           processing_started_at?: string | null
+          shirt_variant?: string | null
           status?: string
           storage_path: string
           variant?: string
@@ -66,6 +70,7 @@ export type Database = {
           bytes?: number | null
           content_type?: string
           created_at?: string
+          display_order?: number | null
           error_message?: string | null
           event_id?: string
           generation_cost?: number | null
@@ -80,6 +85,7 @@ export type Database = {
           processed_url?: string | null
           processing_finished_at?: string | null
           processing_started_at?: string | null
+          shirt_variant?: string | null
           status?: string
           storage_path?: string
           variant?: string
