@@ -653,6 +653,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   const [frameUrl, setFrameUrl] = useState(event?.template_frame_url || "");
   const [quality, setQuality] = useState<"low" | "medium" | "high">(event?.template_quality || "medium");
   const [aspect, setAspect] = useState(event?.template_aspect_ratio || "1024x1024");
+  const [model, setModel] = useState<string>((event as { template_model?: string | null } | undefined)?.template_model || DEFAULT_AI_IMAGE_MODEL);
   const [maxGenerations, setMaxGenerations] = useState<number>(event?.max_generations ?? 150);
 
   async function save() {
