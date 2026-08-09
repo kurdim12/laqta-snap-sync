@@ -81,29 +81,39 @@ function Wall() {
     const out: Cell[] = [];
     const tileCount = wall.tiles.length;
 
-    // Brand tiles change position on every rotation: their slots are derived
-    // from the offset, and the tile order is rotated too, so LYNK&CO, WHY NOT
-    // and PERSONAL OPEN CO never sit in the same cells twice in a row.
+    // Seeded RNG so a given rotation is stable across re-renders but the
+    // brand tiles land in genuinely random cells (and random order) each cycle.
+    let s = (offset * 2654435761 + 97) >>> 0;
+    const rand = () => {
+      s ^= s << 13; s >>>= 0;
+      s ^= s >> 17;
+      s ^= s << 5; s >>>= 0;
+      return s / 4294967296;
+    };
+
     const slots = new Set<number>();
     if (tileCount) {
-      const stride = Math.max(2, Math.floor(capacity / tileCount));
-      for (let k = 0; k < tileCount; k++) {
-        // pseudo-random but stable per (offset, k) so the wall does not jitter
-        const jitter = (offset * 7 + k * 13 + ((offset * 31 + k * 17) % stride)) % stride;
-        let slot = (k * stride + jitter) % capacity;
-        while (slots.has(slot)) slot = (slot + 1) % capacity;
-        slots.add(slot);
+      while (slots.size < Math.min(tileCount, capacity)) {
+        slots.add(Math.floor(rand() * capacity));
       }
     }
 
-    const start = photos.length ? (offset * wall.columns) % photos.length : 0;
+    // random tile order for this rotation
+    const order = wall.tiles.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+
+    const start = photos.length ? Math.floor(rand() * photos.length) : 0;
     let t = 0;
     let p = 0;
     for (let i = 0; i < capacity; i++) {
       if (slots.has(i)) {
-        const tile = wall.tiles[(t + offset) % tileCount];
+        const tile = wall.tiles[order[t % order.length]];
         out.push({ kind: "tile", tile, key: `t${i}-${offset}` });
         t++;
+
       } else if (photos.length) {
         const photo = photos[(start + p) % photos.length];
         out.push({ kind: "photo", photo, key: `p${i}-${photo.id}` });
