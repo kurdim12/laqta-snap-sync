@@ -14,6 +14,7 @@ import { testTemplate, reprocessAsset, sweepEventProcessing } from "@/lib/templa
 import { toast } from "sonner";
 import { backdropOf, renderBackdrop } from "@/lib/backdrop";
 import { wallOf } from "@/lib/wall";
+import { SHIRT_VARIANTS } from "@/lib/shirts";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
@@ -1500,6 +1501,13 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
     }
   }
 
+  // Which LAQTA shirt this portrait is dressed in. Stored on the asset so a
+  // processed image can be generated externally later and pushed back.
+  async function setShirt(a: EnrichedAsset, shirt: string) {
+    await supabase.from("assets").update({ shirt_variant: shirt || null }).eq("id", a.id);
+    load();
+  }
+
   async function setApproved(a: EnrichedAsset, approved: boolean) {
     await supabase.from("assets").update({ approved }).eq("event_id", event.id).or(`id.eq.${a.id},parent_asset_id.eq.${a.id}`);
     load();
@@ -1736,6 +1744,16 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
                       {a.guestName && <span className="block truncate font-normal opacity-80">{a.guestName}</span>}
                     </span>
                   )}
+                  <select
+                    value={(a as { shirt_variant?: string | null }).shirt_variant ?? ""}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => { e.stopPropagation(); setShirt(a, e.target.value); }}
+                    title="Shirt variant"
+                    className="absolute left-1 bottom-1 z-10 rounded bg-black/70 px-1 py-0.5 text-[10px] font-bold text-white"
+                  >
+                    <option value="">Fit —</option>
+                    {SHIRT_VARIANTS.map((sv) => <option key={sv.id} value={sv.id}>{sv.name}</option>)}
+                  </select>
                   <div className="absolute right-1 bottom-1 z-10 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
                     {a.approved === false ? (
                       <button onClick={(e) => { e.stopPropagation(); setApproved(a, true); }} title="Approve" className="rounded bg-[color:var(--success)] px-1.5 py-0.5 text-[10px] font-bold text-black">✓</button>
