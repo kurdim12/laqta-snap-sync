@@ -4,6 +4,8 @@
 // photo (and an optional style reference image) as input_references.
 // Never imported from client code.
 
+import { isAiImageModel, DEFAULT_AI_IMAGE_MODEL } from "./ai-models";
+
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/images";
 
 /** Hard wall-clock timeout for a single provider call while a connection is
