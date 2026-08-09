@@ -1321,8 +1321,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function PhonePreview({ config, name }: { config: EventConfig; name: string }) {
   return (
-    <div className="hidden border-l border-border bg-background p-5 lg:block">
-      <div className="sticky top-5">
+    <div className="hidden min-h-0 min-w-0 overflow-y-auto border-l border-border bg-background p-5 lg:block">
+      <div>
+
         <div className="mb-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Live preview</div>
         <div className="mx-auto w-[260px] overflow-hidden rounded-[2rem] border-4 border-border bg-black p-3 shadow-2xl">
           <div className="rounded-[1.5rem] p-4" style={{ background: config.theme.background, color: config.theme.text }}>
