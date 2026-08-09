@@ -140,6 +140,7 @@ async function uploadSelfie(entry: OutboxEntry): Promise<boolean> {
         code: entry.code,
         storagePath: url.path,
         bytes: entry.selfie.size,
+        shirtVariant: entry.shirtVariant ?? null,
       },
     }), 20_000);
 
