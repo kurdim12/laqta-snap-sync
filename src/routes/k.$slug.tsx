@@ -53,7 +53,7 @@ function Kiosk() {
   }, [photo]);
 
   async function onCapture(file: File) {
-    const blob = await resizeImage(file, 1200, 0.85).catch(() => file as Blob);
+    const blob = await resizeImage(file, 2160, 0.94).catch(() => file as Blob);
     setPhoto(blob);
     setStep("shirt");
   }

@@ -191,8 +191,8 @@ function StaffMain({ event, pin }: { event: EventRow; pin: string }) {
 
       // variants
       if (kind === "photo") {
-        const webBlob = await resizeImage(item.file, 1920, 0.85);
-        const thumbBlob = await resizeImage(item.file, 400, 0.8);
+        const webBlob = await resizeImage(item.file, 2560, 0.92);
+        const thumbBlob = await resizeImage(item.file, 800, 0.82);
         const webPath = `${basePath}/web.jpg`;
         const thumbPath = `${basePath}/thumb.jpg`;
         await uploadViaSigned(webPath, webBlob, "image/jpeg", "photo");

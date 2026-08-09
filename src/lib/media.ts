@@ -30,6 +30,8 @@ export async function resizeImage(file: File, maxSide: number, quality = 0.85): 
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(img, 0, 0, w, h);
   return canvasToBlob(canvas, "image/jpeg", quality);
 }
