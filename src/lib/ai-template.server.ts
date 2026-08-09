@@ -162,7 +162,6 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
     model,
     prompt: [
       input.prompt.trim(),
-      ...(input.referenceDataUrl ? [GARMENT_SWAP_PROMPT] : []),
       FACE_PRESERVATION_PROMPT,
     ].join("\n\n"),
     input_references: buildInputReferences(input.imageDataUrl, input.referenceDataUrl),
