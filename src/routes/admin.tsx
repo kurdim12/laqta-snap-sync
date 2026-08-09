@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { backdropOf, renderBackdrop } from "@/lib/backdrop";
 import { wallOf } from "@/lib/wall";
 import { SHIRT_VARIANTS } from "@/lib/shirts";
+import { AI_IMAGE_MODELS, DEFAULT_AI_IMAGE_MODEL } from "@/lib/ai-models";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "LAQTA · Admin" }] }),
