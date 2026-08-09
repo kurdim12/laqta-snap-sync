@@ -30,6 +30,7 @@ export const testTemplate = createServerFn({ method: "POST" })
       referenceDataUrl: z.string().max(12_000_000).nullish(),
       quality: z.enum(["low", "medium", "high"]).default("medium"),
       aspectRatio: z.string().max(32).default("1024x1024"),
+      model: z.string().max(120).nullish(),
       eventId: z.string().uuid().nullish(),
     }),
   )
