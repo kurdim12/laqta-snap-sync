@@ -141,7 +141,7 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
   const key = process.env["OPENROUTER_API_KEY"];
   if (!key) throw new Error("OPENROUTER_API_KEY is not configured");
 
-  const model = modelId();
+  const model = modelId(input.model);
   const started = Date.now();
   const timeoutMs = input.timeoutMs || AI_TIMEOUT_MS;
   // ONE deadline for the whole call, shared by the retry. A per-attempt signal
