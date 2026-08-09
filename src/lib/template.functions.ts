@@ -60,6 +60,7 @@ export const testTemplate = createServerFn({ method: "POST" })
         referenceDataUrl: data.referenceDataUrl ?? null,
         quality: data.quality,
         aspectRatio: data.aspectRatio,
+        model: data.model ?? null,
         onAttempt: async (a) => { attempts.push(a); },
       });
       await supabaseAdmin.from("template_test_runs").insert({
