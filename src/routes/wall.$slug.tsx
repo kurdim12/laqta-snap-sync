@@ -143,7 +143,7 @@ function Wall() {
                   src={c.photo.url}
                   alt=""
                   loading="lazy"
-                  className="h-full w-full animate-in object-cover fade-in duration-1000"
+                  className="soft-pop h-full w-full object-cover"
                 />
                 {/* backlit panel: inner bevel + soft top sheen */}
                 <span
@@ -198,7 +198,7 @@ function Wall() {
       </div>
 
       {flash && (
-        <div className="fixed inset-0 z-50 grid animate-in place-items-center bg-black/92 fade-in duration-300">
+        <div className="fixed inset-0 z-50 grid animate-in place-items-center bg-black/92 fade-in duration-500">
           <img
             src={flash.url}
             alt=""
