@@ -33,12 +33,13 @@ export function estimateCost(q: string | null | undefined): number {
   return COST[(q as Quality) || "medium"] ?? COST.medium;
 }
 
-export function modelId(): string {
-  // google/gemini-3.1-flash-image is deliberate: ~8s and ~$0.068 per photo vs
-  // ~94s and ~$0.12 for openai/gpt-image-2. A live-booth guest is waiting, and
-  // detached Worker processing only has ~30s of waitUntil budget — the fast
-  // model is the only one that fits it. Override with AI_IMAGE_MODEL if needed.
-  return process.env["AI_IMAGE_MODEL"] || "google/gemini-3.1-flash-image";
+export function modelId(override?: string | null): string {
+  // Per-event override wins (admin picks it in the Template tab), then the env
+  // override, then the fast default: google/gemini-3.1-flash-image is ~8s and
+  // ~$0.068 per photo vs ~94s and ~$0.12 for openai/gpt-image-2. A live-booth
+  // guest is waiting, and detached Worker processing only has ~30s of budget.
+  if (override && isAiImageModel(override)) return override;
+  return process.env["AI_IMAGE_MODEL"] || DEFAULT_AI_IMAGE_MODEL;
 }
 
 
