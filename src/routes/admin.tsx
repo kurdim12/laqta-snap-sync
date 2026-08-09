@@ -975,8 +975,9 @@ function TemplatePanel(props: {
   frameUrl: string; setFrameUrl: (v: string) => void;
   quality: "low" | "medium" | "high"; setQuality: (q: "low" | "medium" | "high") => void;
   aspect: string; setAspect: (v: string) => void;
+  model: string; setModel: (v: string) => void;
 }) {
-  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect } = props;
+  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect, model, setModel } = props;
   const [sample, setSample] = useState<string | null>(null);
   const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; costIsActual?: boolean; model?: string; error?: string; attempts?: unknown[] } | null>(null);
   const [testSpend, setTestSpend] = useState<{ runs: number; total: number } | null>(null);
