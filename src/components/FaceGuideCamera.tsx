@@ -24,7 +24,13 @@ export function FaceGuideCamera({
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facing, width: { ideal: 1440 }, height: { ideal: 1920 } },
+          // 4K-class capture: ask for the highest the device can give, fall
+          // back gracefully on phones that top out lower.
+          video: {
+            facingMode: facing,
+            width: { ideal: 2160, max: 4096 },
+            height: { ideal: 3840, max: 4096 },
+          },
           audio: false,
         });
         if (!alive) { stream.getTracks().forEach((t) => t.stop()); return; }
