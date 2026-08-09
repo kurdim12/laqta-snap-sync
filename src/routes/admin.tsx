@@ -418,7 +418,7 @@ function CopyLink({ label, url, disabled }: { label: string; url: string; disabl
 export function QrModal({ url, title, onClose }: { url: string; title: string; onClose: () => void }) {
   const [sheet, setSheet] = useState<number | null>(null);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
+    <div className="animate-in fade-in duration-200 fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
       <div className="grid w-full max-w-sm gap-3 rounded-2xl border border-border bg-card p-5 text-center" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-bold">{title}</h3>
         <div className="mx-auto rounded-xl bg-white p-3">
@@ -444,7 +444,7 @@ export function ConfirmModal({ title, body, confirmLabel, onCancel, onConfirm }:
   const [busy, setBusy] = useState(false);
   async function go() { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/70 p-4" onClick={onCancel}>
+    <div className="animate-in fade-in duration-200 fixed inset-0 z-[60] grid place-items-center bg-black/70 p-4" onClick={onCancel}>
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-bold">{title}</h3>
         <p className="mt-2 text-sm text-muted-foreground">{body}</p>
@@ -515,7 +515,7 @@ export function RegistrationsModal({ event, onClose }: { event: EventRow; onClos
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
+    <div className="animate-in fade-in duration-200 fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
       <div className="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col gap-3 overflow-y-auto overscroll-contain border border-border bg-card p-4 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl sm:p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -722,7 +722,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   ];
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
+    <div className="animate-in fade-in duration-200 fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
       <div className="grid h-[100dvh] max-h-[100dvh] w-full max-w-5xl gap-0 overflow-hidden border border-border bg-card sm:h-[92vh] sm:max-h-[92vh] sm:rounded-2xl lg:grid-cols-[2fr_1fr]" onClick={(e) => e.stopPropagation()}>
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
 
@@ -1626,7 +1626,7 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
+    <div className="animate-in fade-in duration-200 fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
       <div className="flex h-[100dvh] max-h-[100dvh] w-full max-w-6xl flex-col gap-3 overflow-y-auto overscroll-contain border border-border bg-card p-4 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl sm:p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -1868,7 +1868,7 @@ export function DiagnosticsModal({ event, onClose }: { event: EventRow; onClose:
   const fmt = (v: string | null) => (v ? new Date(v).toLocaleTimeString() : "—");
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-3" onClick={onClose}>
+    <div className="animate-in fade-in duration-200 fixed inset-0 z-50 grid place-items-center bg-black/60 p-3" onClick={onClose}>
       <div className="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-2xl border border-border bg-card p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">Pipeline diagnostics · {event.name}</h3>

@@ -110,7 +110,7 @@ function Kiosk() {
         </header>
 
         {step === "start" && (
-          <section className="flex flex-1 flex-col justify-center">
+          <section key={step} className="rise-in flex flex-1 flex-col justify-center">
             <h1 className="text-[clamp(2.5rem,9vw,4.5rem)] font-black uppercase leading-[0.9] tracking-tight">
               Take your<br />shot
             </h1>
@@ -119,7 +119,7 @@ function Kiosk() {
             </p>
             <button
               onClick={() => setStep("name")}
-              className="mt-10 rounded-full bg-white px-8 py-5 text-lg font-black uppercase tracking-widest text-black transition hover:opacity-90"
+              className="mt-10 rounded-full bg-white px-8 py-5 text-lg font-black uppercase tracking-widest text-black transition hover:-translate-y-0.5 hover:opacity-90 hover:shadow-[0_12px_40px_-12px_rgba(255,255,255,0.45)]"
             >
               Start
             </button>
@@ -127,7 +127,7 @@ function Kiosk() {
         )}
 
         {step === "name" && (
-          <section className="flex flex-1 flex-col justify-center">
+          <section key={step} className="rise-in flex flex-1 flex-col justify-center">
             <h2 className="text-3xl font-black uppercase tracking-tight">Your name</h2>
             <p className="mt-2 text-sm text-white/45">Optional — it stays with your portrait.</p>
             <input
@@ -138,7 +138,7 @@ function Kiosk() {
             />
             <button
               onClick={() => setStep("capture")}
-              className="mt-8 rounded-full bg-white px-8 py-5 text-lg font-black uppercase tracking-widest text-black transition hover:opacity-90"
+              className="mt-8 rounded-full bg-white px-8 py-5 text-lg font-black uppercase tracking-widest text-black transition hover:-translate-y-0.5 hover:opacity-90 hover:shadow-[0_12px_40px_-12px_rgba(255,255,255,0.45)]"
             >
               Take photo
             </button>
@@ -155,14 +155,14 @@ function Kiosk() {
         )}
 
         {step === "shirt" && (
-          <section className="flex flex-1 flex-col justify-center">
+          <section key={step} className="rise-in flex flex-1 flex-col justify-center">
             <h2 className="text-3xl font-black uppercase tracking-tight">Pick your fit</h2>
             <div className="mt-6 grid grid-cols-3 gap-3">
               {SHIRT_VARIANTS.filter((s) => s.active).map((s) => (
                 <button
                   key={s.id}
                   onClick={() => setShirt(s)}
-                  className={`overflow-hidden rounded-2xl border p-2 transition ${shirt.id === s.id ? "border-white bg-white/10" : "border-white/15 hover:border-white/40"}`}
+                  className={`overflow-hidden rounded-2xl border p-2 transition ${shirt.id === s.id ? "border-white bg-white/10" : "border-white/15 hover:-translate-y-0.5 hover:border-white/40"}`}
                 >
                   <img src={s.imageUrl} alt={`${s.name} LYNK & CO shirt`} className="aspect-[3/4] w-full rounded-lg object-cover" />
                   <span className="mt-2 block text-xs font-bold uppercase tracking-widest text-white/70">{s.name}</span>
@@ -177,7 +177,7 @@ function Kiosk() {
             </button>
             <button
               onClick={() => setStep("preview")}
-              className="mt-8 rounded-full bg-white px-8 py-5 text-lg font-black uppercase tracking-widest text-black transition hover:opacity-90"
+              className="mt-8 rounded-full bg-white px-8 py-5 text-lg font-black uppercase tracking-widest text-black transition hover:-translate-y-0.5 hover:opacity-90 hover:shadow-[0_12px_40px_-12px_rgba(255,255,255,0.45)]"
             >
               Preview
             </button>
@@ -185,7 +185,7 @@ function Kiosk() {
         )}
 
         {step === "preview" && (
-          <section className="flex flex-1 flex-col justify-center">
+          <section key={step} className="rise-in flex flex-1 flex-col justify-center">
             <h2 className="text-3xl font-black uppercase tracking-tight">Looking good?</h2>
             <div className="mt-6 overflow-hidden rounded-3xl ring-1 ring-white/15">
               <div className="relative aspect-[4/5] w-full bg-[linear-gradient(160deg,#7C3AED,#2563EB)]">
@@ -209,7 +209,7 @@ function Kiosk() {
             <button
               disabled={busy}
               onClick={submit}
-              className="mt-8 rounded-full bg-white px-8 py-5 text-lg font-black uppercase tracking-widest text-black transition hover:opacity-90 disabled:opacity-50"
+              className="mt-8 rounded-full bg-white px-8 py-5 text-lg font-black uppercase tracking-widest text-black transition hover:-translate-y-0.5 hover:opacity-90 hover:shadow-[0_12px_40px_-12px_rgba(255,255,255,0.45)] disabled:translate-y-0 disabled:opacity-50"
             >
               {busy ? "Sending…" : "Put me on the wall"}
             </button>
