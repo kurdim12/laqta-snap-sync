@@ -8,12 +8,11 @@ import type { WallConfig, WallTile } from "./types";
  *   empty — a black filler panel that keeps the grid rhythm
  */
 export const DEFAULT_WALL_TILES: WallTile[] = [
-  { kind: "logo", text: "LAQTA", background: "#0A0A0A", color: "#FFFFFF" },
-  { kind: "text", text: "TAKE YOUR SHOT", background: "#0A0A0A", color: "#22D3EE" },
-  { kind: "logo", text: "LAQTA", background: "#0A0A0A", color: "#FFFFFF" },
-  { kind: "text", text: "MAKE YOUR MARK", background: "#0A0A0A", color: "#F43F5E" },
-  { kind: "text", text: "LIVE ON THE WALL", background: "#0A0A0A", color: "#818CF8" },
-  { kind: "empty", text: "", background: "#050505", color: "#FFFFFF" },
+  { kind: "logo", text: "LYNK&CO", background: "#0A0A0A", color: "#FFFFFF" },
+  { kind: "text", text: "WHY NOT", background: "#22D3EE", color: "#0A0A0A" },
+  { kind: "logo", text: "LYNK&CO", background: "#7C3AED", color: "#FFFFFF" },
+  { kind: "text", text: "PERSONAL OPEN CO", background: "#0A0A0A", color: "#F43F5E" },
+  { kind: "logo", text: "LYNK&CO", background: "#14B8A6", color: "#FFFFFF" },
 ];
 
 export const DEFAULT_WALL: WallConfig = {
