@@ -52,6 +52,8 @@ export interface GenerateInput {
   /** optional second reference, e.g. a flat photo of the branded shirt */
   referenceDataUrl?: string | null;
   quality?: string | null;
+  /** per-event image model override (must be in AI_IMAGE_MODELS) */
+  model?: string | null;
   aspectRatio?: string | null;
   /** provider-call abort, defaults to AI_TIMEOUT_MS — detached callers must
    * pass AI_DETACHED_TIMEOUT_MS so the abort fires before Workers kills them */
