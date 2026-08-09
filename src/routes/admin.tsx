@@ -862,6 +862,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
                 frameUrl={frameUrl} setFrameUrl={setFrameUrl}
                 quality={quality} setQuality={setQuality}
                 aspect={aspect} setAspect={setAspect}
+                model={model} setModel={setModel}
               />
             )}
 
