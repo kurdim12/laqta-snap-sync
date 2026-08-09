@@ -123,8 +123,9 @@ export const FACE_PRESERVATION_PROMPT =
 export const GARMENT_SWAP_PROMPT =
   "Dress every person in the photo in the exact t-shirt shown in the second reference image: " +
   "replace their current upper-body clothing with that shirt, reproducing its color, logo, and " +
-  "design faithfully and fitting it naturally to their body and pose. Keep the background, " +
-  "lighting, framing, and everything else unchanged.";
+  "design faithfully and fitting it naturally to their body and pose. Change nothing else about " +
+  "the people themselves — same pose, same hands, same body, same hair. Scene styling such as " +
+  "the background and lighting is governed by the instruction above.";
 
 /** quality must be one of the documented enum values, else the request 400s. */
 const QUALITIES = new Set(["auto", "low", "medium", "high"]);
