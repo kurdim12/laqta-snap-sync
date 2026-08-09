@@ -119,6 +119,7 @@ export async function processAssetById(
       referenceDataUrl: ref && ref.startsWith("data:") ? ref : null,
       quality: ev.template_quality,
       aspectRatio: ev.template_aspect_ratio,
+      model: (ev as { template_model?: string | null }).template_model ?? null,
       // Detached (waitUntil) runs are killed by Workers ~30s after the 202
       // response; abort well before that so THIS code marks the row failed.
       timeoutMs: opts?.detached ? AI_DETACHED_TIMEOUT_MS : null,
