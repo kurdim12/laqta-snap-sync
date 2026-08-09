@@ -16,6 +16,8 @@ export interface OutboxEntry {
     source: string;
   };
   selfie?: Blob | null;          // raw blob; IndexedDB stores Blobs natively
+  /** LAQTA shirt variant chosen at the kiosk ("black" | "graphite" | "white") */
+  shirtVariant?: string | null;
   selfieUploaded?: boolean;
   rowSynced?: boolean;
   state: "queued" | "synced";
