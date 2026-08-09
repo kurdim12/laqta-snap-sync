@@ -719,8 +719,9 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
-      <div className="grid h-[100dvh] max-h-[100dvh] w-full max-w-5xl gap-0 overflow-hidden border border-border bg-card sm:h-auto sm:max-h-[92vh] sm:rounded-2xl lg:grid-cols-[2fr_1fr]" onClick={(e) => e.stopPropagation()}>
-        <div className="flex min-h-0 flex-col overflow-hidden">
+      <div className="grid h-[100dvh] max-h-[100dvh] w-full max-w-5xl gap-0 overflow-hidden border border-border bg-card sm:h-[92vh] sm:max-h-[92vh] sm:rounded-2xl lg:grid-cols-[2fr_1fr]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+
 
           {/* Sticky header */}
           <div className="flex items-center justify-between border-b border-border bg-card/95 px-5 py-3 backdrop-blur">
