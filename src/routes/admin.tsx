@@ -674,6 +674,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
       template_frame_url: frameUrl || null,
       template_quality: quality,
       template_aspect_ratio: aspect,
+      template_model: model || null,
       max_generations: Math.max(0, Math.min(100000, Number(maxGenerations) || 0)),
     };
     const q = event
