@@ -913,14 +913,15 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
           </div>
 
           {/* Sticky footer */}
-          <div className="flex items-center justify-between gap-2 border-t border-border bg-card/95 px-5 py-3 backdrop-blur">
-            {err ? <p className="truncate text-sm text-destructive">{err}</p> : <span className="text-xs text-muted-foreground">Changes save when you click {event ? "Save" : "Create"}</span>}
-            <div className="flex gap-2">
+          <div className="shrink-0 border-t border-border bg-card/95 px-4 py-3 backdrop-blur sm:px-5" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}>
+            {err ? <p className="mb-2 text-sm text-destructive">{err}</p> : <p className="mb-2 hidden text-xs text-muted-foreground sm:block">Changes save when you click {event ? "Save" : "Create"}</p>}
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {event && <button onClick={clone} disabled={busy} className="rounded-xl border border-border px-4 py-2 text-sm">Clone as dry run</button>}
               <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-sm">Cancel</button>
-              <button onClick={save} disabled={busy || !name} className="rounded-xl bg-primary px-5 py-2 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60">{busy ? "…" : event ? "Save" : "Create"}</button>
+              <button onClick={save} disabled={busy || !name} className="flex-1 rounded-xl bg-primary px-5 py-2 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60 sm:flex-none">{busy ? "…" : event ? "Save" : "Create"}</button>
             </div>
           </div>
+
         </div>
 
         <PhonePreview config={config} name={name || "Event"} />
