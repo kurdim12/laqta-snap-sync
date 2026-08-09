@@ -280,6 +280,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
   const staffUrl = `${origin}/staff/${ev.slug}`;
   const galleryUrl = `${origin}/e/${ev.slug}/gallery`;
   const wallUrl = `${origin}/wall/${ev.slug}`;
+  const kioskUrl = `${origin}/k/${ev.slug}`;
 
   async function quickStatus(next: EventRow["status"]) {
     await supabase.from("events").update({ status: next }).eq("id", ev.id);
@@ -327,13 +328,14 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
         )}
 
         {/* Primary actions */}
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
           <button onClick={() => setShowPhotos(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20">📷 Photos{count?.assets ? ` · ${count.assets}` : ""}</button>
           <button onClick={() => setShowRegs(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Registrations</button>
           <button onClick={() => setShowDiag(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted" title="AI pipeline diagnostics">🩺 Diagnostics</button>
           <button onClick={() => setShowQr(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">QR code</button>
           <button onClick={() => setEditing(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Edit</button>
           <a href={wallUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:opacity-90" title="Open venue wall in a new tab">▦ Live wall ↗</a>
+          <a href={kioskUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted" title="Open the tablet capture kiosk">◉ Kiosk ↗</a>
         </div>
 
         {/* Status + delete */}
@@ -360,6 +362,7 @@ function EventRowView({ ev, count, onChange }: { ev: EventRow; count?: { guests:
         <CopyLink label="Staff console" url={staffUrl} />
         <CopyLink label={ev.config.gallery?.mode === "public" ? "Public wall" : "Gallery (private)"} url={galleryUrl} disabled={ev.config.gallery?.mode !== "public"} />
         <CopyLink label="Live wall display" url={wallUrl} />
+        <CopyLink label="Kiosk capture" url={kioskUrl} />
       </div>
 
       {editing && <EventEditor event={ev} onClose={() => { setEditing(false); onChange(); }} />}
