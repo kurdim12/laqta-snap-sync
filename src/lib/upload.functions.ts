@@ -262,6 +262,7 @@ export const registerGuestPhoto = createServerFn({ method: "POST" })
       status: "ready",
       approved,
       original_url: data.storagePath,
+      shirt_variant: data.shirtVariant ?? null,
       process_status: processStatus,
       error_message: null,
     }, { onConflict: "id" });
