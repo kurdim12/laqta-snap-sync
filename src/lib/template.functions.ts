@@ -77,6 +77,9 @@ export const testTemplate = createServerFn({ method: "POST" })
       await supabaseAdmin.from("template_test_runs").insert({
         event_id: data.eventId ?? null,
         user_id: userId,
+        model: modelId(data.model ?? null),
+        event_id: data.eventId ?? null,
+        user_id: userId,
         model: modelId(),
         cost: 0,
         ms: 0,
