@@ -718,9 +718,10 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   ];
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
-      <div className="grid w-full max-w-5xl gap-0 overflow-hidden rounded-2xl border border-border bg-card lg:grid-cols-[2fr_1fr] max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
-        <div className="flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
+      <div className="grid h-[100dvh] max-h-[100dvh] w-full max-w-5xl gap-0 overflow-hidden border border-border bg-card sm:h-auto sm:max-h-[92vh] sm:rounded-2xl lg:grid-cols-[2fr_1fr]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex min-h-0 flex-col overflow-hidden">
+
           {/* Sticky header */}
           <div className="flex items-center justify-between border-b border-border bg-card/95 px-5 py-3 backdrop-blur">
             <h2 className="truncate text-lg font-bold">{event ? `Edit · ${event.name}` : "New event"}</h2>
@@ -737,7 +738,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
             ))}
           </div>
 
-          <div className="flex-1 space-y-4 overflow-auto p-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5" style={{ WebkitOverflowScrolling: "touch" }}>
             {tab === "basics" && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} className="input" /></Field>
