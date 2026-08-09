@@ -511,8 +511,8 @@ export function RegistrationsModal({ event, onClose }: { event: EventRow; onClos
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
-      <div className="grid w-full max-w-5xl gap-3 rounded-2xl border border-border bg-card p-5 max-h-[92vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
+      <div className="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col gap-3 overflow-y-auto overscroll-contain border border-border bg-card p-4 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl sm:p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-xl font-bold">Registrations — {event.name}</h2>
@@ -718,9 +718,10 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   ];
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
-      <div className="grid w-full max-w-5xl gap-0 overflow-hidden rounded-2xl border border-border bg-card lg:grid-cols-[2fr_1fr] max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
-        <div className="flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
+      <div className="grid h-[100dvh] max-h-[100dvh] w-full max-w-5xl gap-0 overflow-hidden border border-border bg-card sm:h-auto sm:max-h-[92vh] sm:rounded-2xl lg:grid-cols-[2fr_1fr]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex min-h-0 flex-col overflow-hidden">
+
           {/* Sticky header */}
           <div className="flex items-center justify-between border-b border-border bg-card/95 px-5 py-3 backdrop-blur">
             <h2 className="truncate text-lg font-bold">{event ? `Edit · ${event.name}` : "New event"}</h2>
@@ -737,7 +738,7 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
             ))}
           </div>
 
-          <div className="flex-1 space-y-4 overflow-auto p-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5" style={{ WebkitOverflowScrolling: "touch" }}>
             {tab === "basics" && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} className="input" /></Field>
@@ -912,14 +913,15 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
           </div>
 
           {/* Sticky footer */}
-          <div className="flex items-center justify-between gap-2 border-t border-border bg-card/95 px-5 py-3 backdrop-blur">
-            {err ? <p className="truncate text-sm text-destructive">{err}</p> : <span className="text-xs text-muted-foreground">Changes save when you click {event ? "Save" : "Create"}</span>}
-            <div className="flex gap-2">
+          <div className="shrink-0 border-t border-border bg-card/95 px-4 py-3 backdrop-blur sm:px-5" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}>
+            {err ? <p className="mb-2 text-sm text-destructive">{err}</p> : <p className="mb-2 hidden text-xs text-muted-foreground sm:block">Changes save when you click {event ? "Save" : "Create"}</p>}
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {event && <button onClick={clone} disabled={busy} className="rounded-xl border border-border px-4 py-2 text-sm">Clone as dry run</button>}
               <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-sm">Cancel</button>
-              <button onClick={save} disabled={busy || !name} className="rounded-xl bg-primary px-5 py-2 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60">{busy ? "…" : event ? "Save" : "Create"}</button>
+              <button onClick={save} disabled={busy || !name} className="flex-1 rounded-xl bg-primary px-5 py-2 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60 sm:flex-none">{busy ? "…" : event ? "Save" : "Create"}</button>
             </div>
           </div>
+
         </div>
 
         <PhonePreview config={config} name={name || "Event"} />
@@ -1604,8 +1606,8 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
-      <div className="grid w-full max-w-6xl gap-3 rounded-2xl border border-border bg-card p-5 max-h-[92vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-0 sm:p-4" onClick={onClose}>
+      <div className="flex h-[100dvh] max-h-[100dvh] w-full max-w-6xl flex-col gap-3 overflow-y-auto overscroll-contain border border-border bg-card p-4 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl sm:p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-xl font-bold">📷 Photos — {event.name}</h2>
