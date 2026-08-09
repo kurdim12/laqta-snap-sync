@@ -6,6 +6,7 @@ import { SHIRT_VARIANTS, randomShirt, type ShirtVariant } from "@/lib/shirts";
 import { addOutbox, trySync } from "@/lib/outbox";
 import { generateCode, newId } from "@/lib/code";
 import { resizeImage } from "@/lib/media";
+import { backdropOf, renderBackdrop } from "@/lib/backdrop";
 
 export const Route = createFileRoute("/k/$slug")({
   head: () => ({
@@ -25,7 +26,7 @@ type Step = "start" | "name" | "capture" | "shirt" | "preview" | "done";
 
 function Kiosk() {
   const { slug } = useParams({ from: "/k/$slug" });
-  const [event, setEvent] = useState<{ id: string; slug: string; name: string } | null>(null);
+  const [event, setEvent] = useState<{ id: string; slug: string; name: string; config: unknown } | null>(null);
   const [missing, setMissing] = useState(false);
   const [step, setStep] = useState<Step>("start");
   const [name, setName] = useState("");
@@ -33,6 +34,10 @@ function Kiosk() {
   const [preview, setPreview] = useState<string | null>(null);
   const [shirt, setShirt] = useState<ShirtVariant>(SHIRT_VARIANTS[0]);
   const [busy, setBusy] = useState(false);
+  const [styled, setStyled] = useState<Blob | null>(null);
+  const [styledUrl, setStyledUrl] = useState<string | null>(null);
+  const [styling, setStyling] = useState(false);
+  const [styleErr, setStyleErr] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -40,7 +45,7 @@ function Kiosk() {
       const { event: ev } = await getPublicEventBySlug({ data: { slug } }).catch(() => ({ event: null }));
       if (!alive) return;
       if (!ev) { setMissing(true); return; }
-      setEvent({ id: ev.id, slug: ev.slug, name: ev.name });
+      setEvent({ id: ev.id, slug: ev.slug, name: ev.name, config: ev.config });
     })();
     return () => { alive = false; };
   }, [slug]);
@@ -51,6 +56,30 @@ function Kiosk() {
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [photo]);
+
+  useEffect(() => {
+    if (!styled) { setStyledUrl(null); return; }
+    const url = URL.createObjectURL(styled);
+    setStyledUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [styled]);
+
+  // Render the real wall treatment (cutout + brand gradient) in the browser so
+  // the preview shows exactly what lands on the wall. $0, no AI.
+  async function buildStyled(source: Blob) {
+    if (!event) return;
+    setStyling(true);
+    setStyleErr(false);
+    setStyled(null);
+    try {
+      const out = await renderBackdrop(source, backdropOf(event.config), `${Date.now()}-${shirt.id}`);
+      setStyled(out);
+    } catch {
+      setStyleErr(true);
+    } finally {
+      setStyling(false);
+    }
+  }
 
   async function onCapture(file: File) {
     const blob = await resizeImage(file, 2160, 0.94).catch(() => file as Blob);
@@ -78,7 +107,7 @@ function Kiosk() {
   }
 
   function restart() {
-    setName(""); setPhoto(null); setShirt(SHIRT_VARIANTS[0]); setStep("start");
+    setName(""); setPhoto(null); setStyled(null); setStyleErr(false); setShirt(SHIRT_VARIANTS[0]); setStep("start");
   }
 
   if (missing) {
@@ -176,7 +205,7 @@ function Kiosk() {
               Surprise me
             </button>
             <button
-              onClick={() => setStep("preview")}
+              onClick={() => { setStep("preview"); if (photo) void buildStyled(photo); }}
               className="mt-8 rounded-full bg-white px-8 py-5 text-lg font-black uppercase tracking-widest text-black transition hover:-translate-y-0.5 hover:opacity-90 hover:shadow-[0_12px_40px_-12px_rgba(255,255,255,0.45)]"
             >
               Preview
@@ -189,12 +218,22 @@ function Kiosk() {
             <h2 className="text-3xl font-black uppercase tracking-tight">Looking good?</h2>
             <div className="mt-6 overflow-hidden rounded-3xl bg-white/5 ring-1 ring-white/15">
               <div className="relative aspect-[4/5] w-full bg-black">
-                {preview && (
+                {(styledUrl || preview) && (
                   <img
-                    src={preview}
+                    src={styledUrl || preview!}
                     alt="Your portrait"
-                    className="h-full w-full object-contain"
+                    className={`h-full w-full ${styledUrl ? "object-cover" : "object-contain"}`}
                   />
+                )}
+                {styling && (
+                  <div className="absolute inset-0 grid place-items-center bg-black/65 text-center">
+                    <div>
+                      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                      <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.3em] text-white/70">
+                        Styling your shot
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -207,10 +246,12 @@ function Kiosk() {
               />
               <div className="min-w-0">
                 <p className="text-sm font-black uppercase tracking-widest">{shirt.name} fit</p>
-                <p className="truncate text-xs text-white/45">Applied when your portrait is processed</p>
+                <p className="truncate text-xs text-white/45">
+                  {styleErr ? "Preview unavailable — your shot still goes on the wall" : styled ? "Wall treatment applied" : "Applied when your portrait is processed"}
+                </p>
               </div>
               <button
-                onClick={() => setStep("shirt")}
+                onClick={() => { setStyled(null); setStep("shirt"); }}
                 className="ms-auto shrink-0 rounded-full border border-white/25 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-white/70 transition hover:border-white/50"
               >
                 Change
