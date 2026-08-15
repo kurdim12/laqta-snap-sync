@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           approved: boolean
           bytes: number | null
+          consent: boolean
           content_type: string
           created_at: string
           display_order: number | null
@@ -35,6 +36,8 @@ export type Database = {
           processed_url: string | null
           processing_finished_at: string | null
           processing_started_at: string | null
+          published: boolean
+          session_id: string | null
           shirt_variant: string | null
           status: string
           storage_path: string
@@ -43,6 +46,7 @@ export type Database = {
         Insert: {
           approved?: boolean
           bytes?: number | null
+          consent?: boolean
           content_type: string
           created_at?: string
           display_order?: number | null
@@ -60,6 +64,8 @@ export type Database = {
           processed_url?: string | null
           processing_finished_at?: string | null
           processing_started_at?: string | null
+          published?: boolean
+          session_id?: string | null
           shirt_variant?: string | null
           status?: string
           storage_path: string
@@ -68,6 +74,7 @@ export type Database = {
         Update: {
           approved?: boolean
           bytes?: number | null
+          consent?: boolean
           content_type?: string
           created_at?: string
           display_order?: number | null
@@ -85,6 +92,8 @@ export type Database = {
           processed_url?: string | null
           processing_finished_at?: string | null
           processing_started_at?: string | null
+          published?: boolean
+          session_id?: string | null
           shirt_variant?: string | null
           status?: string
           storage_path?: string
@@ -155,12 +164,15 @@ export type Database = {
       }
       events: {
         Row: {
+          car_reference_url: string | null
           config: Json
           created_at: string
           generations_used: number
           id: string
+          location_reference_url: string | null
           max_generations: number
           name: string
+          requires_ref_images: boolean
           slug: string
           staff_pin: string | null
           status: string
@@ -173,12 +185,15 @@ export type Database = {
           template_reference_url: string | null
         }
         Insert: {
+          car_reference_url?: string | null
           config?: Json
           created_at?: string
           generations_used?: number
           id?: string
+          location_reference_url?: string | null
           max_generations?: number
           name: string
+          requires_ref_images?: boolean
           slug: string
           staff_pin?: string | null
           status?: string
@@ -191,12 +206,15 @@ export type Database = {
           template_reference_url?: string | null
         }
         Update: {
+          car_reference_url?: string | null
           config?: Json
           created_at?: string
           generations_used?: number
           id?: string
+          location_reference_url?: string | null
           max_generations?: number
           name?: string
+          requires_ref_images?: boolean
           slug?: string
           staff_pin?: string | null
           status?: string
