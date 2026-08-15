@@ -12,7 +12,7 @@ import {
 } from "@/lib/vogue.functions";
 import { resizeImage } from "@/lib/media";
 
-export const Route = createFileRoute("/event/$slug")({
+export const Route = createFileRoute("/event/$slug/")({
   head: () => ({
     meta: [
       { title: "LYNK & CO 900 — Vogue Cover Experience" },
@@ -57,7 +57,7 @@ function sessionIdFor(slug: string): string {
 type Step = "intro" | "capture" | "review" | "working" | "result";
 
 function VogueExperience() {
-  const { slug } = useParams({ from: "/event/$slug" });
+  const { slug } = useParams({ from: "/event/$slug/" });
   const [event, setEvent] = useState<VogueEventInfo | null | "loading">("loading");
   const [session, setSession] = useState("");
   const [step, setStep] = useState<Step>("intro");
