@@ -5,7 +5,11 @@
 // crops head-and-shoulders so a grid of them reads as one consistent wall.
 
 export interface BackdropSettings {
-  /** gradient stops, one pair per tile colour; cycled deterministically */
+  /**
+   * One pair per tile colour, cycled deterministically. The panel is lit from
+   * behind the subject: `from` is the bright glow at the centre, `to` the deep
+   * shade the corners fall away to.
+   */
   palette: { from: string; to: string }[];
   halftone: boolean;
   /** 0-100 */
@@ -13,17 +17,22 @@ export interface BackdropSettings {
   aspect: "1:1" | "4:5";
 }
 
+/**
+ * Sampled off the LYNK & CO installation wall: saturated backlit panels in
+ * violet, mint, electric blue, magenta and cyan, each blooming behind the
+ * subject and falling into a much deeper shade at the edges.
+ */
 export const DEFAULT_BACKDROP: BackdropSettings = {
   palette: [
-    { from: "#7C3AED", to: "#2563EB" },
-    { from: "#06B6D4", to: "#34D399" },
-    { from: "#F43F5E", to: "#F59E0B" },
-    { from: "#EC4899", to: "#8B5CF6" },
-    { from: "#0EA5E9", to: "#1E1B4B" },
-    { from: "#84CC16", to: "#065F46" },
+    { from: "#A855F7", to: "#3B0764" }, // violet
+    { from: "#8FF0BF", to: "#0E9F6E" }, // mint / spring green
+    { from: "#4F7DF3", to: "#1E1B4B" }, // electric blue
+    { from: "#FF4D8D", to: "#9D174D" }, // magenta
+    { from: "#22D3EE", to: "#0E7490" }, // cyan
+    { from: "#C084FC", to: "#4C1D95" }, // orchid
   ],
   halftone: true,
-  halftoneOpacity: 14,
+  halftoneOpacity: 18,
   aspect: "4:5",
 };
 
@@ -97,6 +106,40 @@ function drawHalftone(ctx: CanvasRenderingContext2D, w: number, h: number, opaci
   ctx.restore();
 }
 
+/** Which palette pair a given asset gets — stable for the life of the photo. */
+export function panelPair(settings: BackdropSettings, seed: string): { from: string; to: string } {
+  return settings.palette[hash(seed) % settings.palette.length];
+}
+
+/**
+ * Paint the lit panel the subject stands on. A backlit lightbox, not a flat
+ * wash: the glow blooms from behind the head and shoulders and falls into the
+ * deeper shade at the corners, which is what gives the reference wall its
+ * depth. The centre sits above the midline so the brightest part lands behind
+ * the face.
+ */
+export function paintPanel(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  settings: BackdropSettings,
+  seed: string,
+): void {
+  const pair = panelPair(settings, seed);
+  const cx = W / 2;
+  const cy = H * 0.42;
+  // Reach exactly the farthest corner, so the corners land on the deep shade
+  // rather than stopping partway and flattening the panel out.
+  const outer = Math.hypot(W / 2, Math.max(cy, H - cy));
+  const grad = ctx.createRadialGradient(cx, cy, W * 0.04, cx, cy, outer);
+  grad.addColorStop(0, pair.from);
+  grad.addColorStop(0.45, pair.from);
+  grad.addColorStop(1, pair.to);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  if (settings.halftone) drawHalftone(ctx, W, H, settings.halftoneOpacity);
+}
+
 export async function cutoutSubject(source: Blob): Promise<Blob> {
   const { removeBackground } = await import("@imgly/background-removal");
   return removeBackground(source, { output: { format: "image/png" } });
@@ -125,13 +168,7 @@ export async function renderBackdrop(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
-  const pair = settings.palette[hash(seed) % settings.palette.length];
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, pair.from);
-  grad.addColorStop(1, pair.to);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-  if (settings.halftone) drawHalftone(ctx, W, H, settings.halftoneOpacity);
+  paintPanel(ctx, W, H, settings, seed);
 
   // Head-and-shoulders framing: subject fills ~74% of the height, head near the
   // top, horizontally centred — identical geometry on every tile.

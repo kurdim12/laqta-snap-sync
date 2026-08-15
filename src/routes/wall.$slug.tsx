@@ -42,14 +42,19 @@ function sameFace(x: Face, y: Face): boolean {
   return false;
 }
 
-/** Vivid backlit panel colours, echoing the reference installation. */
+/**
+ * Backlit panel colours, matching DEFAULT_BACKDROP in @/lib/backdrop so an
+ * empty cell sits in the same light as the rendered portraits around it: the
+ * glow blooms behind where the subject would stand and falls into the deep
+ * shade at the corners.
+ */
 const PLACEHOLDER_GRADIENTS = [
-  "linear-gradient(160deg,#7C3AED,#2563EB)",
-  "linear-gradient(160deg,#06B6D4,#34D399)",
-  "linear-gradient(160deg,#F43F5E,#F59E0B)",
-  "linear-gradient(160deg,#EC4899,#8B5CF6)",
-  "linear-gradient(160deg,#0EA5E9,#1E1B4B)",
-  "linear-gradient(160deg,#22D3EE,#3B82F6)",
+  "radial-gradient(115% 85% at 50% 42%, #A855F7 0%, #A855F7 45%, #3B0764 100%)",
+  "radial-gradient(115% 85% at 50% 42%, #8FF0BF 0%, #8FF0BF 45%, #0E9F6E 100%)",
+  "radial-gradient(115% 85% at 50% 42%, #4F7DF3 0%, #4F7DF3 45%, #1E1B4B 100%)",
+  "radial-gradient(115% 85% at 50% 42%, #FF4D8D 0%, #FF4D8D 45%, #9D174D 100%)",
+  "radial-gradient(115% 85% at 50% 42%, #22D3EE 0%, #22D3EE 45%, #0E7490 100%)",
+  "radial-gradient(115% 85% at 50% 42%, #C084FC 0%, #C084FC 45%, #4C1D95 100%)",
 ];
 
 /**
