@@ -51,7 +51,10 @@ export interface GenerateInput {
   imageDataUrl: string;
   /** optional second reference, e.g. a flat photo of the branded shirt */
   referenceDataUrl?: string | null;
+  /** further ordered references appended after the two above (car, location…) */
+  extraReferenceUrls?: (string | null | undefined)[] | null;
   quality?: string | null;
+
   /** per-event image model override (must be in AI_IMAGE_MODELS) */
   model?: string | null;
   aspectRatio?: string | null;
