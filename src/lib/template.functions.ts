@@ -61,6 +61,8 @@ export const testTemplate = createServerFn({ method: "POST" })
         prompt: data.prompt,
         imageDataUrl: data.imageDataUrl,
         referenceDataUrl: data.referenceDataUrl ?? null,
+        extraReferenceUrls: data.extraReferenceUrls ?? null,
+
         quality: data.quality,
         aspectRatio: data.aspectRatio,
         model: data.model ?? null,
