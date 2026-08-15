@@ -1663,6 +1663,13 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
     load();
   }
 
+  // Venue wall visibility (published + guest consent), used by /event/:slug/wall.
+  async function setOnWall(a: EnrichedAsset, published: boolean) {
+    await supabase.from("assets").update({ published } as never).eq("id", a.id);
+    load();
+  }
+
+
   // Re-run the event's AI style on a photo whose first attempt failed.
   async function retryStyle(a: EnrichedAsset) {
     try {
