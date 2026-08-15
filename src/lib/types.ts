@@ -148,6 +148,12 @@ export interface AssetRow {
   meta: Record<string, unknown>;
   created_at: string;
   approved?: boolean;
+  /** venue-wall visibility (admin) and guest consent for it */
+  published?: boolean;
+  consent?: boolean;
+  /** anonymous guest session that created this asset (kiosk/vogue flows) */
+  session_id?: string | null;
+
   original_url?: string | null;
   processed_url?: string | null;
   process_status?: "pending" | "processing" | "done" | "failed";
