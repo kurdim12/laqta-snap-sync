@@ -28,6 +28,9 @@ export const testTemplate = createServerFn({ method: "POST" })
       prompt: z.string().min(1).max(4000),
       imageDataUrl: z.string().min(32).max(12_000_000),
       referenceDataUrl: z.string().max(12_000_000).nullish(),
+      /** ordered extra scene references (car, location) */
+      extraReferenceUrls: z.array(z.string().max(12_000_000)).max(4).nullish(),
+
       quality: z.enum(["low", "medium", "high"]).default("medium"),
       aspectRatio: z.string().max(32).default("1024x1024"),
       model: z.string().max(120).nullish(),
