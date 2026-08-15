@@ -1917,7 +1917,13 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
                     ) : (
                       <button onClick={(e) => { e.stopPropagation(); setApproved(a, false); }} title="Unpublish" className="rounded bg-[color:var(--warning)] px-1.5 py-0.5 text-[10px] font-bold text-black">↩</button>
                     )}
+                    {(a as unknown as { published?: boolean }).published ? (
+                      <button onClick={(e) => { e.stopPropagation(); setOnWall(a, false); }} title="Hide from wall" className="rounded bg-foreground px-1.5 py-0.5 text-[10px] font-bold text-background">🖥✕</button>
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); setOnWall(a, true); }} title="Show on wall" className="rounded border border-border bg-background/80 px-1.5 py-0.5 text-[10px] font-bold">🖥</button>
+                    )}
                     <button onClick={(e) => { e.stopPropagation(); setConfirmDel(a); }} title="Delete" className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground">🗑</button>
+
                   </div>
                 </div>
               ))}
