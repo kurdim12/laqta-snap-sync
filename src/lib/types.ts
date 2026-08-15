@@ -107,8 +107,15 @@ export interface EventRow {
   template_prompt?: string | null;
   /** data URL of the style reference image */
   template_reference_url?: string | null;
+  /** data URL of the car reference image (second scene reference) */
+  car_reference_url?: string | null;
+  /** data URL of the location reference image (third scene reference) */
+  location_reference_url?: string | null;
+  /** block generation until both scene references are uploaded */
+  requires_ref_images?: boolean;
   /** data URL of the transparent PNG frame */
   template_frame_url?: string | null;
+
   template_quality?: "low" | "medium" | "high";
   template_aspect_ratio?: string;
   /** hard cap on AI generations for this event */
