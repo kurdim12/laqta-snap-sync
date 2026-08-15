@@ -15,6 +15,7 @@ import { Route as WallSlugRouteImport } from './routes/wall.$slug'
 import { Route as StaffSlugRouteImport } from './routes/staff.$slug'
 import { Route as KSlugRouteImport } from './routes/k.$slug'
 import { Route as GCodeRouteImport } from './routes/g.$code'
+import { Route as EventSlugRouteImport } from './routes/event.$slug'
 import { Route as ESlugRouteImport } from './routes/e.$slug'
 import { Route as ESlugGalleryRouteImport } from './routes/e.$slug.gallery'
 import { Route as ApiPublicProcessPhotoRouteImport } from './routes/api/public/process-photo'
@@ -49,6 +50,11 @@ const GCodeRoute = GCodeRouteImport.update({
   path: '/g/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EventSlugRoute = EventSlugRouteImport.update({
+  id: '/event/$slug',
+  path: '/event/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ESlugRoute = ESlugRouteImport.update({
   id: '/e/$slug',
   path: '/e/$slug',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/e/$slug': typeof ESlugRouteWithChildren
+  '/event/$slug': typeof EventSlugRoute
   '/g/$code': typeof GCodeRoute
   '/k/$slug': typeof KSlugRoute
   '/staff/$slug': typeof StaffSlugRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/e/$slug': typeof ESlugRouteWithChildren
+  '/event/$slug': typeof EventSlugRoute
   '/g/$code': typeof GCodeRoute
   '/k/$slug': typeof KSlugRoute
   '/staff/$slug': typeof StaffSlugRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/e/$slug': typeof ESlugRouteWithChildren
+  '/event/$slug': typeof EventSlugRoute
   '/g/$code': typeof GCodeRoute
   '/k/$slug': typeof KSlugRoute
   '/staff/$slug': typeof StaffSlugRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/e/$slug'
+    | '/event/$slug'
     | '/g/$code'
     | '/k/$slug'
     | '/staff/$slug'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/e/$slug'
+    | '/event/$slug'
     | '/g/$code'
     | '/k/$slug'
     | '/staff/$slug'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/e/$slug'
+    | '/event/$slug'
     | '/g/$code'
     | '/k/$slug'
     | '/staff/$slug'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   ESlugRoute: typeof ESlugRouteWithChildren
+  EventSlugRoute: typeof EventSlugRoute
   GCodeRoute: typeof GCodeRoute
   KSlugRoute: typeof KSlugRoute
   StaffSlugRoute: typeof StaffSlugRoute
@@ -190,6 +203,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/event/$slug': {
+      id: '/event/$slug'
+      path: '/event/$slug'
+      fullPath: '/event/$slug'
+      preLoaderRoute: typeof EventSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/e/$slug': {
       id: '/e/$slug'
       path: '/e/$slug'
@@ -228,6 +248,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   ESlugRoute: ESlugRouteWithChildren,
+  EventSlugRoute: EventSlugRoute,
   GCodeRoute: GCodeRoute,
   KSlugRoute: KSlugRoute,
   StaffSlugRoute: StaffSlugRoute,
