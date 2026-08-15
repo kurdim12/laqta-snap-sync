@@ -13,7 +13,8 @@ import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
 import { testTemplate, reprocessAsset, sweepEventProcessing } from "@/lib/template.functions";
 import { toast } from "sonner";
 import { backdropOf, renderBackdrop } from "@/lib/backdrop";
-import { wallOf } from "@/lib/wall";
+import { wallOf, capBoxes, DEFAULT_WALL_BOXES, MAX_MESSAGE_BOXES, MAX_LOGO_BOXES } from "@/lib/wall";
+import type { WallPattern } from "@/lib/types";
 import { SHIRT_VARIANTS } from "@/lib/shirts";
 import { AI_IMAGE_MODELS, DEFAULT_AI_IMAGE_MODEL } from "@/lib/ai-models";
 
@@ -1199,6 +1200,38 @@ function TemplatePanel(props: {
 /* Backdrop treatment ($0 — browser cutout + brand gradient)           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Brand-box copy, one line per `|`. The field holds the RAW text while it has
+ * focus — normalising on every keystroke and feeding the result back into a
+ * controlled `value` would let React restore the trimmed string over what was
+ * just typed, so a trailing space or `|` could never survive and "TAKE YOUR
+ * SHOT" would type out as "TAKEYOURSHOT".
+ */
+function LinesInput({ lines, onCommit }: { lines: string[]; onCommit: (lines: string[]) => void }) {
+  const joined = lines.join(" | ");
+  const [draft, setDraft] = useState(joined);
+  const editing = useRef(false);
+
+  useEffect(() => {
+    if (!editing.current) setDraft(joined);
+  }, [joined]);
+
+  return (
+    <input
+      value={draft}
+      onFocus={() => { editing.current = true; }}
+      onBlur={() => { editing.current = false; setDraft(joined); }}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        onCommit(e.target.value.split("|").map((s) => s.trim()).filter(Boolean));
+      }}
+      className="input min-w-0 flex-1"
+      placeholder="WHY NOT | PERSONAL | OPEN CO"
+      title="Lines separated by | — the box turns to the next one on each flip"
+    />
+  );
+}
+
 function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: (c: EventConfig) => void }) {
   const settings = backdropOf(config);
   const wall = wallOf(config);
@@ -1302,39 +1335,80 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
       </div>
 
       <Field label="Wall display">
+        <p className="mb-3 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+          The wall turns <b className="text-foreground">one cell at a time</b>, in order, with a flip — never the
+          whole grid at once. The screen carries at most{" "}
+          <b className="text-foreground">two message boxes and one logo</b>; each box keeps its place and only its
+          copy turns over, so that count never changes mid-flip.
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-muted-foreground">Columns
             <input type="number" min={1} max={6} value={wall.columns} onChange={(e) => patchWall({ columns: Math.max(1, Math.min(6, Number(e.target.value) || 3)) })} className="input" />
           </label>
-          <label className="text-xs text-muted-foreground">Refresh every (sec)
-            <input type="number" min={3} max={120} value={wall.intervalSec} onChange={(e) => patchWall({ intervalSec: Math.max(3, Math.min(120, Number(e.target.value) || 8)) })} className="input" />
+          <label className="text-xs text-muted-foreground">Flip one cell every (sec)
+            <input type="number" min={2} max={120} value={wall.intervalSec} onChange={(e) => patchWall({ intervalSec: Math.max(2, Math.min(120, Number(e.target.value) || 6)) })} className="input" />
+          </label>
+          <label className="text-xs text-muted-foreground">Flip order
+            <select value={wall.pattern} onChange={(e) => patchWall({ pattern: e.target.value as WallPattern })} className="input">
+              <option value="scatter">Scatter · spread across the screen</option>
+              <option value="serpentine">Serpentine · snake, row by row</option>
+              <option value="diagonal">Diagonal · wave across</option>
+            </select>
+          </label>
+          <label className="text-xs text-muted-foreground">Flip takes (ms)
+            <input type="number" min={200} max={4000} step={50} value={wall.flipMs} onChange={(e) => patchWall({ flipMs: Math.max(200, Math.min(4000, Number(e.target.value) || 900)) })} className="input" />
           </label>
         </div>
-        <div className="mt-3 space-y-2">
-          {wall.tiles.map((t, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2">
-              <select value={t.kind ?? "text"} onChange={(e) => {
-                const tiles = wall.tiles.slice(); tiles[i] = { ...t, kind: e.target.value as "text" | "logo" | "empty" }; patchWall({ tiles });
-              }} className="input w-28 shrink-0">
-                <option value="text">Text</option>
+        <div className="mt-1 text-[11px] text-muted-foreground">
+          A full pass over the {wall.columns * 6} cells takes about{" "}
+          <b className="text-foreground">{Math.round((wall.columns * 6 * wall.intervalSec) / 6) / 10} min</b>.
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Brand boxes · {wall.boxes.filter((b) => b.kind === "text").length}/{MAX_MESSAGE_BOXES} messages ·{" "}
+            {wall.boxes.filter((b) => b.kind === "logo").length}/{MAX_LOGO_BOXES} logo
+          </div>
+          {wall.boxes.map((b, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2">
+              <select value={b.kind} onChange={(e) => {
+                const boxes = wall.boxes.slice(); boxes[i] = { ...b, kind: e.target.value as "text" | "logo" }; patchWall({ boxes: capBoxes(boxes) });
+              }} className="input w-24 shrink-0">
+                <option value="text">Message</option>
                 <option value="logo">Logo</option>
-                <option value="empty">Empty</option>
               </select>
-              <input value={t.text} onChange={(e) => {
-                const tiles = wall.tiles.slice(); tiles[i] = { ...t, text: e.target.value }; patchWall({ tiles });
-              }} className="input min-w-0 flex-1" placeholder="TAKE YOUR SHOT" />
-              <input type="color" value={t.background} onChange={(e) => {
-                const tiles = wall.tiles.slice(); tiles[i] = { ...t, background: e.target.value }; patchWall({ tiles });
-              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" />
-              <input type="color" value={t.color} onChange={(e) => {
-                const tiles = wall.tiles.slice(); tiles[i] = { ...t, color: e.target.value }; patchWall({ tiles });
-              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" />
-              <button type="button" onClick={() => patchWall({ tiles: wall.tiles.filter((_, j) => j !== i) })}
+              <LinesInput
+                lines={b.lines}
+                onCommit={(lines) => {
+                  const boxes = wall.boxes.slice(); boxes[i] = { ...b, lines }; patchWall({ boxes });
+                }}
+              />
+              <input type="color" value={b.background} onChange={(e) => {
+                const boxes = wall.boxes.slice(); boxes[i] = { ...b, background: e.target.value }; patchWall({ boxes });
+              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" title="Box colour" />
+              <input type="color" value={b.color} onChange={(e) => {
+                const boxes = wall.boxes.slice(); boxes[i] = { ...b, color: e.target.value }; patchWall({ boxes });
+              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" title="Text colour" />
+              <button type="button" onClick={() => patchWall({ boxes: wall.boxes.filter((_, j) => j !== i) })}
                 className="shrink-0 text-xs font-semibold text-destructive underline">Remove</button>
             </div>
           ))}
-          <button type="button" onClick={() => patchWall({ tiles: [...wall.tiles, { kind: "text", text: "WHY NOT", background: "#0A0A0A", color: "#FFFFFF" }] })}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold">+ Add brand tile</button>
+          <p className="text-[11px] text-muted-foreground">
+            Separate lines with <code>|</code> — the box flips to the next line each time its turn comes round.
+          </p>
+          {wall.boxes.length < MAX_MESSAGE_BOXES + MAX_LOGO_BOXES && (
+            <button
+              type="button"
+              onClick={() => {
+                const needLogo = wall.boxes.filter((b) => b.kind === "logo").length < MAX_LOGO_BOXES;
+                const add = needLogo ? DEFAULT_WALL_BOXES[2] : DEFAULT_WALL_BOXES[0];
+                patchWall({ boxes: capBoxes([...wall.boxes, { ...add }]) });
+              }}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold"
+            >
+              + Add brand box
+            </button>
+          )}
         </div>
       </Field>
     </div>

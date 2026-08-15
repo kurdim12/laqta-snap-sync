@@ -26,12 +26,39 @@ export interface WallTile {
   color: string;
 }
 
+/** Order the flip cursor walks the grid. Every cell turns exactly once per
+ * cycle in all three; they differ only in where the next turn lands. */
+export type WallPattern = "scatter" | "serpentine" | "diagonal";
+
+/**
+ * A fixed brand panel on the wall. Unlike the old `tiles`, a box holds a
+ * *position* on the grid for the whole show — only its copy turns over. That is
+ * what keeps the on-screen census constant: two message boxes and one logo box,
+ * never more, no matter which cell is mid-flip.
+ */
+export interface WallBox {
+  kind: "text" | "logo";
+  background: string;
+  color: string;
+  /** copy that cycles inside this box, one line per turn */
+  lines: string[];
+}
+
 export interface WallConfig {
   columns: number;
-  /** seconds between grid refreshes/advances */
+  /** seconds between single-cell flips — the wall turns one cell at a time */
   intervalSec: number;
+  /** legacy brand tiles; migrated into `boxes` when `boxes` is absent */
   tiles: WallTile[];
+  pattern?: WallPattern;
+  /** fixed brand panels, in grid order: two messages (white, blue) + one logo */
+  boxes?: WallBox[];
+  /** how long one flip takes, ms */
+  flipMs?: number;
 }
+
+/** `wallOf()` fills every optional field, so consumers never branch on absence. */
+export type ResolvedWall = Required<WallConfig>;
 
 export interface EventConfig {
   locale: Locale;
