@@ -166,7 +166,7 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
       input.prompt.trim(),
       FACE_PRESERVATION_PROMPT,
     ].join("\n\n"),
-    input_references: buildInputReferences(input.imageDataUrl, input.referenceDataUrl),
+    input_references: buildInputReferences(input.imageDataUrl, input.referenceDataUrl, input.extraReferenceUrls),
     ...(quality ? { quality } : {}),
     // never both — see sizeOrAspect
     ...sizeOrAspect(input.aspectRatio),
