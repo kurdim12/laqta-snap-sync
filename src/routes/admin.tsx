@@ -1151,6 +1151,50 @@ function TemplatePanel(props: {
             </div>
           </Field>
 
+          {/* Scene references — sent to the model after the guest photo, in
+              this exact order: guest, car, location. */}
+          <Field label="Scene references (car & location)">
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 text-xs font-semibold">
+                <input type="checkbox" checked={requiresRefs} onChange={(e) => setRequiresRefs(e.target.checked)} className="h-5 w-5" />
+                Require both before any generation runs
+              </label>
+              {requiresRefs && (!carUrl || !locationUrl) && (
+                <p className="rounded-lg border border-[color:var(--warning)]/50 bg-[color:var(--warning)]/10 p-2 text-[11px] font-semibold">
+                  ⚠ Generation is blocked until both the car and the location reference are uploaded.
+                </p>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {([["Car", carUrl, setCarUrl] as const, ["Location", locationUrl, setLocationUrl] as const]).map(([label, url, setter]) => (
+                  <div key={label} className="space-y-2 rounded-lg border border-border bg-card p-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label} reference</div>
+                    {url ? (
+                      <div className="flex items-center gap-3">
+                        <img src={url} alt={`${label} reference`} className="h-20 rounded object-cover" />
+                        <button type="button" onClick={() => setter("")} className="text-xs font-semibold text-destructive underline">Remove</button>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">Not uploaded yet</p>
+                    )}
+                    <label className="inline-block cursor-pointer rounded-lg border border-border px-3 py-2 text-xs font-bold">
+                      {url ? `Replace ${label.toLowerCase()}` : `Upload ${label.toLowerCase()}`}
+                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        const f = e.target.files?.[0]; e.currentTarget.value = "";
+                        if (f) await pickImage(f, 1280, setter);
+                      }} />
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Order sent to the model: guest photo → car → location.
+                <span className="block font-arabic" dir="rtl">ترتيب المراجع: صورة الضيف ← السيارة ← الموقع.</span>
+              </p>
+            </div>
+          </Field>
+
+
+
           {/* Test panel */}
           <div className="rounded-xl border border-border bg-background p-4">
             <div className="flex flex-wrap items-center gap-2">
