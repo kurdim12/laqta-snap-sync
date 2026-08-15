@@ -985,12 +985,16 @@ function TemplatePanel(props: {
   config: EventConfig; setConfig: (c: EventConfig) => void;
   prompt: string; setPrompt: (v: string) => void;
   referenceUrl: string; setReferenceUrl: (v: string) => void;
+  carUrl: string; setCarUrl: (v: string) => void;
+  locationUrl: string; setLocationUrl: (v: string) => void;
+  requiresRefs: boolean; setRequiresRefs: (v: boolean) => void;
   frameUrl: string; setFrameUrl: (v: string) => void;
   quality: "low" | "medium" | "high"; setQuality: (q: "low" | "medium" | "high") => void;
   aspect: string; setAspect: (v: string) => void;
   model: string; setModel: (v: string) => void;
 }) {
-  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect, model, setModel } = props;
+  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, carUrl, setCarUrl, locationUrl, setLocationUrl, requiresRefs, setRequiresRefs, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect, model, setModel } = props;
+
   const [sample, setSample] = useState<string | null>(null);
   const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; costIsActual?: boolean; model?: string; error?: string; attempts?: unknown[] } | null>(null);
   const [testSpend, setTestSpend] = useState<{ runs: number; total: number } | null>(null);
