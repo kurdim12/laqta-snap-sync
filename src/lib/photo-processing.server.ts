@@ -139,6 +139,9 @@ export async function processAssetById(
       prompt: ev.template_prompt,
       imageDataUrl,
       referenceDataUrl: ref && ref.startsWith("data:") ? ref : null,
+      // Ordered scene references: car, then location.
+      extraReferenceUrls: [evx.car_reference_url || null, evx.location_reference_url || null],
+
       quality: ev.template_quality,
       aspectRatio: ev.template_aspect_ratio,
       model: (ev as { template_model?: string | null }).template_model ?? null,
