@@ -213,6 +213,34 @@ button:not(:disabled):active,
   to { opacity: 1; transform: none; }
 }
 
+/* ---- Venue wall: one cell turns at a time -------------------------------
+   Every cell is a two-faced card. The next photo — or the next line of brand
+   copy — is written to the *hidden* face first, then the card turns, so the
+   swap is never visible as a pop and only the one cell being turned moves.
+   `turns` only ever increments, so each flip rotates the same direction
+   instead of rocking back and forth. */
+.flip-cell {
+  perspective: 1200px;
+}
+.flip-inner {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  transform-style: preserve-3d;
+  transition: transform var(--flip-ms, 900ms) cubic-bezier(0.45, 0.05, 0.2, 1);
+  will-change: transform;
+}
+.flip-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-face-b {
+  transform: rotateY(180deg);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {
