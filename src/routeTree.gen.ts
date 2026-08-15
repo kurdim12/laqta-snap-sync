@@ -62,9 +62,9 @@ const EventSlugIndexRoute = EventSlugIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventSlugWallRoute = EventSlugWallRouteImport.update({
-  id: '/event/$slug/wall',
-  path: '/event/$slug/wall',
-  getParentRoute: () => rootRouteImport,
+  id: '/wall',
+  path: '/wall',
+  getParentRoute: () => EventSlugRoute,
 } as any)
 const ESlugGalleryRoute = ESlugGalleryRouteImport.update({
   id: '/gallery',
@@ -168,7 +168,6 @@ export interface RootRouteChildren {
   StaffSlugRoute: typeof StaffSlugRoute
   WallSlugRoute: typeof WallSlugRoute
   ApiPublicProcessPhotoRoute: typeof ApiPublicProcessPhotoRoute
-  EventSlugWallRoute: typeof EventSlugWallRoute
   EventSlugIndexRoute: typeof EventSlugIndexRoute
 }
 
@@ -232,10 +231,10 @@ declare module '@tanstack/react-router' {
     }
     '/event/$slug/wall': {
       id: '/event/$slug/wall'
-      path: '/event/$slug/wall'
+      path: '/wall'
       fullPath: '/event/$slug/wall'
       preLoaderRoute: typeof EventSlugWallRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof EventSlugRoute
     }
     '/e/$slug/gallery': {
       id: '/e/$slug/gallery'
@@ -273,7 +272,6 @@ const rootRouteChildren: RootRouteChildren = {
   StaffSlugRoute: StaffSlugRoute,
   WallSlugRoute: WallSlugRoute,
   ApiPublicProcessPhotoRoute: ApiPublicProcessPhotoRoute,
-  EventSlugWallRoute: EventSlugWallRoute,
   EventSlugIndexRoute: EventSlugIndexRoute,
 }
 export const routeTree = rootRouteImport
