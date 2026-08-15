@@ -1028,7 +1028,7 @@ function TemplatePanel(props: {
     setTesting(true); setResult(null);
     try {
       const r = await testTemplate({
-        data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, quality, aspectRatio: aspect, model: model || null, eventId: eventId ?? null },
+        data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, extraReferenceUrls: [carUrl, locationUrl].filter(Boolean), quality, aspectRatio: aspect, model: model || null, eventId: eventId ?? null },
       });
       setResult(r.ok
         ? { dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, costIsActual: r.costIsActual, model: r.model, attempts: r.attempts }
