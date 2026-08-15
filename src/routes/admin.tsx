@@ -868,6 +868,10 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
                 config={config} setConfig={setConfig}
                 prompt={templatePrompt} setPrompt={setTemplatePrompt}
                 referenceUrl={referenceUrl} setReferenceUrl={setReferenceUrl}
+                carUrl={carUrl} setCarUrl={setCarUrl}
+                locationUrl={locationUrl} setLocationUrl={setLocationUrl}
+                requiresRefs={requiresRefs} setRequiresRefs={setRequiresRefs}
+
                 frameUrl={frameUrl} setFrameUrl={setFrameUrl}
                 quality={quality} setQuality={setQuality}
                 aspect={aspect} setAspect={setAspect}
