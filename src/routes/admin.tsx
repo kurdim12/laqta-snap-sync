@@ -652,6 +652,10 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   const [templateMode, setTemplateMode] = useState<"none" | "frame" | "ai" | "backdrop">(event?.template_mode || "none");
   const [templatePrompt, setTemplatePrompt] = useState(event?.template_prompt || "");
   const [referenceUrl, setReferenceUrl] = useState(event?.template_reference_url || "");
+  const [carUrl, setCarUrl] = useState((event as { car_reference_url?: string | null } | undefined)?.car_reference_url || "");
+  const [locationUrl, setLocationUrl] = useState((event as { location_reference_url?: string | null } | undefined)?.location_reference_url || "");
+  const [requiresRefs, setRequiresRefs] = useState<boolean>(!!(event as { requires_ref_images?: boolean } | undefined)?.requires_ref_images);
+
   const [frameUrl, setFrameUrl] = useState(event?.template_frame_url || "");
   const [quality, setQuality] = useState<"low" | "medium" | "high">(event?.template_quality || "medium");
   const [aspect, setAspect] = useState(event?.template_aspect_ratio || "1024x1024");
