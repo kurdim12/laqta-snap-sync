@@ -81,17 +81,22 @@ export interface GenerateResult {
   model: string;
 }
 
-/** Guest photo first, style reference (if any) second — order matters. */
+/** Guest photo first, style reference (if any) second, extras after — order matters. */
 export function buildInputReferences(
   photoUrl: string,
   referenceUrl?: string | null,
+  extras?: (string | null | undefined)[] | null,
 ): { type: "image_url"; image_url: { url: string } }[] {
   const refs: { type: "image_url"; image_url: { url: string } }[] = [
     { type: "image_url", image_url: { url: photoUrl } },
   ];
   if (referenceUrl) refs.push({ type: "image_url", image_url: { url: referenceUrl } });
+  for (const url of extras || []) {
+    if (url) refs.push({ type: "image_url", image_url: { url } });
+  }
   return refs;
 }
+
 
 function extractImage(json: unknown): string | null {
   // OpenRouter Images API: { data: [{ b64_json, media_type }] }
