@@ -51,7 +51,10 @@ export interface GenerateInput {
   imageDataUrl: string;
   /** optional second reference, e.g. a flat photo of the branded shirt */
   referenceDataUrl?: string | null;
+  /** further ordered references appended after the two above (car, location…) */
+  extraReferenceUrls?: (string | null | undefined)[] | null;
   quality?: string | null;
+
   /** per-event image model override (must be in AI_IMAGE_MODELS) */
   model?: string | null;
   aspectRatio?: string | null;
@@ -78,17 +81,22 @@ export interface GenerateResult {
   model: string;
 }
 
-/** Guest photo first, style reference (if any) second — order matters. */
+/** Guest photo first, style reference (if any) second, extras after — order matters. */
 export function buildInputReferences(
   photoUrl: string,
   referenceUrl?: string | null,
+  extras?: (string | null | undefined)[] | null,
 ): { type: "image_url"; image_url: { url: string } }[] {
   const refs: { type: "image_url"; image_url: { url: string } }[] = [
     { type: "image_url", image_url: { url: photoUrl } },
   ];
   if (referenceUrl) refs.push({ type: "image_url", image_url: { url: referenceUrl } });
+  for (const url of extras || []) {
+    if (url) refs.push({ type: "image_url", image_url: { url } });
+  }
   return refs;
 }
+
 
 function extractImage(json: unknown): string | null {
   // OpenRouter Images API: { data: [{ b64_json, media_type }] }
@@ -158,7 +166,7 @@ export async function generateStyled(input: GenerateInput): Promise<GenerateResu
       input.prompt.trim(),
       FACE_PRESERVATION_PROMPT,
     ].join("\n\n"),
-    input_references: buildInputReferences(input.imageDataUrl, input.referenceDataUrl),
+    input_references: buildInputReferences(input.imageDataUrl, input.referenceDataUrl, input.extraReferenceUrls),
     ...(quality ? { quality } : {}),
     // never both — see sizeOrAspect
     ...sizeOrAspect(input.aspectRatio),

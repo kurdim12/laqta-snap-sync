@@ -61,13 +61,35 @@ export async function processAssetById(
 
   const { data: ev } = await supabaseAdmin
     .from("events")
-    .select("id, template_mode, template_prompt, template_reference_url, template_quality, template_aspect_ratio, template_model")
+    .select("id, template_mode, template_prompt, template_reference_url, template_quality, template_aspect_ratio, template_model, car_reference_url, location_reference_url, requires_ref_images")
     .eq("id", asset.event_id)
     .maybeSingle();
   if (!ev || ev.template_mode !== "ai" || !ev.template_prompt) {
     console.log("[processAsset] skipped", { assetId, mode: ev?.template_mode, hasPrompt: !!ev?.template_prompt });
     return { ok: true, status: "skipped" };
   }
+
+  // Events that compose the guest with fixed scene references (car + location)
+  // must not burn a generation before both are uploaded — the model would
+  // invent them.
+  const evx = ev as unknown as {
+    car_reference_url?: string | null;
+    location_reference_url?: string | null;
+    requires_ref_images?: boolean | null;
+  };
+  if (evx.requires_ref_images && (!evx.car_reference_url || !evx.location_reference_url)) {
+    const message = "Missing car or location reference image — upload both in Admin → Template.";
+    await supabaseAdmin
+      .from("assets")
+      .update({
+        process_status: "failed",
+        error_message: message,
+        processing_finished_at: new Date().toISOString(),
+      })
+      .eq("id", assetId);
+    return { ok: false, status: "failed", error: message };
+  }
+
 
   const started = Date.now();
 
@@ -117,6 +139,9 @@ export async function processAssetById(
       prompt: ev.template_prompt,
       imageDataUrl,
       referenceDataUrl: ref && ref.startsWith("data:") ? ref : null,
+      // Ordered scene references: car, then location.
+      extraReferenceUrls: [evx.car_reference_url || null, evx.location_reference_url || null],
+
       quality: ev.template_quality,
       aspectRatio: ev.template_aspect_ratio,
       model: (ev as { template_model?: string | null }).template_model ?? null,

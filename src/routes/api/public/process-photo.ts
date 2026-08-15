@@ -22,7 +22,7 @@ export const Route = createFileRoute("/api/public/process-photo")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let body: { assetId?: string; slug?: string; pin?: string; guestId?: string; code?: string };
+        let body: { assetId?: string; slug?: string; pin?: string; guestId?: string; code?: string; sessionId?: string };
         try {
           body = (await request.json()) as typeof body;
         } catch {
@@ -33,15 +33,19 @@ export const Route = createFileRoute("/api/public/process-photo")({
         const pin = String(body.pin || "");
         const guestId = String(body.guestId || "");
         const code = String(body.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        const sessionId = String(body.sessionId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64);
         const staffAuth = !!slug && !!pin;
         const guestAuth = /^[0-9a-f-]{36}$/i.test(guestId) && !!code;
-        if (!/^[0-9a-f-]{36}$/i.test(assetId) || (!staffAuth && !guestAuth)) {
+        // Anonymous kiosk/session flow: the caller proves it owns the asset by
+        // presenting the same opaque session id the asset was created with.
+        const sessionAuth = sessionId.length >= 16;
+        if (!/^[0-9a-f-]{36}$/i.test(assetId) || (!staffAuth && !guestAuth && !sessionAuth)) {
           return new Response("Bad request", { status: 400 });
         }
 
         // Rate limit before any DB or provider work — over-limit requests never
         // consume a generation slot.
-        const authKey = staffAuth ? `staff:${slug}:${pin}` : `guest:${guestId}:${code}`;
+        const authKey = staffAuth ? `staff:${slug}:${pin}` : guestAuth ? `guest:${guestId}:${code}` : `session:${sessionId}`;
         if (!allow(authKey)) {
           return new Response("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
         }
@@ -51,7 +55,7 @@ export const Route = createFileRoute("/api/public/process-photo")({
         if (staffAuth) {
           const { data } = await supabaseAdmin.rpc("verify_staff_pin", { _slug: slug, _pin: pin });
           evId = data || null;
-        } else {
+        } else if (guestAuth) {
           const { data: guest } = await supabaseAdmin
             .from("guests")
             .select("event_id")
@@ -60,16 +64,24 @@ export const Route = createFileRoute("/api/public/process-photo")({
             .maybeSingle();
           evId = guest?.event_id || null;
         }
-        if (!evId) return new Response("Unauthorized", { status: 401 });
 
         const { data: asset } = await supabaseAdmin
           .from("assets")
-          .select("event_id, guest_id")
+          .select("event_id, guest_id, session_id")
           .eq("id", assetId)
           .maybeSingle();
-        if (!asset || asset.event_id !== evId || (guestAuth && asset.guest_id !== guestId)) {
+        if (!asset) return new Response("Not found", { status: 404 });
+        if (sessionAuth && !staffAuth && !guestAuth) {
+          if ((asset as { session_id?: string | null }).session_id !== sessionId) {
+            return new Response("Unauthorized", { status: 401 });
+          }
+          evId = asset.event_id;
+        }
+        if (!evId) return new Response("Unauthorized", { status: 401 });
+        if (asset.event_id !== evId || (guestAuth && asset.guest_id !== guestId)) {
           return new Response("Not found", { status: 404 });
         }
+
 
         console.log("[process-photo] entry", { assetId, eventId: evId, auth: staffAuth ? "staff" : "guest" });
         const { executionContextFor } = await import("@/lib/execution-context.server");

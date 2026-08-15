@@ -652,6 +652,10 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   const [templateMode, setTemplateMode] = useState<"none" | "frame" | "ai" | "backdrop">(event?.template_mode || "none");
   const [templatePrompt, setTemplatePrompt] = useState(event?.template_prompt || "");
   const [referenceUrl, setReferenceUrl] = useState(event?.template_reference_url || "");
+  const [carUrl, setCarUrl] = useState((event as { car_reference_url?: string | null } | undefined)?.car_reference_url || "");
+  const [locationUrl, setLocationUrl] = useState((event as { location_reference_url?: string | null } | undefined)?.location_reference_url || "");
+  const [requiresRefs, setRequiresRefs] = useState<boolean>(!!(event as { requires_ref_images?: boolean } | undefined)?.requires_ref_images);
+
   const [frameUrl, setFrameUrl] = useState(event?.template_frame_url || "");
   const [quality, setQuality] = useState<"low" | "medium" | "high">(event?.template_quality || "medium");
   const [aspect, setAspect] = useState(event?.template_aspect_ratio || "1024x1024");
@@ -672,6 +676,10 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
       template_mode: templateMode,
       template_prompt: templatePrompt || null,
       template_reference_url: referenceUrl || null,
+      car_reference_url: carUrl || null,
+      location_reference_url: locationUrl || null,
+      requires_ref_images: requiresRefs,
+
       template_frame_url: frameUrl || null,
       template_quality: quality,
       template_aspect_ratio: aspect,
@@ -860,6 +868,10 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
                 config={config} setConfig={setConfig}
                 prompt={templatePrompt} setPrompt={setTemplatePrompt}
                 referenceUrl={referenceUrl} setReferenceUrl={setReferenceUrl}
+                carUrl={carUrl} setCarUrl={setCarUrl}
+                locationUrl={locationUrl} setLocationUrl={setLocationUrl}
+                requiresRefs={requiresRefs} setRequiresRefs={setRequiresRefs}
+
                 frameUrl={frameUrl} setFrameUrl={setFrameUrl}
                 quality={quality} setQuality={setQuality}
                 aspect={aspect} setAspect={setAspect}
@@ -973,12 +985,16 @@ function TemplatePanel(props: {
   config: EventConfig; setConfig: (c: EventConfig) => void;
   prompt: string; setPrompt: (v: string) => void;
   referenceUrl: string; setReferenceUrl: (v: string) => void;
+  carUrl: string; setCarUrl: (v: string) => void;
+  locationUrl: string; setLocationUrl: (v: string) => void;
+  requiresRefs: boolean; setRequiresRefs: (v: boolean) => void;
   frameUrl: string; setFrameUrl: (v: string) => void;
   quality: "low" | "medium" | "high"; setQuality: (q: "low" | "medium" | "high") => void;
   aspect: string; setAspect: (v: string) => void;
   model: string; setModel: (v: string) => void;
 }) {
-  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect, model, setModel } = props;
+  const { eventId, generationsUsed, maxGenerations, setMaxGenerations, mode, setMode, config, setConfig, prompt, setPrompt, referenceUrl, setReferenceUrl, carUrl, setCarUrl, locationUrl, setLocationUrl, requiresRefs, setRequiresRefs, frameUrl, setFrameUrl, quality, setQuality, aspect, setAspect, model, setModel } = props;
+
   const [sample, setSample] = useState<string | null>(null);
   const [result, setResult] = useState<{ dataUrl?: string; ms?: number; cost?: number; costIsActual?: boolean; model?: string; error?: string; attempts?: unknown[] } | null>(null);
   const [testSpend, setTestSpend] = useState<{ runs: number; total: number } | null>(null);
@@ -1012,7 +1028,7 @@ function TemplatePanel(props: {
     setTesting(true); setResult(null);
     try {
       const r = await testTemplate({
-        data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, quality, aspectRatio: aspect, model: model || null, eventId: eventId ?? null },
+        data: { prompt, imageDataUrl: sample, referenceDataUrl: referenceUrl || null, extraReferenceUrls: [carUrl, locationUrl].filter(Boolean), quality, aspectRatio: aspect, model: model || null, eventId: eventId ?? null },
       });
       setResult(r.ok
         ? { dataUrl: r.dataUrl, ms: r.ms, cost: r.cost, costIsActual: r.costIsActual, model: r.model, attempts: r.attempts }
@@ -1134,6 +1150,50 @@ function TemplatePanel(props: {
               </p>
             </div>
           </Field>
+
+          {/* Scene references — sent to the model after the guest photo, in
+              this exact order: guest, car, location. */}
+          <Field label="Scene references (car & location)">
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 text-xs font-semibold">
+                <input type="checkbox" checked={requiresRefs} onChange={(e) => setRequiresRefs(e.target.checked)} className="h-5 w-5" />
+                Require both before any generation runs
+              </label>
+              {requiresRefs && (!carUrl || !locationUrl) && (
+                <p className="rounded-lg border border-[color:var(--warning)]/50 bg-[color:var(--warning)]/10 p-2 text-[11px] font-semibold">
+                  ⚠ Generation is blocked until both the car and the location reference are uploaded.
+                </p>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {([["Car", carUrl, setCarUrl] as const, ["Location", locationUrl, setLocationUrl] as const]).map(([label, url, setter]) => (
+                  <div key={label} className="space-y-2 rounded-lg border border-border bg-card p-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label} reference</div>
+                    {url ? (
+                      <div className="flex items-center gap-3">
+                        <img src={url} alt={`${label} reference`} className="h-20 rounded object-cover" />
+                        <button type="button" onClick={() => setter("")} className="text-xs font-semibold text-destructive underline">Remove</button>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">Not uploaded yet</p>
+                    )}
+                    <label className="inline-block cursor-pointer rounded-lg border border-border px-3 py-2 text-xs font-bold">
+                      {url ? `Replace ${label.toLowerCase()}` : `Upload ${label.toLowerCase()}`}
+                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        const f = e.target.files?.[0]; e.currentTarget.value = "";
+                        if (f) await pickImage(f, 1280, setter);
+                      }} />
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Order sent to the model: guest photo → car → location.
+                <span className="block font-arabic" dir="rtl">ترتيب المراجع: صورة الضيف ← السيارة ← الموقع.</span>
+              </p>
+            </div>
+          </Field>
+
+
 
           {/* Test panel */}
           <div className="rounded-xl border border-border bg-background p-4">
@@ -1603,6 +1663,13 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
     load();
   }
 
+  // Venue wall visibility (published + guest consent), used by /event/:slug/wall.
+  async function setOnWall(a: EnrichedAsset, published: boolean) {
+    await supabase.from("assets").update({ published } as never).eq("id", a.id);
+    load();
+  }
+
+
   // Re-run the event's AI style on a photo whose first attempt failed.
   async function retryStyle(a: EnrichedAsset) {
     try {
@@ -1850,7 +1917,13 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
                     ) : (
                       <button onClick={(e) => { e.stopPropagation(); setApproved(a, false); }} title="Unpublish" className="rounded bg-[color:var(--warning)] px-1.5 py-0.5 text-[10px] font-bold text-black">↩</button>
                     )}
+                    {(a as unknown as { published?: boolean }).published ? (
+                      <button onClick={(e) => { e.stopPropagation(); setOnWall(a, false); }} title="Hide from wall" className="rounded bg-foreground px-1.5 py-0.5 text-[10px] font-bold text-background">🖥✕</button>
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); setOnWall(a, true); }} title="Show on wall" className="rounded border border-border bg-background/80 px-1.5 py-0.5 text-[10px] font-bold">🖥</button>
+                    )}
                     <button onClick={(e) => { e.stopPropagation(); setConfirmDel(a); }} title="Delete" className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground">🗑</button>
+
                   </div>
                 </div>
               ))}

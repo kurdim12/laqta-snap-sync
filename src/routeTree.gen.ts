@@ -16,6 +16,8 @@ import { Route as StaffSlugRouteImport } from './routes/staff.$slug'
 import { Route as KSlugRouteImport } from './routes/k.$slug'
 import { Route as GCodeRouteImport } from './routes/g.$code'
 import { Route as ESlugRouteImport } from './routes/e.$slug'
+import { Route as EventSlugIndexRouteImport } from './routes/event.$slug.index'
+import { Route as EventSlugWallRouteImport } from './routes/event.$slug.wall'
 import { Route as ESlugGalleryRouteImport } from './routes/e.$slug.gallery'
 import { Route as ApiPublicProcessPhotoRouteImport } from './routes/api/public/process-photo'
 
@@ -54,6 +56,16 @@ const ESlugRoute = ESlugRouteImport.update({
   path: '/e/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EventSlugIndexRoute = EventSlugIndexRouteImport.update({
+  id: '/event/$slug/',
+  path: '/event/$slug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventSlugWallRoute = EventSlugWallRouteImport.update({
+  id: '/event/$slug/wall',
+  path: '/event/$slug/wall',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ESlugGalleryRoute = ESlugGalleryRouteImport.update({
   id: '/gallery',
   path: '/gallery',
@@ -75,6 +87,8 @@ export interface FileRoutesByFullPath {
   '/wall/$slug': typeof WallSlugRoute
   '/api/public/process-photo': typeof ApiPublicProcessPhotoRoute
   '/e/$slug/gallery': typeof ESlugGalleryRoute
+  '/event/$slug/wall': typeof EventSlugWallRoute
+  '/event/$slug/': typeof EventSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +100,8 @@ export interface FileRoutesByTo {
   '/wall/$slug': typeof WallSlugRoute
   '/api/public/process-photo': typeof ApiPublicProcessPhotoRoute
   '/e/$slug/gallery': typeof ESlugGalleryRoute
+  '/event/$slug/wall': typeof EventSlugWallRoute
+  '/event/$slug': typeof EventSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +114,8 @@ export interface FileRoutesById {
   '/wall/$slug': typeof WallSlugRoute
   '/api/public/process-photo': typeof ApiPublicProcessPhotoRoute
   '/e/$slug/gallery': typeof ESlugGalleryRoute
+  '/event/$slug/wall': typeof EventSlugWallRoute
+  '/event/$slug/': typeof EventSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +129,8 @@ export interface FileRouteTypes {
     | '/wall/$slug'
     | '/api/public/process-photo'
     | '/e/$slug/gallery'
+    | '/event/$slug/wall'
+    | '/event/$slug/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +142,8 @@ export interface FileRouteTypes {
     | '/wall/$slug'
     | '/api/public/process-photo'
     | '/e/$slug/gallery'
+    | '/event/$slug/wall'
+    | '/event/$slug'
   id:
     | '__root__'
     | '/'
@@ -133,6 +155,8 @@ export interface FileRouteTypes {
     | '/wall/$slug'
     | '/api/public/process-photo'
     | '/e/$slug/gallery'
+    | '/event/$slug/wall'
+    | '/event/$slug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -144,6 +168,8 @@ export interface RootRouteChildren {
   StaffSlugRoute: typeof StaffSlugRoute
   WallSlugRoute: typeof WallSlugRoute
   ApiPublicProcessPhotoRoute: typeof ApiPublicProcessPhotoRoute
+  EventSlugWallRoute: typeof EventSlugWallRoute
+  EventSlugIndexRoute: typeof EventSlugIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -197,6 +223,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ESlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/event/$slug/': {
+      id: '/event/$slug/'
+      path: '/event/$slug'
+      fullPath: '/event/$slug/'
+      preLoaderRoute: typeof EventSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/event/$slug/wall': {
+      id: '/event/$slug/wall'
+      path: '/event/$slug/wall'
+      fullPath: '/event/$slug/wall'
+      preLoaderRoute: typeof EventSlugWallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/e/$slug/gallery': {
       id: '/e/$slug/gallery'
       path: '/gallery'
@@ -233,7 +273,19 @@ const rootRouteChildren: RootRouteChildren = {
   StaffSlugRoute: StaffSlugRoute,
   WallSlugRoute: WallSlugRoute,
   ApiPublicProcessPhotoRoute: ApiPublicProcessPhotoRoute,
+  EventSlugWallRoute: EventSlugWallRoute,
+  EventSlugIndexRoute: EventSlugIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
