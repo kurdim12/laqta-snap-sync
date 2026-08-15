@@ -17,6 +17,7 @@ import { Route as KSlugRouteImport } from './routes/k.$slug'
 import { Route as GCodeRouteImport } from './routes/g.$code'
 import { Route as EventSlugRouteImport } from './routes/event.$slug'
 import { Route as ESlugRouteImport } from './routes/e.$slug'
+import { Route as EventSlugWallRouteImport } from './routes/event.$slug.wall'
 import { Route as ESlugGalleryRouteImport } from './routes/e.$slug.gallery'
 import { Route as ApiPublicProcessPhotoRouteImport } from './routes/api/public/process-photo'
 
@@ -60,6 +61,11 @@ const ESlugRoute = ESlugRouteImport.update({
   path: '/e/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EventSlugWallRoute = EventSlugWallRouteImport.update({
+  id: '/wall',
+  path: '/wall',
+  getParentRoute: () => EventSlugRoute,
+} as any)
 const ESlugGalleryRoute = ESlugGalleryRouteImport.update({
   id: '/gallery',
   path: '/gallery',
@@ -75,38 +81,41 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/e/$slug': typeof ESlugRouteWithChildren
-  '/event/$slug': typeof EventSlugRoute
+  '/event/$slug': typeof EventSlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/k/$slug': typeof KSlugRoute
   '/staff/$slug': typeof StaffSlugRoute
   '/wall/$slug': typeof WallSlugRoute
   '/api/public/process-photo': typeof ApiPublicProcessPhotoRoute
   '/e/$slug/gallery': typeof ESlugGalleryRoute
+  '/event/$slug/wall': typeof EventSlugWallRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/e/$slug': typeof ESlugRouteWithChildren
-  '/event/$slug': typeof EventSlugRoute
+  '/event/$slug': typeof EventSlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/k/$slug': typeof KSlugRoute
   '/staff/$slug': typeof StaffSlugRoute
   '/wall/$slug': typeof WallSlugRoute
   '/api/public/process-photo': typeof ApiPublicProcessPhotoRoute
   '/e/$slug/gallery': typeof ESlugGalleryRoute
+  '/event/$slug/wall': typeof EventSlugWallRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/e/$slug': typeof ESlugRouteWithChildren
-  '/event/$slug': typeof EventSlugRoute
+  '/event/$slug': typeof EventSlugRouteWithChildren
   '/g/$code': typeof GCodeRoute
   '/k/$slug': typeof KSlugRoute
   '/staff/$slug': typeof StaffSlugRoute
   '/wall/$slug': typeof WallSlugRoute
   '/api/public/process-photo': typeof ApiPublicProcessPhotoRoute
   '/e/$slug/gallery': typeof ESlugGalleryRoute
+  '/event/$slug/wall': typeof EventSlugWallRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/wall/$slug'
     | '/api/public/process-photo'
     | '/e/$slug/gallery'
+    | '/event/$slug/wall'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/wall/$slug'
     | '/api/public/process-photo'
     | '/e/$slug/gallery'
+    | '/event/$slug/wall'
   id:
     | '__root__'
     | '/'
@@ -145,13 +156,14 @@ export interface FileRouteTypes {
     | '/wall/$slug'
     | '/api/public/process-photo'
     | '/e/$slug/gallery'
+    | '/event/$slug/wall'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   ESlugRoute: typeof ESlugRouteWithChildren
-  EventSlugRoute: typeof EventSlugRoute
+  EventSlugRoute: typeof EventSlugRouteWithChildren
   GCodeRoute: typeof GCodeRoute
   KSlugRoute: typeof KSlugRoute
   StaffSlugRoute: typeof StaffSlugRoute
@@ -217,6 +229,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ESlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/event/$slug/wall': {
+      id: '/event/$slug/wall'
+      path: '/wall'
+      fullPath: '/event/$slug/wall'
+      preLoaderRoute: typeof EventSlugWallRouteImport
+      parentRoute: typeof EventSlugRoute
+    }
     '/e/$slug/gallery': {
       id: '/e/$slug/gallery'
       path: '/gallery'
@@ -244,11 +263,23 @@ const ESlugRouteChildren: ESlugRouteChildren = {
 
 const ESlugRouteWithChildren = ESlugRoute._addFileChildren(ESlugRouteChildren)
 
+interface EventSlugRouteChildren {
+  EventSlugWallRoute: typeof EventSlugWallRoute
+}
+
+const EventSlugRouteChildren: EventSlugRouteChildren = {
+  EventSlugWallRoute: EventSlugWallRoute,
+}
+
+const EventSlugRouteWithChildren = EventSlugRoute._addFileChildren(
+  EventSlugRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   ESlugRoute: ESlugRouteWithChildren,
-  EventSlugRoute: EventSlugRoute,
+  EventSlugRoute: EventSlugRouteWithChildren,
   GCodeRoute: GCodeRoute,
   KSlugRoute: KSlugRoute,
   StaffSlugRoute: StaffSlugRoute,
