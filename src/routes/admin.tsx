@@ -676,6 +676,10 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
       template_mode: templateMode,
       template_prompt: templatePrompt || null,
       template_reference_url: referenceUrl || null,
+      car_reference_url: carUrl || null,
+      location_reference_url: locationUrl || null,
+      requires_ref_images: requiresRefs,
+
       template_frame_url: frameUrl || null,
       template_quality: quality,
       template_aspect_ratio: aspect,
