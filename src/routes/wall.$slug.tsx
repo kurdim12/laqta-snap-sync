@@ -1,16 +1,17 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getWallBySlug } from "@/lib/gallery.functions";
-import { WALL_ROWS, brandSlots, flipOrder, wallOf } from "@/lib/wall";
+import { brandCellSlots, wallOf } from "@/lib/wall";
+import { backdropOf, cellBackgroundCss, halftoneCss, pickCellColor, RECESS_SHADOW } from "@/lib/backdrop";
 import type { WallBox } from "@/lib/types";
 
 export const Route = createFileRoute("/wall/$slug")({
   head: () => ({
     meta: [
-      { title: "LAQTA · Live Portrait Wall" },
-      { name: "description", content: "A live installation wall of guest portraits on vivid LAQTA backdrops, updating as new shots land." },
-      { property: "og:title", content: "LAQTA · Live Portrait Wall" },
-      { property: "og:description", content: "A live installation wall of guest portraits on vivid LAQTA backdrops." },
+      { title: "LAQTA · Live Lightbox Wall" },
+      { name: "description", content: "A live LED lightbox wall of guest portraits, one cell flipping at a time as new shots land." },
+      { property: "og:title", content: "LAQTA · Live Lightbox Wall" },
+      { property: "og:description", content: "A live LED lightbox wall of guest portraits, flipping cell by cell." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -22,130 +23,81 @@ type Photo = { id: string; url: string; created_at: string };
 
 type Face =
   | { kind: "photo"; photo: Photo }
-  | { kind: "box"; box: WallBox; line: string }
-  | { kind: "placeholder"; hue: number };
+  | { kind: "brand"; box: WallBox; line: string; color: string }
+  | { kind: "empty"; color: string };
 
 /**
- * One cell of the wall, as a two-faced card. The face on show is the parity of
+ * One cell of the wall as a two-faced card. The face on show is the parity of
  * `turns`; the other face is where the next content is staged before the turn.
- * `turns` only increments so every flip rotates the same way.
+ * `turns` only ever increments, so every flip rotates the same way and the DOM
+ * node is reused — the wall can run for hours without growing.
  */
 type Cell = { a: Face; b: Face; turns: number };
 
 const visibleFace = (c: Cell): Face => (c.turns % 2 === 0 ? c.a : c.b);
 
-function sameFace(x: Face, y: Face): boolean {
-  if (x.kind !== y.kind) return false;
-  if (x.kind === "photo" && y.kind === "photo") return x.photo.id === y.photo.id;
-  if (x.kind === "box" && y.kind === "box") return x.line === y.line && x.box.background === y.box.background;
-  if (x.kind === "placeholder" && y.kind === "placeholder") return x.hue === y.hue;
-  return false;
-}
-
-/** Vivid backlit panel colours, echoing the reference installation. */
-const PLACEHOLDER_GRADIENTS = [
-  "linear-gradient(160deg,#7C3AED,#2563EB)",
-  "linear-gradient(160deg,#06B6D4,#34D399)",
-  "linear-gradient(160deg,#F43F5E,#F59E0B)",
-  "linear-gradient(160deg,#EC4899,#8B5CF6)",
-  "linear-gradient(160deg,#0EA5E9,#1E1B4B)",
-  "linear-gradient(160deg,#22D3EE,#3B82F6)",
-];
-
-/**
- * Fill the grid in one go. Only used for the first paint (and when the grid
- * shape changes) — after that the wall never rebuilds wholesale, it turns one
- * cell per tick.
- */
-function buildBoard(
-  capacity: number,
-  slotOf: Map<number, number>,
-  boxes: WallBox[],
-  photos: Photo[],
-  prev: Cell[] | null,
-): { cells: Cell[]; photoCursor: number } {
-  const cells: Cell[] = [];
-  let p = 0;
-  for (let i = 0; i < capacity; i++) {
-    const boxIdx = slotOf.get(i);
-    let face: Face;
-    if (boxIdx !== undefined && boxes[boxIdx]) {
-      const box = boxes[boxIdx];
-      face = { kind: "box", box, line: box.lines[0] ?? "" };
-    } else if (photos.length) {
-      face = { kind: "photo", photo: photos[p % photos.length] };
-      p++;
-    } else {
-      face = { kind: "placeholder", hue: i };
-    }
-    // Carry the cell's accumulated rotation over and write the new content onto
-    // the face that is ALREADY up. `turns` drives an inline rotateY() that CSS
-    // transitions, and the cells are keyed by position, so resetting to 0 here
-    // would reuse the same DOM node and animate rotateY(2880deg) -> rotateY(0deg):
-    // the entire wall counter-spinning through a dozen revolutions together —
-    // the exact all-at-once behaviour this rewrite exists to remove.
-    const keep = prev && prev[i] ? prev[i] : null;
-    const turns = keep ? keep.turns : 0;
-    cells.push(
-      turns % 2 === 0
-        ? { a: face, b: keep ? keep.b : face, turns }
-        : { a: keep ? keep.a : face, b: face, turns },
-    );
-  }
-  return { cells, photoCursor: photos.length ? p % photos.length : 0 };
-}
-
 function Wall() {
   const { slug } = useParams({ from: "/wall/$slug" });
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [name, setName] = useState("");
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
   const [missing, setMissing] = useState(false);
   const [board, setBoard] = useState<Cell[] | null>(null);
-  const [flash, setFlash] = useState<Photo | null>(null);
+  const [rows, setRows] = useState(6);
+  const [idle, setIdle] = useState(false);
 
-  const seen = useRef<Set<string>>(new Set());
   const photosRef = useRef<Photo[]>([]);
+  const seen = useRef<Set<string>>(new Set());
   /** photos that landed since the wall opened — they jump the queue onto the wall */
   const arrivals = useRef<Photo[]>([]);
   const boardRef = useRef<Cell[] | null>(null);
-  const cursor = useRef(0);
   const photoCursor = useRef(0);
-  const lineCursor = useRef<number[]>([]);
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** last config/photo payloads, serialised — the poll re-fetches every 6s and
-   * must not hand React a new object each time, or `wall` would change identity
-   * and tear down the flip interval before it ever fires. */
-  const configKey = useRef<string>("");
-  const photosKey = useRef<string>("");
+  const lineCursor = useRef<Record<number, number>>({});
+  const colorCursor = useRef(0);
+  const configKey = useRef("");
+  const gridRef = useRef<HTMLDivElement | null>(null);
 
   const wall = useMemo(() => wallOf(config), [config]);
-  const capacity = wall.columns * WALL_ROWS;
+  const backdrop = useMemo(() => backdropOf(config), [config]);
+  const palette = backdrop.cells;
+  const capacity = wall.columns * rows;
 
-  // Identity-stable keys: wallOf() rebuilds its objects on every render, so the
-  // effects below must key off content, not array identity.
   const boxesKey = useMemo(() => JSON.stringify(wall.boxes), [wall.boxes]);
+  const paletteKey = useMemo(() => JSON.stringify(palette), [palette]);
 
+  /** brand cell index -> which box sits there */
   const slotOf = useMemo(() => {
-    const slots = brandSlots(capacity, wall.columns, wall.boxes.length);
+    const slots = brandCellSlots(capacity, wall.columns, Math.max(1, wall.boxes.length * 3));
     const m = new Map<number, number>();
-    slots.forEach((cell, i) => m.set(cell, i));
+    slots.forEach((cell, i) => m.set(cell, i % Math.max(1, wall.boxes.length)));
     return m;
   }, [capacity, wall.columns, wall.boxes.length]);
 
-  const order = useMemo(
-    () => flipOrder(capacity, wall.columns, wall.pattern),
-    [capacity, wall.columns, wall.pattern],
+  const colorAt = useCallback(
+    (seed: string) => pickCellColor(seed, palette),
+    [palette],
   );
 
+  /* ---------------- grid sizing: square cells filling the screen -------- */
+  useEffect(() => {
+    function measure() {
+      const el = gridRef.current;
+      if (!el) return;
+      const cell = el.clientWidth / wall.columns;
+      setRows(Math.max(1, Math.round(el.clientHeight / Math.max(1, cell))));
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [wall.columns]);
+
+  /* ---------------- polling ------------------------------------------- */
   useEffect(() => {
     let alive = true;
     async function load() {
+      // Never an error screen on a venue display: keep the last good state.
       const r = await getWallBySlug({ data: { slug } }).catch(() => null);
-      if (!alive) return;
-      if (!r || !r.event) { setMissing(true); return; }
+      if (!alive || !r) return;
+      if (!r.event) { setMissing(true); return; }
       setMissing(false);
-      setName(r.event.name);
 
       const nextConfig = (r.event.config || {}) as Record<string, unknown>;
       const cKey = JSON.stringify(nextConfig);
@@ -158,92 +110,79 @@ function Wall() {
       const fresh = r.photos.filter((p) => !seen.current.has(p.id));
       r.photos.forEach((p) => seen.current.add(p.id));
       photosRef.current = r.photos;
-      const pKey = r.photos.map((p) => p.id).join(",");
-      if (pKey !== photosKey.current) {
-        photosKey.current = pKey;
-        setPhotos(r.photos);
-      }
-
-      if (fresh.length && !first) {
-        // newest first, so the freshest face reaches the wall soonest
-        arrivals.current.push(...fresh);
-        setFlash(fresh[0]);
-        if (flashTimer.current) clearTimeout(flashTimer.current);
-        flashTimer.current = setTimeout(() => setFlash(null), 4500);
-      }
+      // Newest unseen photos jump the queue so a guest sees themselves within
+      // roughly one flip of their photo finishing.
+      if (fresh.length && !first) arrivals.current.unshift(...fresh);
+      if (first && r.photos.length) setBoard((b) => (b ? b : null) ?? null);
     }
     load();
-    const i = setInterval(load, 6000);
-    return () => {
-      alive = false;
-      clearInterval(i);
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-    };
+    const i = setInterval(load, 8000);
+    return () => { alive = false; clearInterval(i); };
   }, [slug]);
 
-  // Full rebuild ONLY when the grid shape changes, or when the very first photos
-  // arrive (so the wall opens full instead of filling one cell per tick). Brand
-  // copy deliberately does not appear here: re-seeding every photo cell because
-  // someone fixed a typo is a whole-grid change, which is what we are avoiding.
-  const hasPhotos = photos.length > 0;
+  /* ---------------- build / rebuild the grid --------------------------- */
+  const buildBoard = useCallback((): Cell[] => {
+    const prev = boardRef.current;
+    const photos = photosRef.current;
+    const cells: Cell[] = [];
+    let p = 0;
+    for (let i = 0; i < capacity; i++) {
+      const boxIdx = slotOf.get(i);
+      let face: Face;
+      if (boxIdx !== undefined && wall.boxes[boxIdx]) {
+        const box = wall.boxes[boxIdx];
+        face = { kind: "brand", box, line: box.lines[0] ?? "", color: box.background || colorAt(`b${i}`) };
+      } else if (photos.length) {
+        face = { kind: "photo", photo: photos[p % photos.length] };
+        p++;
+      } else {
+        // fewer photos than cells: fill the rest with colour so the wall is never empty
+        face = { kind: "empty", color: colorAt(`e${i}`) };
+      }
+      const keep = prev && prev[i] ? prev[i] : null;
+      const turns = keep ? keep.turns : 0;
+      cells.push(turns % 2 === 0
+        ? { a: face, b: keep ? keep.b : face, turns }
+        : { a: keep ? keep.a : face, b: face, turns });
+    }
+    photoCursor.current = photos.length ? p % photos.length : 0;
+    return cells;
+  }, [capacity, slotOf, wall.boxes, colorAt]);
+
+  const hasPhotos = photosRef.current.length > 0;
   useEffect(() => {
-    const { cells, photoCursor: nextCursor } = buildBoard(
-      capacity, slotOf, wall.boxes, photosRef.current, boardRef.current,
-    );
-    cursor.current = 0;
-    photoCursor.current = nextCursor;
-    lineCursor.current = wall.boxes.map(() => 0);
-    arrivals.current = [];
+    const cells = buildBoard();
     boardRef.current = cells;
     setBoard(cells);
-    // wall.boxes is re-created each render; its content is tracked by the effect below
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [capacity, slotOf, hasPhotos]);
+  }, [buildBoard, boxesKey, paletteKey, hasPhotos]);
 
-  // Brand copy/colour edits land in place on the face already showing, leaving
-  // rotation and every photo cell untouched.
+  // Re-seed once the first photos land (the poll writes into a ref, so nudge it).
   useEffect(() => {
-    const prev = boardRef.current;
-    if (!prev) return;
-    const out = prev.slice();
-    let touched = false;
-    slotOf.forEach((boxIdx, cellIdx) => {
-      const box = wall.boxes[boxIdx];
-      if (!box || cellIdx >= out.length) return;
-      const at = Math.min(lineCursor.current[boxIdx] ?? 0, box.lines.length - 1);
-      lineCursor.current[boxIdx] = Math.max(0, at);
-      const face: Face = { kind: "box", box, line: box.lines[Math.max(0, at)] ?? "" };
-      const cell = out[cellIdx];
-      if (sameFace(face, visibleFace(cell))) return;
-      out[cellIdx] = cell.turns % 2 === 0 ? { ...cell, a: face } : { ...cell, b: face };
-      touched = true;
-    });
-    if (!touched) return;
-    boardRef.current = out;
-    setBoard(out);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boxesKey, slotOf]);
+    const t = setInterval(() => {
+      const b = boardRef.current;
+      if (!b || !photosRef.current.length) return;
+      if (b.some((c) => visibleFace(c).kind === "photo")) return;
+      const cells = buildBoard();
+      boardRef.current = cells;
+      setBoard(cells);
+    }, 2000);
+    return () => clearInterval(t);
+  }, [buildBoard]);
 
-  /** The next photo for cell `idx`, preferring one not already on the wall. */
+  /* ---------------- the flip ------------------------------------------- */
   const pickPhoto = useCallback((idx: number, cells: Cell[]): Photo | null => {
     const pool = photosRef.current;
     if (!pool.length) return null;
-
-    // Every photo currently up, INCLUDING this cell's own — leaving itself out
-    // would let the search hand back the shot already showing here, and the
-    // no-op guard below would then skip the turn and stall the wall.
     const onScreen = new Set<string>();
     cells.forEach((c) => {
       const f = visibleFace(c);
       if (f.kind === "photo") onScreen.add(f.photo.id);
     });
 
-    // brand-new arrivals first
     while (arrivals.current.length) {
       const p = arrivals.current.shift();
       if (p && pool.some((x) => x.id === p.id) && !onScreen.has(p.id)) return p;
     }
-
     for (let k = 0; k < pool.length; k++) {
       const p = pool[(photoCursor.current + k) % pool.length];
       if (!onScreen.has(p.id)) {
@@ -251,9 +190,7 @@ function Wall() {
         return p;
       }
     }
-
-    // Fewer photos than cells: every shot is already up. Still turn to a
-    // different one so the wall keeps breathing instead of freezing.
+    // every shot is already up — still turn to a different one
     const cur = visibleFace(cells[idx]);
     const curId = cur.kind === "photo" ? cur.photo.id : null;
     for (let k = 0; k < pool.length; k++) {
@@ -266,98 +203,122 @@ function Wall() {
     return null;
   }, []);
 
-  // The heartbeat: exactly one cell turns per tick, walking `order` so every
-  // cell turns once before any turns twice.
   useEffect(() => {
-    if (!order.length) return;
-    const id = setInterval(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+
+    const lo = Math.max(1, wall.flipMinSec) * 1000;
+    const hi = Math.max(lo, wall.flipMaxSec * 1000);
+
+    function tick() {
       const prev = boardRef.current;
-      if (!prev || !prev.length) return;
+      if (prev && prev.length) {
+        // one random cell — with a fresh arrival waiting, prefer a photo cell
+        const wantPhoto = arrivals.current.length > 0;
+        const candidates: number[] = [];
+        for (let i = 0; i < prev.length; i++) {
+          const isBrand = slotOf.has(i);
+          if (wantPhoto ? !isBrand : true) candidates.push(i);
+        }
+        const idx = candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
+        const boxIdx = slotOf.get(idx);
+        let next: Face | null = null;
 
-      const idx = order[cursor.current % order.length];
-      cursor.current++;
-      if (idx >= prev.length) return;
+        if (boxIdx !== undefined && wall.boxes[boxIdx]) {
+          const box = wall.boxes[boxIdx];
+          const at = ((lineCursor.current[boxIdx] ?? 0) + 1) % Math.max(1, box.lines.length);
+          lineCursor.current[boxIdx] = at;
+          colorCursor.current++;
+          next = {
+            kind: "brand",
+            box,
+            line: box.lines[at] ?? "",
+            color: box.background || colorAt(`b${idx}-${colorCursor.current}`),
+          };
+        } else {
+          const photo = pickPhoto(idx, prev);
+          next = photo
+            ? { kind: "photo", photo }
+            : { kind: "empty", color: colorAt(`e${idx}-${++colorCursor.current}`) };
+        }
 
-      const boxIdx = slotOf.get(idx);
-      let next: Face | null;
-      if (boxIdx !== undefined) {
-        const box = wall.boxes[boxIdx];
-        if (!box) return;
-        // A one-line box (the logo) turns over onto itself rather than eating
-        // its tick — skipping it would leave a double-length dead gap in a
-        // cadence that is supposed to be even.
-        const at = ((lineCursor.current[boxIdx] ?? 0) + 1) % Math.max(1, box.lines.length);
-        lineCursor.current[boxIdx] = at;
-        next = { kind: "box", box, line: box.lines[at] ?? "" };
-      } else {
-        const photo = pickPhoto(idx, prev);
-        next = photo ? { kind: "photo", photo } : null;
+        if (next) {
+          const cell = prev[idx];
+          const out = prev.slice();
+          out[idx] = cell.turns % 2 === 0
+            ? { ...cell, b: next, turns: cell.turns + 1 }
+            : { ...cell, a: next, turns: cell.turns + 1 };
+          boardRef.current = out;
+          setBoard(out);
+        }
       }
-      if (!next) return;
+      if (!stopped) timer = setTimeout(tick, lo + Math.random() * (hi - lo));
+    }
 
-      const cell = prev[idx];
-      // Only photos are worth suppressing when unchanged; a brand box turning
-      // onto the same line is a deliberate beat, not a wasted flip.
-      if (next.kind === "photo" && sameFace(next, visibleFace(cell))) return;
+    timer = setTimeout(tick, lo + Math.random() * (hi - lo));
+    return () => { stopped = true; if (timer) clearTimeout(timer); };
+  }, [slotOf, boxesKey, wall.boxes, wall.flipMinSec, wall.flipMaxSec, pickPhoto, colorAt]);
 
-      const out = prev.slice();
-      out[idx] = cell.turns % 2 === 0
-        ? { ...cell, b: next, turns: cell.turns + 1 }
-        : { ...cell, a: next, turns: cell.turns + 1 };
-      boardRef.current = out;
-      setBoard(out);
-    }, wall.intervalSec * 1000);
-    return () => clearInterval(id);
-  }, [order, slotOf, boxesKey, wall.intervalSec, wall.boxes, pickPhoto]);
+  /* ---------------- chrome-free kiosk behaviour ------------------------ */
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    const wake = () => {
+      setIdle(false);
+      clearTimeout(t);
+      t = setTimeout(() => setIdle(true), 3000);
+    };
+    wake();
+    window.addEventListener("mousemove", wake);
+    return () => { clearTimeout(t); window.removeEventListener("mousemove", wake); };
+  }, []);
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch { /* browsers may refuse without a gesture */ }
+  }
+
+  const halftone = backdrop.halftone ? halftoneCss(backdrop.halftoneOpacity) : null;
 
   const renderFace = useCallback((face: Face) => {
-    if (face.kind === "photo") {
-      return (
-        <figure className="relative h-full w-full overflow-hidden bg-black">
-          <img src={face.photo.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              boxShadow: "inset 0 0 3vh rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.10)",
-              background: "linear-gradient(180deg, rgba(255,255,255,0.10), transparent 35%)",
-            }}
-          />
-        </figure>
-      );
-    }
-    if (face.kind === "box") {
-      return (
-        <div
-          className="relative grid h-full w-full place-items-center overflow-hidden p-[1vh] text-center"
-          style={{ background: face.box.background, color: face.box.color }}
-        >
-          {face.box.kind === "logo" ? (
-            <span className="text-[clamp(0.7rem,2.1vh,2rem)] font-black uppercase tracking-[0.35em]">
-              {face.line || "LAQTA"}
-            </span>
-          ) : (
-            <span className="text-[clamp(0.9rem,3.1vh,3rem)] font-black uppercase leading-[0.95] tracking-tight">
-              {face.line}
-            </span>
-          )}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.07)" }}
-          />
-        </div>
-      );
-    }
+    const color = face.kind === "photo" ? null : face.color;
     return (
-      <div
-        className="relative grid h-full w-full animate-pulse place-items-center overflow-hidden"
-        style={{ background: PLACEHOLDER_GRADIENTS[face.hue % PLACEHOLDER_GRADIENTS.length], opacity: 0.5 }}
-      >
-        <span className="text-[1.3vh] font-black uppercase tracking-[0.3em] text-white/80">Your shot here</span>
+      <div className="relative h-full w-full overflow-hidden bg-black">
+        {face.kind === "photo" ? (
+          <img src={face.photo.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0" style={{ background: cellBackgroundCss(color || "#6C2BD9") }} />
+        )}
+
+        {face.kind !== "photo" && halftone && (
+          <span aria-hidden className="pointer-events-none absolute inset-0" style={halftone} />
+        )}
+
+        {face.kind === "brand" && (
+          <div className="absolute inset-0 grid place-items-center p-[8%] text-center">
+            {face.box.kind === "logo" && face.box.imageUrl ? (
+              <img src={face.box.imageUrl} alt="" className="max-h-[45%] max-w-[80%] object-contain" />
+            ) : (
+              <span
+                className="font-black uppercase leading-[0.95] tracking-tight"
+                style={{
+                  color: face.box.color || "#FFFFFF",
+                  fontSize: face.box.kind === "logo" ? "clamp(0.6rem,1.9vh,2rem)" : "clamp(0.7rem,2.6vh,2.6rem)",
+                  letterSpacing: face.box.kind === "logo" ? "0.28em" : undefined,
+                }}
+              >
+                {face.line}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* recessed lightbox edge */}
+        <span aria-hidden className="pointer-events-none absolute inset-0" style={{ boxShadow: RECESS_SHADOW }} />
       </div>
     );
-  }, []);
+  }, [halftone]);
 
   if (missing) {
     return (
@@ -371,60 +332,40 @@ function Wall() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black">
-      {/* room glow behind the tower */}
+    <main
+      className="relative h-screen w-screen overflow-hidden bg-black"
+      style={{ cursor: idle ? "none" : "auto" }}
+      onDoubleClick={toggleFullscreen}
+    >
       <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(65% 45% at 50% 30%, rgba(56,189,248,0.10), transparent 70%)" }}
-      />
-
-      {/* the tower */}
-      <div className="relative mx-auto flex h-screen max-w-[min(100vw,calc(100vh*0.56))] flex-col px-[1.2vh] py-[1.2vh]">
-        <div className="mb-[1vh] flex items-center justify-between px-[0.4vh]">
-          <span className="text-[1.5vh] font-black uppercase tracking-[0.5em] text-white/80">LAQTA</span>
-          <span className="truncate text-[1.2vh] font-semibold uppercase tracking-[0.3em] text-white/35">{name}</span>
-        </div>
-
-        <div
-          className="grid min-h-0 flex-1 gap-[0.7vh] rounded-[0.6vh] bg-black p-[0.7vh] ring-1 ring-white/10"
-          style={{
-            gridTemplateColumns: `repeat(${wall.columns}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${WALL_ROWS}, minmax(0, 1fr))`,
-            boxShadow: "0 0 12vh rgba(59,130,246,0.15)",
-          }}
-        >
-          {(board ?? []).map((cell, i) => (
-            <div
-              key={i}
-              className="flip-cell relative min-h-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
-              style={{ "--flip-ms": `${wall.flipMs}ms` } as React.CSSProperties}
-            >
-              <div className="flip-inner" style={{ transform: `rotateY(${cell.turns * 180}deg)` }}>
-                <div className="flip-face">{renderFace(cell.a)}</div>
-                <div className="flip-face flip-face-b">{renderFace(cell.b)}</div>
-              </div>
+        ref={gridRef}
+        className="grid h-full w-full gap-[0.5vh] bg-black p-[0.5vh]"
+        style={{
+          gridTemplateColumns: `repeat(${wall.columns}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+        }}
+      >
+        {(board ?? []).map((cell, i) => (
+          <div
+            key={i}
+            className="flip-cell relative min-h-0"
+            style={{ "--flip-ms": `${wall.flipMs}ms` } as React.CSSProperties}
+          >
+            <div className="flip-inner" style={{ transform: `rotateY(${cell.turns * 180}deg)` }}>
+              <div className="flip-face">{renderFace(cell.a)}</div>
+              <div className="flip-face flip-face-b">{renderFace(cell.b)}</div>
             </div>
-          ))}
-        </div>
-
-        <div className="mt-[1vh] flex items-center justify-center gap-[1.5vh] px-[0.4vh] text-[1.2vh] font-semibold uppercase tracking-[0.35em] text-white/40">
-          <span>Take your shot</span>
-          <span className="text-white/20">·</span>
-          <span>Pick your fit</span>
-          <span className="text-white/20">·</span>
-          <span>Live on the wall</span>
-        </div>
+          </div>
+        ))}
       </div>
 
-      {flash && (
-        <div className="fixed inset-0 z-50 grid animate-in place-items-center bg-black/92 fade-in duration-500">
-          <img
-            src={flash.url}
-            alt=""
-            className="max-h-[84vh] max-w-[84vw] object-contain shadow-[0_0_18vh_rgba(56,189,248,0.35)]"
-          />
-        </div>
+      {!idle && (
+        <button
+          onClick={toggleFullscreen}
+          className="absolute bottom-4 right-4 rounded-full border border-white/25 bg-black/60 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.25em] text-white/80"
+        >
+          Fullscreen
+        </button>
       )}
     </main>
   );
