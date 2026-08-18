@@ -1431,8 +1431,8 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
 
         <div className="mt-4 space-y-2">
           <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Brand boxes · {wall.boxes.filter((b) => b.kind === "text").length}/{MAX_MESSAGE_BOXES} messages ·{" "}
-            {wall.boxes.filter((b) => b.kind === "logo").length}/{MAX_LOGO_BOXES} logo
+            Brand cells · {wall.boxes.filter((b) => b.kind === "text").length}/{MAX_MESSAGE_BOXES} messages ·{" "}
+            {wall.boxes.filter((b) => b.kind === "logo").length}/{MAX_LOGO_BOXES} logos
           </div>
           {wall.boxes.map((b, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2">
@@ -1450,17 +1450,43 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
               />
               <input type="color" value={b.background} onChange={(e) => {
                 const boxes = wall.boxes.slice(); boxes[i] = { ...b, background: e.target.value }; patchWall({ boxes });
-              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" title="Box colour" />
+              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" title="Cell colour" />
               <input type="color" value={b.color} onChange={(e) => {
                 const boxes = wall.boxes.slice(); boxes[i] = { ...b, color: e.target.value }; patchWall({ boxes });
               }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" title="Text colour" />
+              {b.kind === "logo" && (
+                <>
+                  {b.imageUrl && <img src={b.imageUrl} alt="" className="h-8 w-14 shrink-0 rounded bg-black/60 object-contain p-0.5" />}
+                  <label className="shrink-0 cursor-pointer rounded-lg border border-border px-2 py-1 text-[11px] font-bold">
+                    {b.imageUrl ? "Replace logo" : "Upload logo"}
+                    <input type="file" accept="image/png,image/svg+xml,image/webp" className="hidden" onChange={(e) => {
+                      const f = e.target.files?.[0]; e.currentTarget.value = "";
+                      if (!f) return;
+                      const fr = new FileReader();
+                      fr.onload = () => {
+                        const boxes = wall.boxes.slice();
+                        boxes[i] = { ...b, imageUrl: String(fr.result || "") };
+                        patchWall({ boxes });
+                      };
+                      fr.readAsDataURL(f);
+                    }} />
+                  </label>
+                  {b.imageUrl && (
+                    <button type="button" onClick={() => {
+                      const boxes = wall.boxes.slice(); boxes[i] = { ...b, imageUrl: undefined }; patchWall({ boxes });
+                    }} className="shrink-0 text-[11px] font-semibold underline">Clear</button>
+                  )}
+                </>
+              )}
               <button type="button" onClick={() => patchWall({ boxes: wall.boxes.filter((_, j) => j !== i) })}
                 className="shrink-0 text-xs font-semibold text-destructive underline">Remove</button>
             </div>
           ))}
           <p className="text-[11px] text-muted-foreground">
-            Separate lines with <code>|</code> — the box flips to the next line each time its turn comes round.
+            Separate lines with <code>|</code> — the cell flips to the next line each time its turn comes round.
+            A logo cell with an uploaded image shows the image, never the text.
           </p>
+
           {wall.boxes.length < MAX_MESSAGE_BOXES + MAX_LOGO_BOXES && (
             <button
               type="button"
