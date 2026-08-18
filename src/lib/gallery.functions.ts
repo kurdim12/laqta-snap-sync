@@ -42,6 +42,8 @@ interface AssetLite {
   process_status?: string | null;
   error_message?: string | null;
   processing_started_at?: string | null;
+  consent?: boolean;
+  published?: boolean;
 }
 
 
@@ -187,7 +189,7 @@ export const getPublicGalleryBySlug = createServerFn({ method: "POST" })
     if (!e || (e.status !== "live" && e.status !== "dryrun")) {
       return { notFound: true as const };
     }
-    const cfg = (e.config || {}) as { gallery?: { mode?: string } };
+    const cfg = (e.config || {}) as { gallery?: { mode?: string; publishedOnly?: boolean } };
     if (cfg.gallery?.mode !== "public") return { notFound: true as const };
 
     const { sweepStaleProcessing } = await import("@/lib/photo-processing.server");
@@ -202,7 +204,20 @@ export const getPublicGalleryBySlug = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(500);
 
-    const rows = (aRows || []) as AssetLite[];
+    let rows = (aRows || []) as AssetLite[];
+    // Opt-in per event via config.gallery.publishedOnly. When on, this public
+    // wall mirrors the venue wall: a photo appears only once the guest
+    // consented or an admin pressed "Show on wall". Variants (web/thumb) ride
+    // along with their parent so thumbnails still resolve. Off by default, so
+    // every other event's gallery keeps showing everything approved.
+    if (cfg.gallery?.publishedOnly) {
+      const onWall = new Set(
+        rows.filter((r) => r.consent === true || r.published === true).map((r) => r.id),
+      );
+      rows = rows.filter(
+        (r) => onWall.has(r.id) || (!!r.parent_asset_id && onWall.has(r.parent_asset_id)),
+      );
+    }
     const paths = Array.from(
       new Set(rows.flatMap((r) => [r.storage_path, ...(r.processed_url ? [r.processed_url] : [])])),
     );

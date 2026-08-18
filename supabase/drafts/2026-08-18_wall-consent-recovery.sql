@@ -327,3 +327,48 @@ ORDER BY e.slug;
 -- `wall_visible` is exactly what getVogueWall now returns per event after
 -- the Step 1 code change. For lynkco-900-vogue it should be > 0 once you
 -- have admin-published at least one done cover.
+
+
+-- =====================================================================
+-- SECTION 6 — turn the PUBLIC WALL's publish gate ON for this event only.
+-- (Added 2026-08-18 after the decision to gate /e/:slug/gallery.)
+--
+-- ⚠️  READ 6.1 FIRST. Right now NOTHING on this event is consented or
+--     published, so flipping this flag empties the public wall until you
+--     press 🖥 on some covers. Publish first, or expect a blank screen.
+--
+-- Requires the code change in gallery.functions.ts to be DEPLOYED. Until
+-- then the flag is inert (the old build ignores it) — harmless either way.
+-- =====================================================================
+
+-- 6.1  BEFORE/AFTER preview. Do not skip.
+SELECT count(*)                                              AS showing_now,
+       count(*) FILTER (WHERE a.consent OR a.published)      AS will_show_after
+FROM public.assets a
+JOIN public.events e ON e.id = a.event_id
+WHERE e.slug = 'lynkco-900-vogue'
+  AND a.status = 'ready'
+  AND a.approved;
+-- If will_show_after = 0, STOP: publish some covers with 🖥 in Admin first.
+
+-- 6.2  Apply.
+UPDATE public.events
+   SET config = jsonb_set(config, '{gallery,publishedOnly}', 'true'::jsonb, true)
+ WHERE slug = 'lynkco-900-vogue'
+RETURNING slug, config->'gallery' AS gallery_config;
+-- EXPECT: 1 row, gallery_config containing "publishedOnly": true.
+
+-- 6.3  Verify it is on for this event and OFF everywhere else.
+SELECT slug,
+       config->'gallery'->>'mode'          AS gallery_mode,
+       config->'gallery'->>'publishedOnly' AS published_only
+FROM public.events
+ORDER BY slug;
+-- EXPECT: lynkco-900-vogue -> mode 'public', published_only 't'.
+--         EVERY other event -> published_only NULL (unchanged behaviour).
+
+-- 6.4  KILL SWITCH — instant revert, no redeploy. If the wall goes blank
+--      mid-event, run this line and the gallery shows everything approved
+--      again within one page refresh.
+-- UPDATE public.events SET config = config #- '{gallery,publishedOnly}'
+--  WHERE slug = 'lynkco-900-vogue';

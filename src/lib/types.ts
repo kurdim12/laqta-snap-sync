@@ -68,7 +68,10 @@ export interface EventConfig {
   fields: EventField[];
   consentText: Bilingual;
   successMessage: Bilingual;
-  gallery: { allowDownloadAll: boolean; showVideos: boolean; mode: "private" | "public"; requireApproval?: boolean };
+  /** `publishedOnly`: gate the public gallery on the venue-wall flags —
+   *  a photo shows only when the guest consented or an admin pressed
+   *  "Show on wall". Off/absent = show everything approved (the default). */
+  gallery: { allowDownloadAll: boolean; showVideos: boolean; mode: "private" | "public"; requireApproval?: boolean; publishedOnly?: boolean };
   selfie: "required" | "optional" | "off";
   limits: { maxVideoMB: number; maxPhotoMB: number };
   /** settings for template_mode = "backdrop" (client-side, $0 per photo) */
