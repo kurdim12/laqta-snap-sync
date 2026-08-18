@@ -14,7 +14,6 @@ import { testTemplate, reprocessAsset, sweepEventProcessing } from "@/lib/templa
 import { toast } from "sonner";
 import { backdropOf, cellBackgroundCss, renderBackdrop } from "@/lib/backdrop";
 import { wallOf, capBoxes, DEFAULT_WALL_BOXES, MAX_MESSAGE_BOXES, MAX_LOGO_BOXES } from "@/lib/wall";
-import type { WallPattern } from "@/lib/types";
 import { SHIRT_VARIANTS } from "@/lib/shirts";
 import { AI_IMAGE_MODELS, DEFAULT_AI_IMAGE_MODEL } from "@/lib/ai-models";
 
