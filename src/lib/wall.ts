@@ -231,3 +231,34 @@ export function brandSlots(capacity: number, columns: number, count: number): nu
   }
   return out;
 }
+
+/**
+ * Where brand cells sit on the lightbox wall: roughly one per `per` photo
+ * cells, spread over the grid, and never orthogonally adjacent to another
+ * brand cell. Deterministic — the same grid always yields the same slots, so
+ * the wall never re-shuffles its brand panels between polls.
+ */
+export function brandCellSlots(capacity: number, columns: number, count: number, per = 7): number[] {
+  const cap = Math.max(0, Math.floor(capacity));
+  const cols = Math.max(1, Math.floor(columns));
+  const want = Math.max(0, Math.min(count, Math.max(1, Math.round(cap / Math.max(2, per)))));
+  if (!cap || !want) return [];
+
+  const taken: number[] = [];
+  const adjacent = (idx: number) =>
+    taken.some((t) => {
+      const dr = Math.abs(Math.floor(t / cols) - Math.floor(idx / cols));
+      const dc = Math.abs((t % cols) - (idx % cols));
+      return dr + dc <= 1;
+    });
+
+  const stride = Math.max(1, Math.floor(cap / want));
+  for (let i = 0; i < want; i++) {
+    // stagger the column so the panels don't stack in one vertical line
+    let idx = (i * stride + ((i * 2 + 1) % cols)) % cap;
+    for (let k = 0; k < cap && (taken.includes(idx) || adjacent(idx)); k++) idx = (idx + 1) % cap;
+    if (taken.includes(idx) || adjacent(idx)) break;
+    taken.push(idx);
+  }
+  return taken.sort((a, b) => a - b);
+}
