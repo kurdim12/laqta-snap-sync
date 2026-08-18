@@ -16,39 +16,41 @@ export const DEFAULT_WALL_TILES: WallTile[] = [
  */
 export const DEFAULT_WALL_BOXES: WallBox[] = [
   {
-    kind: "text",
-    background: "#FFFFFF",
-    color: "#0A0A0A",
-    lines: ["WHY NOT", "PERSONAL", "OPEN CO"],
-  },
-  {
-    kind: "text",
-    background: "#2563EB",
-    color: "#FFFFFF",
-    lines: ["TAKE YOUR SHOT", "PICK YOUR FIT", "LIVE ON THE WALL"],
-  },
-  {
     kind: "logo",
-    background: "#0A0A0A",
+    background: "#6C2BD9",
     color: "#FFFFFF",
-    lines: ["LYNK&CO"],
+    lines: ["LYNK & C\u0186"],
+  },
+  {
+    kind: "text",
+    background: "#2DD4BF",
+    color: "#0A0A0A",
+    lines: ["CHANGING MOBILITY FOREVER"],
+  },
+  {
+    kind: "text",
+    background: "#6C2BD9",
+    color: "#FFFFFF",
+    lines: ["WHY NOT", "PERSONAL OPEN CO"],
   },
 ];
 
 /** At most this many of each kind may sit on the wall at one time. */
-export const MAX_MESSAGE_BOXES = 2;
-export const MAX_LOGO_BOXES = 1;
+export const MAX_MESSAGE_BOXES = 8;
+export const MAX_LOGO_BOXES = 4;
 
 /** Rows in the wall grid — the tower is a fixed height, columns are the knob. */
 export const WALL_ROWS = 6;
 
 export const DEFAULT_WALL: ResolvedWall = {
-  columns: 3,
-  intervalSec: 6,
+  columns: 4,
+  intervalSec: 5,
   tiles: DEFAULT_WALL_TILES,
   pattern: "scatter",
   boxes: DEFAULT_WALL_BOXES,
-  flipMs: 900,
+  flipMs: 700,
+  flipMinSec: 3,
+  flipMaxSec: 7,
 };
 
 const PATTERNS: WallPattern[] = ["scatter", "serpentine", "diagonal"];
@@ -130,18 +132,24 @@ export function wallOf(config: unknown): ResolvedWall {
             background: hex(b?.background, d.background),
             color: hex(b?.color, d.color),
             lines: cleanLines(b?.lines, d.lines),
+            imageUrl: typeof b?.imageUrl === "string" && b.imageUrl ? b.imageUrl : undefined,
           };
         })
       : boxesFromTiles(normalisedTiles),
   );
 
+  const minSec = Math.max(1, Math.min(60, Number(w.flipMinSec) || DEFAULT_WALL.flipMinSec));
+  const maxSec = Math.max(1, Math.min(120, Number(w.flipMaxSec) || DEFAULT_WALL.flipMaxSec));
+
   return {
-    columns: Math.max(1, Math.min(6, Number(w.columns) || DEFAULT_WALL.columns)),
+    columns: Math.max(1, Math.min(8, Number(w.columns) || DEFAULT_WALL.columns)),
     intervalSec: Math.max(2, Math.min(120, Number(w.intervalSec) || DEFAULT_WALL.intervalSec)),
     tiles: normalisedTiles,
     pattern: PATTERNS.includes(w.pattern as WallPattern) ? (w.pattern as WallPattern) : DEFAULT_WALL.pattern,
     boxes: boxes.length ? boxes : DEFAULT_WALL_BOXES,
     flipMs: Math.max(200, Math.min(4000, Number(w.flipMs) || DEFAULT_WALL.flipMs)),
+    flipMinSec: minSec,
+    flipMaxSec: Math.max(minSec, maxSec),
   };
 }
 
