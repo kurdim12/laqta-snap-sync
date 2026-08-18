@@ -1663,7 +1663,9 @@ export function PhotosModal({ event, onClose }: { event: EventRow; onClose: () =
     load();
   }
 
-  // Venue wall visibility (published + guest consent), used by /event/:slug/wall.
+  // Venue wall visibility, used by /event/:slug/wall. Sets `published` only —
+  // `consent` is the guest's own legal flag and is never written by admin.
+  // The wall shows consent=true OR published=true (see getVogueWall).
   async function setOnWall(a: EnrichedAsset, published: boolean) {
     await supabase.from("assets").update({ published } as never).eq("id", a.id);
     load();

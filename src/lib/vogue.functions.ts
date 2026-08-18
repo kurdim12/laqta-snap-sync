@@ -242,8 +242,10 @@ export const getVogueWall = createServerFn({ method: "POST" })
       .from("assets")
       .select("id, processed_url, created_at, published, consent, process_status, status")
       .eq("event_id", ev.id)
-      .eq("published", true)
-      .eq("consent", true)
+      // Consent-preserving: a cover reaches the wall either because the guest
+      // consented at capture, or because an admin published it. Admin never
+      // sets consent — that flag stays the guest's own legal record.
+      .or("consent.eq.true,published.eq.true")
       .eq("process_status", "done")
       .neq("status", "hidden")
       .order("created_at", { ascending: false })
