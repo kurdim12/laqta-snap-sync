@@ -25,7 +25,7 @@ export const testTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     z.object({
-      prompt: z.string().min(1).max(4000),
+      prompt: z.string().min(1).max(40_000),
       imageDataUrl: z.string().min(32).max(12_000_000),
       referenceDataUrl: z.string().max(12_000_000).nullish(),
       /** ordered extra scene references (car, location) */
