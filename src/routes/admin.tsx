@@ -1492,7 +1492,7 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
               type="button"
               onClick={() => {
                 const needLogo = wall.boxes.filter((b) => b.kind === "logo").length < MAX_LOGO_BOXES;
-                const add = needLogo ? DEFAULT_WALL_BOXES[2] : DEFAULT_WALL_BOXES[0];
+                const add = needLogo ? DEFAULT_WALL_BOXES[0] : DEFAULT_WALL_BOXES[2];
                 patchWall({ boxes: capBoxes([...wall.boxes, { ...add }]) });
               }}
               className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold"
