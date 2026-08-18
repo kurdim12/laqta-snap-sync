@@ -1328,26 +1328,35 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
         <b className="text-foreground"> $0 per photo</b>. Photos land on the wall at <code>/wall/{"{slug}"}</code>.
       </p>
 
-      <Field label="Gradient palette (one tile colour per pair)">
+      <Field label="Lightbox colours (one colour per cell · weight = how often it comes up)">
         <div className="space-y-2">
-          {settings.palette.map((p, i) => (
+          {settings.cells.map((c, i) => (
             <div key={i} className="flex items-center gap-2">
-              <div className="h-8 w-16 rounded" style={{ background: `linear-gradient(135deg, ${p.from}, ${p.to})` }} />
-              <input type="color" value={p.from} onChange={(e) => {
-                const palette = settings.palette.slice(); palette[i] = { ...p, from: e.target.value }; patch({ palette });
+              <div className="h-8 w-16 rounded" style={{ background: cellBackgroundCss(c.color) }} />
+              <input type="color" value={c.color} onChange={(e) => {
+                const cells = settings.cells.slice(); cells[i] = { ...c, color: e.target.value }; patch({ cells });
               }} className="h-8 w-10 rounded border border-border bg-transparent" />
-              <input type="color" value={p.to} onChange={(e) => {
-                const palette = settings.palette.slice(); palette[i] = { ...p, to: e.target.value }; patch({ palette });
-              }} className="h-8 w-10 rounded border border-border bg-transparent" />
-              <button type="button" onClick={() => patch({ palette: settings.palette.filter((_, j) => j !== i) })}
-                disabled={settings.palette.length <= 1}
+              <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                weight
+                <input type="number" min={1} max={20} value={c.weight} onChange={(e) => {
+                  const cells = settings.cells.slice();
+                  cells[i] = { ...c, weight: Math.max(1, Math.min(20, Number(e.target.value) || 1)) };
+                  patch({ cells });
+                }} className="input w-16" />
+              </label>
+              <span className="text-[11px] text-muted-foreground">
+                ≈ 1 in {Math.max(1, Math.round(settings.cells.reduce((a, x) => a + x.weight, 0) / Math.max(1, c.weight)))}
+              </span>
+              <button type="button" onClick={() => patch({ cells: settings.cells.filter((_, j) => j !== i) })}
+                disabled={settings.cells.length <= 1}
                 className="text-xs font-semibold text-destructive underline disabled:opacity-30">Remove</button>
             </div>
           ))}
-          <button type="button" onClick={() => patch({ palette: [...settings.palette, { from: "#111827", to: "#4B5563" }] })}
+          <button type="button" onClick={() => patch({ cells: [...settings.cells, { color: "#6C2BD9", weight: 4 }] })}
             className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold">+ Add colour</button>
         </div>
       </Field>
+
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Tile shape">
