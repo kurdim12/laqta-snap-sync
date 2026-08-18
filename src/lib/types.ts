@@ -9,7 +9,10 @@ export interface EventField {
 }
 
 export interface BackdropSettingsConfig {
-  palette: { from: string; to: string }[];
+  /** weighted single-colour lightbox panels; one colour per photo */
+  cells?: { color: string; weight: number }[];
+  /** legacy gradient pairs, folded into `cells` when `cells` is absent */
+  palette?: { from: string; to: string }[];
   halftone: boolean;
   halftoneOpacity: number;
   aspect: "1:1" | "4:5";
@@ -31,17 +34,19 @@ export interface WallTile {
 export type WallPattern = "scatter" | "serpentine" | "diagonal";
 
 /**
- * A fixed brand panel on the wall. Unlike the old `tiles`, a box holds a
- * *position* on the grid for the whole show — only its copy turns over. That is
- * what keeps the on-screen census constant: two message boxes and one logo box,
- * never more, no matter which cell is mid-flip.
+ * A brand panel on the wall: a lightbox cell holding either copy or an
+ * uploaded wordmark, treated with the same palette + halftone as the photos so
+ * it reads as part of the wall rather than an overlay.
  */
 export interface WallBox {
   kind: "text" | "logo";
+  /** base hex colour of the illuminated panel */
   background: string;
   color: string;
   /** copy that cycles inside this box, one line per turn */
   lines: string[];
+  /** logo boxes: data/CDN URL of the wordmark, rendered as an image (not text) */
+  imageUrl?: string;
 }
 
 export interface WallConfig {
@@ -51,11 +56,15 @@ export interface WallConfig {
   /** legacy brand tiles; migrated into `boxes` when `boxes` is absent */
   tiles: WallTile[];
   pattern?: WallPattern;
-  /** fixed brand panels, in grid order: two messages (white, blue) + one logo */
+  /** brand panels seeded into the grid, spread out and never adjacent */
   boxes?: WallBox[];
   /** how long one flip takes, ms */
   flipMs?: number;
+  /** randomised gap between flips, seconds */
+  flipMinSec?: number;
+  flipMaxSec?: number;
 }
+
 
 /** `wallOf()` fills every optional field, so consumers never branch on absence. */
 export type ResolvedWall = Required<WallConfig>;
