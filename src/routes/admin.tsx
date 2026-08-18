@@ -711,12 +711,16 @@ export function EventEditor({ event, onClose }: { event?: EventRow; onClose: () 
   async function clone() {
     if (!event) return;
     setBusy(true);
-    await supabase.from("events").insert({
+    const { error } = await supabase.from("events").insert({
       name: event.name + " (dry run)", slug: event.slug + "-dryrun-" + Math.random().toString(36).slice(2, 5),
       status: "dryrun", config: event.config as unknown as never, staff_pin: genPin(),
     });
-    setBusy(false); onClose();
+    setBusy(false);
+    if (error) { setErr(error.message); toast.error(error.message); return; }
+    toast.success("Dry-run copy created");
+    onClose();
   }
+
 
   function updateField(idx: number, patch: Partial<EventConfig["fields"][number]>) {
     const fields = config.fields.slice();
