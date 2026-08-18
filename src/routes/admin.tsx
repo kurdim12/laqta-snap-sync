@@ -1405,33 +1405,29 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
 
       <Field label="Wall display">
         <p className="mb-3 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-          The wall turns <b className="text-foreground">one cell at a time</b>, in order, with a flip — never the
-          whole grid at once. The screen carries at most{" "}
-          <b className="text-foreground">two message boxes and one logo</b>; each box keeps its place and only its
-          copy turns over, so that count never changes mid-flip.
+          The wall is a fixed grid of square lightbox cells. Every few seconds{" "}
+          <b className="text-foreground">one random cell flips</b> to a different photo — newly processed photos
+          jump the queue, so a guest sees themselves within a few seconds. Brand cells are spread through the grid
+          and never sit next to each other.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-muted-foreground">Columns
-            <input type="number" min={1} max={6} value={wall.columns} onChange={(e) => patchWall({ columns: Math.max(1, Math.min(6, Number(e.target.value) || 3)) })} className="input" />
-          </label>
-          <label className="text-xs text-muted-foreground">Flip one cell every (sec)
-            <input type="number" min={2} max={120} value={wall.intervalSec} onChange={(e) => patchWall({ intervalSec: Math.max(2, Math.min(120, Number(e.target.value) || 6)) })} className="input" />
-          </label>
-          <label className="text-xs text-muted-foreground">Flip order
-            <select value={wall.pattern} onChange={(e) => patchWall({ pattern: e.target.value as WallPattern })} className="input">
-              <option value="scatter">Scatter · spread across the screen</option>
-              <option value="serpentine">Serpentine · snake, row by row</option>
-              <option value="diagonal">Diagonal · wave across</option>
-            </select>
+            <input type="number" min={1} max={8} value={wall.columns} onChange={(e) => patchWall({ columns: Math.max(1, Math.min(8, Number(e.target.value) || 4)) })} className="input" />
           </label>
           <label className="text-xs text-muted-foreground">Flip takes (ms)
-            <input type="number" min={200} max={4000} step={50} value={wall.flipMs} onChange={(e) => patchWall({ flipMs: Math.max(200, Math.min(4000, Number(e.target.value) || 900)) })} className="input" />
+            <input type="number" min={200} max={4000} step={50} value={wall.flipMs} onChange={(e) => patchWall({ flipMs: Math.max(200, Math.min(4000, Number(e.target.value) || 700)) })} className="input" />
+          </label>
+          <label className="text-xs text-muted-foreground">Flip at least every (sec)
+            <input type="number" min={1} max={60} value={wall.flipMinSec} onChange={(e) => patchWall({ flipMinSec: Math.max(1, Math.min(60, Number(e.target.value) || 3)) })} className="input" />
+          </label>
+          <label className="text-xs text-muted-foreground">…and at most every (sec)
+            <input type="number" min={1} max={120} value={wall.flipMaxSec} onChange={(e) => patchWall({ flipMaxSec: Math.max(1, Math.min(120, Number(e.target.value) || 7)) })} className="input" />
           </label>
         </div>
         <div className="mt-1 text-[11px] text-muted-foreground">
-          A full pass over the {wall.columns * 6} cells takes about{" "}
-          <b className="text-foreground">{Math.round((wall.columns * 6 * wall.intervalSec) / 6) / 10} min</b>.
+          Rows are sized automatically so cells stay square on the venue screen.
         </div>
+
 
         <div className="mt-4 space-y-2">
           <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
