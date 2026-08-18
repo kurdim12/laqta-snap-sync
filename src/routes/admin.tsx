@@ -1497,7 +1497,7 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
               }}
               className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold"
             >
-              + Add brand box
+              + Add brand cell
             </button>
           )}
         </div>
