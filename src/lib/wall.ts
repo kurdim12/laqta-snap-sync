@@ -16,39 +16,41 @@ export const DEFAULT_WALL_TILES: WallTile[] = [
  */
 export const DEFAULT_WALL_BOXES: WallBox[] = [
   {
-    kind: "text",
-    background: "#FFFFFF",
-    color: "#0A0A0A",
-    lines: ["WHY NOT", "PERSONAL", "OPEN CO"],
-  },
-  {
-    kind: "text",
-    background: "#2563EB",
-    color: "#FFFFFF",
-    lines: ["TAKE YOUR SHOT", "PICK YOUR FIT", "LIVE ON THE WALL"],
-  },
-  {
     kind: "logo",
-    background: "#0A0A0A",
+    background: "#6C2BD9",
     color: "#FFFFFF",
-    lines: ["LYNK&CO"],
+    lines: ["LYNK & C\u0186"],
+  },
+  {
+    kind: "text",
+    background: "#2DD4BF",
+    color: "#0A0A0A",
+    lines: ["CHANGING MOBILITY FOREVER"],
+  },
+  {
+    kind: "text",
+    background: "#6C2BD9",
+    color: "#FFFFFF",
+    lines: ["WHY NOT", "PERSONAL OPEN CO"],
   },
 ];
 
 /** At most this many of each kind may sit on the wall at one time. */
-export const MAX_MESSAGE_BOXES = 2;
-export const MAX_LOGO_BOXES = 1;
+export const MAX_MESSAGE_BOXES = 8;
+export const MAX_LOGO_BOXES = 4;
 
 /** Rows in the wall grid — the tower is a fixed height, columns are the knob. */
 export const WALL_ROWS = 6;
 
 export const DEFAULT_WALL: ResolvedWall = {
-  columns: 3,
-  intervalSec: 6,
+  columns: 4,
+  intervalSec: 5,
   tiles: DEFAULT_WALL_TILES,
   pattern: "scatter",
   boxes: DEFAULT_WALL_BOXES,
-  flipMs: 900,
+  flipMs: 700,
+  flipMinSec: 3,
+  flipMaxSec: 7,
 };
 
 const PATTERNS: WallPattern[] = ["scatter", "serpentine", "diagonal"];
@@ -130,18 +132,24 @@ export function wallOf(config: unknown): ResolvedWall {
             background: hex(b?.background, d.background),
             color: hex(b?.color, d.color),
             lines: cleanLines(b?.lines, d.lines),
+            imageUrl: typeof b?.imageUrl === "string" && b.imageUrl ? b.imageUrl : undefined,
           };
         })
       : boxesFromTiles(normalisedTiles),
   );
 
+  const minSec = Math.max(1, Math.min(60, Number(w.flipMinSec) || DEFAULT_WALL.flipMinSec));
+  const maxSec = Math.max(1, Math.min(120, Number(w.flipMaxSec) || DEFAULT_WALL.flipMaxSec));
+
   return {
-    columns: Math.max(1, Math.min(6, Number(w.columns) || DEFAULT_WALL.columns)),
+    columns: Math.max(1, Math.min(8, Number(w.columns) || DEFAULT_WALL.columns)),
     intervalSec: Math.max(2, Math.min(120, Number(w.intervalSec) || DEFAULT_WALL.intervalSec)),
     tiles: normalisedTiles,
     pattern: PATTERNS.includes(w.pattern as WallPattern) ? (w.pattern as WallPattern) : DEFAULT_WALL.pattern,
     boxes: boxes.length ? boxes : DEFAULT_WALL_BOXES,
     flipMs: Math.max(200, Math.min(4000, Number(w.flipMs) || DEFAULT_WALL.flipMs)),
+    flipMinSec: minSec,
+    flipMaxSec: Math.max(minSec, maxSec),
   };
 }
 
@@ -222,4 +230,35 @@ export function brandSlots(capacity: number, columns: number, count: number): nu
     out.push(idx);
   }
   return out;
+}
+
+/**
+ * Where brand cells sit on the lightbox wall: roughly one per `per` photo
+ * cells, spread over the grid, and never orthogonally adjacent to another
+ * brand cell. Deterministic — the same grid always yields the same slots, so
+ * the wall never re-shuffles its brand panels between polls.
+ */
+export function brandCellSlots(capacity: number, columns: number, count: number, per = 7): number[] {
+  const cap = Math.max(0, Math.floor(capacity));
+  const cols = Math.max(1, Math.floor(columns));
+  const want = Math.max(0, Math.min(count, Math.max(1, Math.round(cap / Math.max(2, per)))));
+  if (!cap || !want) return [];
+
+  const taken: number[] = [];
+  const adjacent = (idx: number) =>
+    taken.some((t) => {
+      const dr = Math.abs(Math.floor(t / cols) - Math.floor(idx / cols));
+      const dc = Math.abs((t % cols) - (idx % cols));
+      return dr + dc <= 1;
+    });
+
+  const stride = Math.max(1, Math.floor(cap / want));
+  for (let i = 0; i < want; i++) {
+    // stagger the column so the panels don't stack in one vertical line
+    let idx = (i * stride + ((i * 2 + 1) % cols)) % cap;
+    for (let k = 0; k < cap && (taken.includes(idx) || adjacent(idx)); k++) idx = (idx + 1) % cap;
+    if (taken.includes(idx) || adjacent(idx)) break;
+    taken.push(idx);
+  }
+  return taken.sort((a, b) => a - b);
 }

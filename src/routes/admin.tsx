@@ -12,9 +12,8 @@ import type { AssetRow } from "@/lib/types";
 import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
 import { testTemplate, reprocessAsset, sweepEventProcessing } from "@/lib/template.functions";
 import { toast } from "sonner";
-import { backdropOf, renderBackdrop } from "@/lib/backdrop";
+import { backdropOf, cellBackgroundCss, renderBackdrop } from "@/lib/backdrop";
 import { wallOf, capBoxes, DEFAULT_WALL_BOXES, MAX_MESSAGE_BOXES, MAX_LOGO_BOXES } from "@/lib/wall";
-import type { WallPattern } from "@/lib/types";
 import { SHIRT_VARIANTS } from "@/lib/shirts";
 import { AI_IMAGE_MODELS, DEFAULT_AI_IMAGE_MODEL } from "@/lib/ai-models";
 
@@ -1328,26 +1327,35 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
         <b className="text-foreground"> $0 per photo</b>. Photos land on the wall at <code>/wall/{"{slug}"}</code>.
       </p>
 
-      <Field label="Gradient palette (one tile colour per pair)">
+      <Field label="Lightbox colours (one colour per cell · weight = how often it comes up)">
         <div className="space-y-2">
-          {settings.palette.map((p, i) => (
+          {settings.cells.map((c, i) => (
             <div key={i} className="flex items-center gap-2">
-              <div className="h-8 w-16 rounded" style={{ background: `linear-gradient(135deg, ${p.from}, ${p.to})` }} />
-              <input type="color" value={p.from} onChange={(e) => {
-                const palette = settings.palette.slice(); palette[i] = { ...p, from: e.target.value }; patch({ palette });
+              <div className="h-8 w-16 rounded" style={{ background: cellBackgroundCss(c.color) }} />
+              <input type="color" value={c.color} onChange={(e) => {
+                const cells = settings.cells.slice(); cells[i] = { ...c, color: e.target.value }; patch({ cells });
               }} className="h-8 w-10 rounded border border-border bg-transparent" />
-              <input type="color" value={p.to} onChange={(e) => {
-                const palette = settings.palette.slice(); palette[i] = { ...p, to: e.target.value }; patch({ palette });
-              }} className="h-8 w-10 rounded border border-border bg-transparent" />
-              <button type="button" onClick={() => patch({ palette: settings.palette.filter((_, j) => j !== i) })}
-                disabled={settings.palette.length <= 1}
+              <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                weight
+                <input type="number" min={1} max={20} value={c.weight} onChange={(e) => {
+                  const cells = settings.cells.slice();
+                  cells[i] = { ...c, weight: Math.max(1, Math.min(20, Number(e.target.value) || 1)) };
+                  patch({ cells });
+                }} className="input w-16" />
+              </label>
+              <span className="text-[11px] text-muted-foreground">
+                ≈ 1 in {Math.max(1, Math.round(settings.cells.reduce((a, x) => a + x.weight, 0) / Math.max(1, c.weight)))}
+              </span>
+              <button type="button" onClick={() => patch({ cells: settings.cells.filter((_, j) => j !== i) })}
+                disabled={settings.cells.length <= 1}
                 className="text-xs font-semibold text-destructive underline disabled:opacity-30">Remove</button>
             </div>
           ))}
-          <button type="button" onClick={() => patch({ palette: [...settings.palette, { from: "#111827", to: "#4B5563" }] })}
+          <button type="button" onClick={() => patch({ cells: [...settings.cells, { color: "#6C2BD9", weight: 4 }] })}
             className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold">+ Add colour</button>
         </div>
       </Field>
+
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Tile shape">
@@ -1396,38 +1404,34 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
 
       <Field label="Wall display">
         <p className="mb-3 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-          The wall turns <b className="text-foreground">one cell at a time</b>, in order, with a flip — never the
-          whole grid at once. The screen carries at most{" "}
-          <b className="text-foreground">two message boxes and one logo</b>; each box keeps its place and only its
-          copy turns over, so that count never changes mid-flip.
+          The wall is a fixed grid of square lightbox cells. Every few seconds{" "}
+          <b className="text-foreground">one random cell flips</b> to a different photo — newly processed photos
+          jump the queue, so a guest sees themselves within a few seconds. Brand cells are spread through the grid
+          and never sit next to each other.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-muted-foreground">Columns
-            <input type="number" min={1} max={6} value={wall.columns} onChange={(e) => patchWall({ columns: Math.max(1, Math.min(6, Number(e.target.value) || 3)) })} className="input" />
-          </label>
-          <label className="text-xs text-muted-foreground">Flip one cell every (sec)
-            <input type="number" min={2} max={120} value={wall.intervalSec} onChange={(e) => patchWall({ intervalSec: Math.max(2, Math.min(120, Number(e.target.value) || 6)) })} className="input" />
-          </label>
-          <label className="text-xs text-muted-foreground">Flip order
-            <select value={wall.pattern} onChange={(e) => patchWall({ pattern: e.target.value as WallPattern })} className="input">
-              <option value="scatter">Scatter · spread across the screen</option>
-              <option value="serpentine">Serpentine · snake, row by row</option>
-              <option value="diagonal">Diagonal · wave across</option>
-            </select>
+            <input type="number" min={1} max={8} value={wall.columns} onChange={(e) => patchWall({ columns: Math.max(1, Math.min(8, Number(e.target.value) || 4)) })} className="input" />
           </label>
           <label className="text-xs text-muted-foreground">Flip takes (ms)
-            <input type="number" min={200} max={4000} step={50} value={wall.flipMs} onChange={(e) => patchWall({ flipMs: Math.max(200, Math.min(4000, Number(e.target.value) || 900)) })} className="input" />
+            <input type="number" min={200} max={4000} step={50} value={wall.flipMs} onChange={(e) => patchWall({ flipMs: Math.max(200, Math.min(4000, Number(e.target.value) || 700)) })} className="input" />
+          </label>
+          <label className="text-xs text-muted-foreground">Flip at least every (sec)
+            <input type="number" min={1} max={60} value={wall.flipMinSec} onChange={(e) => patchWall({ flipMinSec: Math.max(1, Math.min(60, Number(e.target.value) || 3)) })} className="input" />
+          </label>
+          <label className="text-xs text-muted-foreground">…and at most every (sec)
+            <input type="number" min={1} max={120} value={wall.flipMaxSec} onChange={(e) => patchWall({ flipMaxSec: Math.max(1, Math.min(120, Number(e.target.value) || 7)) })} className="input" />
           </label>
         </div>
         <div className="mt-1 text-[11px] text-muted-foreground">
-          A full pass over the {wall.columns * 6} cells takes about{" "}
-          <b className="text-foreground">{Math.round((wall.columns * 6 * wall.intervalSec) / 6) / 10} min</b>.
+          Rows are sized automatically so cells stay square on the venue screen.
         </div>
+
 
         <div className="mt-4 space-y-2">
           <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Brand boxes · {wall.boxes.filter((b) => b.kind === "text").length}/{MAX_MESSAGE_BOXES} messages ·{" "}
-            {wall.boxes.filter((b) => b.kind === "logo").length}/{MAX_LOGO_BOXES} logo
+            Brand cells · {wall.boxes.filter((b) => b.kind === "text").length}/{MAX_MESSAGE_BOXES} messages ·{" "}
+            {wall.boxes.filter((b) => b.kind === "logo").length}/{MAX_LOGO_BOXES} logos
           </div>
           {wall.boxes.map((b, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2">
@@ -1445,28 +1449,54 @@ function BackdropPanel({ config, setConfig }: { config: EventConfig; setConfig: 
               />
               <input type="color" value={b.background} onChange={(e) => {
                 const boxes = wall.boxes.slice(); boxes[i] = { ...b, background: e.target.value }; patchWall({ boxes });
-              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" title="Box colour" />
+              }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" title="Cell colour" />
               <input type="color" value={b.color} onChange={(e) => {
                 const boxes = wall.boxes.slice(); boxes[i] = { ...b, color: e.target.value }; patchWall({ boxes });
               }} className="h-8 w-10 shrink-0 rounded border border-border bg-transparent" title="Text colour" />
+              {b.kind === "logo" && (
+                <>
+                  {b.imageUrl && <img src={b.imageUrl} alt="" className="h-8 w-14 shrink-0 rounded bg-black/60 object-contain p-0.5" />}
+                  <label className="shrink-0 cursor-pointer rounded-lg border border-border px-2 py-1 text-[11px] font-bold">
+                    {b.imageUrl ? "Replace logo" : "Upload logo"}
+                    <input type="file" accept="image/png,image/svg+xml,image/webp" className="hidden" onChange={(e) => {
+                      const f = e.target.files?.[0]; e.currentTarget.value = "";
+                      if (!f) return;
+                      const fr = new FileReader();
+                      fr.onload = () => {
+                        const boxes = wall.boxes.slice();
+                        boxes[i] = { ...b, imageUrl: String(fr.result || "") };
+                        patchWall({ boxes });
+                      };
+                      fr.readAsDataURL(f);
+                    }} />
+                  </label>
+                  {b.imageUrl && (
+                    <button type="button" onClick={() => {
+                      const boxes = wall.boxes.slice(); boxes[i] = { ...b, imageUrl: undefined }; patchWall({ boxes });
+                    }} className="shrink-0 text-[11px] font-semibold underline">Clear</button>
+                  )}
+                </>
+              )}
               <button type="button" onClick={() => patchWall({ boxes: wall.boxes.filter((_, j) => j !== i) })}
                 className="shrink-0 text-xs font-semibold text-destructive underline">Remove</button>
             </div>
           ))}
           <p className="text-[11px] text-muted-foreground">
-            Separate lines with <code>|</code> — the box flips to the next line each time its turn comes round.
+            Separate lines with <code>|</code> — the cell flips to the next line each time its turn comes round.
+            A logo cell with an uploaded image shows the image, never the text.
           </p>
+
           {wall.boxes.length < MAX_MESSAGE_BOXES + MAX_LOGO_BOXES && (
             <button
               type="button"
               onClick={() => {
                 const needLogo = wall.boxes.filter((b) => b.kind === "logo").length < MAX_LOGO_BOXES;
-                const add = needLogo ? DEFAULT_WALL_BOXES[2] : DEFAULT_WALL_BOXES[0];
+                const add = needLogo ? DEFAULT_WALL_BOXES[0] : DEFAULT_WALL_BOXES[2];
                 patchWall({ boxes: capBoxes([...wall.boxes, { ...add }]) });
               }}
               className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold"
             >
-              + Add brand box
+              + Add brand cell
             </button>
           )}
         </div>
