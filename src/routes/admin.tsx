@@ -12,7 +12,7 @@ import type { AssetRow } from "@/lib/types";
 import { resizeImage, logoDataUrl, videoPoster } from "@/lib/media";
 import { testTemplate, reprocessAsset, sweepEventProcessing } from "@/lib/template.functions";
 import { toast } from "sonner";
-import { backdropOf, renderBackdrop } from "@/lib/backdrop";
+import { backdropOf, cellBackgroundCss, renderBackdrop } from "@/lib/backdrop";
 import { wallOf, capBoxes, DEFAULT_WALL_BOXES, MAX_MESSAGE_BOXES, MAX_LOGO_BOXES } from "@/lib/wall";
 import type { WallPattern } from "@/lib/types";
 import { SHIRT_VARIANTS } from "@/lib/shirts";
