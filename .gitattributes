@@ -1,0 +1,22 @@
+# Normalise line endings. Cloudflare builds on Linux; a CRLF checkout breaks
+# shebangs and makes every lockfile diff look like a full rewrite.
+* text=auto eol=lf
+
+# package-lock.json is generated, ~320KB, and regenerated rather than merged.
+# Collapse it in diffs and refuse a line-wise merge — on a conflict, delete it
+# and re-run `npm install`, never hand-resolve it.
+package-lock.json linguist-generated=true -diff merge=binary
+
+# Generated route tree — same reasoning, TanStack rewrites it wholesale.
+src/routeTree.gen.ts linguist-generated=true -diff
+
+# Binary assets must never be line-ending normalised.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.ico   binary
+*.mp4   binary
+*.woff  binary
+*.woff2 binary
+*.wasm  binary

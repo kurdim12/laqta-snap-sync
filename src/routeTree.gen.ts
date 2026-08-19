@@ -9,41 +9,31 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as WallSlugRouteImport } from './routes/wall.$slug'
-import { Route as StaffSlugRouteImport } from './routes/staff.$slug'
-import { Route as KSlugRouteImport } from './routes/k.$slug'
-import { Route as GCodeRouteImport } from './routes/g.$code'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ESlugRouteImport } from './routes/e.$slug'
+import { Route as GCodeRouteImport } from './routes/g.$code'
+import { Route as KSlugRouteImport } from './routes/k.$slug'
+import { Route as StaffSlugRouteImport } from './routes/staff.$slug'
+import { Route as WallSlugRouteImport } from './routes/wall.$slug'
+import { Route as ApiPublicProcessPhotoRouteImport } from './routes/api/public/process-photo'
+import { Route as ESlugGalleryRouteImport } from './routes/e.$slug.gallery'
 import { Route as EventSlugIndexRouteImport } from './routes/event.$slug.index'
 import { Route as EventSlugWallRouteImport } from './routes/event.$slug.wall'
-import { Route as ESlugGalleryRouteImport } from './routes/e.$slug.gallery'
-import { Route as ApiPublicProcessPhotoRouteImport } from './routes/api/public/process-photo'
 
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WallSlugRoute = WallSlugRouteImport.update({
-  id: '/wall/$slug',
-  path: '/wall/$slug',
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StaffSlugRoute = StaffSlugRouteImport.update({
-  id: '/staff/$slug',
-  path: '/staff/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const KSlugRoute = KSlugRouteImport.update({
-  id: '/k/$slug',
-  path: '/k/$slug',
+const ESlugRoute = ESlugRouteImport.update({
+  id: '/e/$slug',
+  path: '/e/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GCodeRoute = GCodeRouteImport.update({
@@ -51,10 +41,30 @@ const GCodeRoute = GCodeRouteImport.update({
   path: '/g/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ESlugRoute = ESlugRouteImport.update({
-  id: '/e/$slug',
-  path: '/e/$slug',
+const KSlugRoute = KSlugRouteImport.update({
+  id: '/k/$slug',
+  path: '/k/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const StaffSlugRoute = StaffSlugRouteImport.update({
+  id: '/staff/$slug',
+  path: '/staff/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WallSlugRoute = WallSlugRouteImport.update({
+  id: '/wall/$slug',
+  path: '/wall/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicProcessPhotoRoute = ApiPublicProcessPhotoRouteImport.update({
+  id: '/api/public/process-photo',
+  path: '/api/public/process-photo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ESlugGalleryRoute = ESlugGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => ESlugRoute,
 } as any)
 const EventSlugIndexRoute = EventSlugIndexRouteImport.update({
   id: '/event/$slug/',
@@ -64,16 +74,6 @@ const EventSlugIndexRoute = EventSlugIndexRouteImport.update({
 const EventSlugWallRoute = EventSlugWallRouteImport.update({
   id: '/event/$slug/wall',
   path: '/event/$slug/wall',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ESlugGalleryRoute = ESlugGalleryRouteImport.update({
-  id: '/gallery',
-  path: '/gallery',
-  getParentRoute: () => ESlugRoute,
-} as any)
-const ApiPublicProcessPhotoRoute = ApiPublicProcessPhotoRouteImport.update({
-  id: '/api/public/process-photo',
-  path: '/api/public/process-photo',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -174,13 +174,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -188,25 +181,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/wall/$slug': {
-      id: '/wall/$slug'
-      path: '/wall/$slug'
-      fullPath: '/wall/$slug'
-      preLoaderRoute: typeof WallSlugRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/staff/$slug': {
-      id: '/staff/$slug'
-      path: '/staff/$slug'
-      fullPath: '/staff/$slug'
-      preLoaderRoute: typeof StaffSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/k/$slug': {
-      id: '/k/$slug'
-      path: '/k/$slug'
-      fullPath: '/k/$slug'
-      preLoaderRoute: typeof KSlugRouteImport
+    '/e/$slug': {
+      id: '/e/$slug'
+      path: '/e/$slug'
+      fullPath: '/e/$slug'
+      preLoaderRoute: typeof ESlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/g/$code': {
@@ -216,12 +202,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/e/$slug': {
-      id: '/e/$slug'
-      path: '/e/$slug'
-      fullPath: '/e/$slug'
-      preLoaderRoute: typeof ESlugRouteImport
+    '/k/$slug': {
+      id: '/k/$slug'
+      path: '/k/$slug'
+      fullPath: '/k/$slug'
+      preLoaderRoute: typeof KSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/staff/$slug': {
+      id: '/staff/$slug'
+      path: '/staff/$slug'
+      fullPath: '/staff/$slug'
+      preLoaderRoute: typeof StaffSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wall/$slug': {
+      id: '/wall/$slug'
+      path: '/wall/$slug'
+      fullPath: '/wall/$slug'
+      preLoaderRoute: typeof WallSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/process-photo': {
+      id: '/api/public/process-photo'
+      path: '/api/public/process-photo'
+      fullPath: '/api/public/process-photo'
+      preLoaderRoute: typeof ApiPublicProcessPhotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/e/$slug/gallery': {
+      id: '/e/$slug/gallery'
+      path: '/gallery'
+      fullPath: '/e/$slug/gallery'
+      preLoaderRoute: typeof ESlugGalleryRouteImport
+      parentRoute: typeof ESlugRoute
     }
     '/event/$slug/': {
       id: '/event/$slug/'
@@ -235,20 +249,6 @@ declare module '@tanstack/react-router' {
       path: '/event/$slug/wall'
       fullPath: '/event/$slug/wall'
       preLoaderRoute: typeof EventSlugWallRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/e/$slug/gallery': {
-      id: '/e/$slug/gallery'
-      path: '/gallery'
-      fullPath: '/e/$slug/gallery'
-      preLoaderRoute: typeof ESlugGalleryRouteImport
-      parentRoute: typeof ESlugRoute
-    }
-    '/api/public/process-photo': {
-      id: '/api/public/process-photo'
-      path: '/api/public/process-photo'
-      fullPath: '/api/public/process-photo'
-      preLoaderRoute: typeof ApiPublicProcessPhotoRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

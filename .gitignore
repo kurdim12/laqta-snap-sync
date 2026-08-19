@@ -30,3 +30,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# One lockfile only. bun.lock pinned Lovable's private artifact registry
+# (europe-west*-npm.pkg.dev), which 403s outside their sandbox and is why the
+# build could not be reproduced. npm + package-lock.json is the source of truth;
+# ignore a stray bun.lock so `bun install` cannot silently reintroduce it.
+bun.lock
