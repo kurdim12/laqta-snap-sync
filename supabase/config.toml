@@ -1,1 +1,5 @@
-project_id = "jhjcnijjzwxaifvjxegf"
+# Supabase project ref. The old Lovable-provisioned project
+# (jhjcnijjzwxaifvjxegf) is inaccessible; replace this with the ref of
+# the new project created under our own account. Only used by the
+# `supabase` CLI for linking — the app reads SUPABASE_URL at runtime.
+project_id = "REPLACE_WITH_NEW_PROJECT_REF"
